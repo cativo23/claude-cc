@@ -1,0 +1,112 @@
+import { ICONS } from './icons.js';
+import { padLine, displayWidth } from './text.js';
+import { getContextColor, getQuotaColor, type Colors } from './colors.js';
+import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
+import type { ClaudeCodeInput, DisplayToggles, ThinkingEffort } from '../types.js';
+
+const SEP = ` \x1b[90m│\x1b[0m `;
+
+function buildContextBar(pct: number, c: Colors): string {
+  const SEGMENTS = 20;
+  const filled = Math.round((pct / 100) * SEGMENTS);
+  const colorFn = c[getContextColor(pct)];
+  const bar = colorFn(ICONS.barFull.repeat(filled)) + c.dim(ICONS.barEmpty.repeat(SEGMENTS - filled));
+  let icon = '';
+  if (pct >= 80) icon = c.blinkRed(ICONS.skull);
+  else if (pct >= 65) icon = c.orange(ICONS.fire);
+  const pctStr = colorFn(`${pct.toFixed(0)}%`);
+  return `[${bar}] ${pctStr}${icon ? ' ' + icon : ''}`;
+}
+
+function formatCountdown(resetsAt: number): string {
+  const diffMs = resetsAt - Date.now();
+  if (diffMs <= 0) return '';
+  const totalSec = Math.floor(diffMs / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h${String(m).padStart(2, '0')}m`;
+  if (m > 0) return `${m}m${String(s).padStart(2, '0')}s`;
+  return `${s}s`;
+}
+
+export function renderLine2(
+  input: ClaudeCodeInput,
+  tokenSpeed: number | null,
+  thinkingEffort: ThinkingEffort,
+  c: Colors,
+  display: DisplayToggles,
+  cols: number
+): string {
+  const leftParts: string[] = [];
+  const rightParts: string[] = [];
+
+  // Context bar
+  if (display.contextBar) {
+    const pct = input.context_window.used_percentage;
+    leftParts.push(buildContextBar(pct, c));
+  }
+
+  // Tokens
+  if (display.tokens) {
+    const inTokens = input.context_window.total_input_tokens;
+    const outTokens = input.context_window.total_output_tokens;
+    const parts: string[] = [];
+    if (inTokens != null) parts.push(`${formatTokens(inTokens)}↑`);
+    if (outTokens != null) parts.push(`${formatTokens(outTokens)}↓`);
+    if (parts.length > 0) leftParts.push(`${ICONS.comment} ${parts.join(' ')}`);
+  }
+
+  // Cost + burn rate
+  if (display.cost && input.cost) {
+    const costStr = formatCost(input.cost.total_cost_usd);
+    let costPart = costStr;
+    if (display.burnRate) {
+      const burn = formatBurnRate(input.cost.total_cost_usd, input.cost.total_duration_ms);
+      if (burn) costPart += ` ${c.dim(burn)}`;
+    }
+    leftParts.push(costPart);
+  }
+
+  // Duration
+  if (display.duration && input.cost) {
+    leftParts.push(`${ICONS.clock} ${formatDuration(input.cost.total_duration_ms)}`);
+  }
+
+  // Token speed
+  if (display.tokenSpeed && tokenSpeed != null) {
+    leftParts.push(c.dim(`${ICONS.bolt}${tokenSpeed} tok/s`));
+  }
+
+  // Rate limits (only show if >=50%)
+  if (display.rateLimits && input.rate_limits) {
+    const limits: [string, typeof input.rate_limits.five_hour][] = [
+      ['5h', input.rate_limits.five_hour],
+      ['7d', input.rate_limits.seven_day],
+    ];
+    for (const [label, win] of limits) {
+      if (!win || win.used_percentage < 50) continue;
+      const colorFn = c[getQuotaColor(win.used_percentage)];
+      let limitStr = colorFn(`${ICONS.bolt} ${win.used_percentage.toFixed(0)}%(${label})`);
+      if (win.used_percentage >= 70 && win.resets_at) {
+        const countdown = formatCountdown(win.resets_at);
+        if (countdown) limitStr += c.dim(` ${countdown}`);
+      }
+      leftParts.push(limitStr);
+    }
+  }
+
+  // Right side: vim mode
+  if (display.vim && input.vim?.mode) {
+    rightParts.push(c.dim(`[${input.vim.mode}]`));
+  }
+
+  // Right side: effort (hidden if medium)
+  if (display.effort && thinkingEffort && thinkingEffort !== 'medium') {
+    rightParts.push(c.dim(`^${thinkingEffort}`));
+  }
+
+  const leftStr = leftParts.join(SEP);
+  if (rightParts.length === 0) return leftStr;
+  return padLine(leftStr, rightParts.join(' '), cols);
+}
