@@ -1,0 +1,54 @@
+import { stripAnsi } from './colors.js';
+
+export function displayWidth(str: string): number {
+  const clean = stripAnsi(str);
+  let w = 0;
+  for (const ch of clean) {
+    const cp = ch.codePointAt(0)!;
+    if ((cp >= 0xFE00 && cp <= 0xFE0F) || cp === 0x200D || (cp >= 0x0300 && cp <= 0x036F)) continue;
+    if (cp >= 0x1F000 || (cp >= 0x2600 && cp <= 0x27BF) || (cp >= 0x2B00 && cp <= 0x2BFF) ||
+        (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3000 && cp <= 0x303F) || (cp >= 0xFF00 && cp <= 0xFFEF)) {
+      w += 2;
+    } else { w += 1; }
+  }
+  return w;
+}
+
+export function truncField(str: string, max: number): string {
+  if (str.length <= max) return str;
+  return str.slice(0, Math.max(0, max - 1)) + '\u2026';
+}
+
+export function truncatePath(str: string, maxLen: number = 20): string {
+  if (!str) return '';
+  const normalized = str.replace(/\\/g, '/');
+  if (normalized.length <= maxLen) return normalized;
+  const parts = normalized.split('/');
+  const filename = parts.pop() || normalized;
+  if (filename.length >= maxLen) return filename.slice(0, maxLen - 3) + '...';
+  return '.../' + filename;
+}
+
+export function fitSegments(left: string[], right: string[], sep: string, cols: number): string {
+  const safeCols = cols - 4;
+  const leftStr = left.join(sep);
+  const leftW = displayWidth(leftStr);
+  for (let r = right.length; r >= 0; r--) {
+    const rSlice = right.slice(0, r);
+    if (rSlice.length === 0) return leftStr;
+    const rightStr = rSlice.join(sep);
+    const rightW = displayWidth(rightStr);
+    if (leftW + 1 + rightW <= safeCols) {
+      const gap = Math.max(1, safeCols - leftW - rightW);
+      return leftStr + ' '.repeat(gap) + rightStr;
+    }
+  }
+  return leftStr;
+}
+
+export function padLine(left: string, right: string, cols: number): string {
+  const leftW = displayWidth(left);
+  const rightW = displayWidth(right);
+  const gap = Math.max(1, cols - leftW - rightW);
+  return left + ' '.repeat(gap) + right;
+}
