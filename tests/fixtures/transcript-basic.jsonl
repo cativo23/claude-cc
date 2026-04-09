@@ -1,0 +1,2 @@
+{"timestamp":"2026-04-08T10:00:00Z","message":{"content":[{"type":"tool_use","id":"tu1","name":"Read","input":{"file_path":"/src/index.ts"}}]}}
+{"timestamp":"2026-04-08T10:00:01Z","message":{"content":[{"type":"tool_result","tool_use_id":"tu1","content":"file contents"}]}}

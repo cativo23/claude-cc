@@ -1,0 +1,13 @@
+import { describe, it, expect } from 'vitest';
+import { render } from '../../src/render/index.js';
+import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, type RenderContext } from '../../src/types.js';
+
+function makeCtx(ov: Partial<RenderContext> = {}): RenderContext {
+  return { input: { model: 'Opus', session_id: 't', context_window: { used_percentage: 50, remaining_percentage: 50 }, cost: { total_cost_usd: 1, total_duration_ms: 60000 }, workspace: { current_dir: '/p' } } as never, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT, tokenSpeed: null, memory: null, gsd: null, cols: 120, config: { ...DEFAULT_CONFIG }, ...ov };
+}
+
+describe('render', () => {
+  it('multi-line at 120 cols', () => { expect(render(makeCtx()).split('\n').length).toBeGreaterThanOrEqual(2); });
+  it('minimal when forced', () => { expect(render(makeCtx({ config: { ...DEFAULT_CONFIG, layout: 'minimal' } })).split('\n').length).toBeLessThanOrEqual(2); });
+  it('auto-minimal at <70 cols', () => { expect(render(makeCtx({ cols: 60 })).split('\n').length).toBeLessThanOrEqual(2); });
+});

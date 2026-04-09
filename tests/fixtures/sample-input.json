@@ -1,0 +1,31 @@
+{
+  "model": "Opus 4.6 (1M context)",
+  "session_id": "test-session-123",
+  "session_name": "test-session",
+  "cwd": "/home/user/project",
+  "workspace": { "current_dir": "/home/user/project" },
+  "context_window": {
+    "used_percentage": 5.2,
+    "remaining_percentage": 94.8,
+    "total_input_tokens": 131000,
+    "total_output_tokens": 25000,
+    "current_usage": { "output_tokens": 25000 }
+  },
+  "cost": {
+    "total_cost_usd": 1.31,
+    "total_duration_ms": 2106000,
+    "total_lines_added": 150,
+    "total_lines_removed": 30
+  },
+  "transcript_path": "/home/user/.claude/projects/test/transcript.jsonl",
+  "output_style": { "name": "default" },
+  "version": "2.1.92",
+  "agent": null,
+  "worktree": null,
+  "vim": null,
+  "rate_limits": {
+    "five_hour": { "used_percentage": 12.5 },
+    "seven_day": { "used_percentage": 3.2 }
+  },
+  "exceeds_200k_tokens": false
+}
