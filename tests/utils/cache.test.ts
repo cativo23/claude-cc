@@ -6,7 +6,7 @@ import { readTtlCache, writeTtlCache, isMtimeFresh } from '../../src/utils/cache
 
 describe('TTL cache', () => {
   let dir: string;
-  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'claude-cc-test-')); });
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'ccpulse-test-')); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('returns null for missing cache', () => {
@@ -18,7 +18,7 @@ describe('TTL cache', () => {
     expect(result).toEqual({ value: 42 });
   });
   it('returns null for expired cache', () => {
-    const filePath = join(dir, 'claude-cc-test-key.json');
+    const filePath = join(dir, 'ccpulse-test-key.json');
     writeFileSync(filePath, JSON.stringify({ value: 42 }), { mode: 0o600 });
     const past = new Date(Date.now() - 10_000);
     utimesSync(filePath, past, past);
@@ -29,7 +29,7 @@ describe('TTL cache', () => {
 
 describe('isMtimeFresh', () => {
   let dir: string;
-  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'claude-cc-test-')); });
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'ccpulse-test-')); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('returns false for non-existent file', () => {

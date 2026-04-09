@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD integration — current task from todos, update availability check
 - 3-tier color system: named ANSI (default), 256-color, truecolor — named by default to respect terminal themes
 - Nerd Font icons: fa-robot, dev-git-branch, fa-folder-open, fa-fire, fa-skull, fa-comment, fa-clock, fa-bolt, fa-tree, fa-cubes, fa-hammer, fa-warning
-- Config file support (`~/.config/claude-cc/config.json`) with 22 display toggles
+- Config file support (`~/.config/ccpulse/config.json`) with 22 display toggles
 - CLI flags: `--minimal` (force minimal mode), `--gsd` (enable GSD features)
 - Dependency injection for full testability
 - Unicode-aware display width calculation (CJK, emoji, combining marks, zero-width joiners)
@@ -48,5 +48,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/claude-cc/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/cativo23/claude-cc/releases/tag/v0.1.0
+[Unreleased]: https://github.com/cativo23/ccpulse/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/cativo23/ccpulse/releases/tag/v0.1.0

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { DEFAULT_CONFIG, DEFAULT_DISPLAY, type HudConfig, type DisplayToggles, type ColorConfig } from './types.js';
 
-export function loadConfig(configDir: string = join(homedir(), '.config', 'claude-cc')): HudConfig {
+export function loadConfig(configDir: string = join(homedir(), '.config', 'ccpulse')): HudConfig {
   const p = join(configDir, 'config.json');
   if (!existsSync(p)) return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } };
   try {

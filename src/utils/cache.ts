@@ -2,7 +2,7 @@ import { readFileSync, statSync, unlinkSync, openSync, writeSync, closeSync } fr
 import { join } from 'node:path';
 
 export function readTtlCache<T>(key: string, dir: string, ttlMs: number = 5000): T | null {
-  const filePath = join(dir, `claude-cc-${key}.json`);
+  const filePath = join(dir, `ccpulse-${key}.json`);
   try {
     const stat = statSync(filePath);
     if (Date.now() - stat.mtimeMs > ttlMs) return null;
@@ -11,7 +11,7 @@ export function readTtlCache<T>(key: string, dir: string, ttlMs: number = 5000):
 }
 
 export function writeTtlCache(key: string, data: unknown, dir: string): void {
-  const filePath = join(dir, `claude-cc-${key}.json`);
+  const filePath = join(dir, `ccpulse-${key}.json`);
   try {
     // Remove existing file first (prevents symlink following)
     try { unlinkSync(filePath); } catch {}

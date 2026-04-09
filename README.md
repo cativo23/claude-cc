@@ -1,6 +1,6 @@
-# claude-cc
+# ccpulse
 
-Claude Command Center — a statusline plugin for [Claude Code](https://code.claude.com).
+Real-time statusline plugin for [Claude Code](https://code.claude.com).
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Tests](https://img.shields.io/badge/tests-136%20passing-green)
@@ -24,14 +24,14 @@ Claude Command Center — a statusline plugin for [Claude Code](https://code.cla
 ## Install
 
 ```bash
-npm install -g claude-cc
+npm install -g ccpulse
 ```
 
 Or clone and build:
 
 ```bash
-git clone https://github.com/cativo23/claude-cc.git
-cd claude-cc
+git clone https://github.com/cativo23/ccpulse.git
+cd ccpulse
 npm install
 npm run build
 ```
@@ -44,7 +44,7 @@ Add to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "claude-cc",
+    "command": "ccpulse",
     "padding": 0
   }
 }
@@ -80,7 +80,7 @@ my-project |  main | Opus 4.6 | ████░░░░░░░░░░░░
 
 ## Configuration
 
-Create `~/.config/claude-cc/config.json`:
+Create `~/.config/ccpulse/config.json`:
 
 ```json
 {
@@ -121,8 +121,8 @@ All fields are optional — defaults are shown above.
 ### CLI Flags
 
 ```bash
-claude-cc --minimal    # Force minimal mode
-claude-cc --gsd        # Enable GSD integration
+ccpulse --minimal    # Force minimal mode
+ccpulse --gsd        # Enable GSD integration
 ```
 
 ## Architecture

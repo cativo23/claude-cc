@@ -6,7 +6,7 @@ import { getTokenSpeed } from '../../src/parsers/token-speed.js';
 
 describe('getTokenSpeed', () => {
   let dir: string;
-  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'claude-cc-speed-')); });
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'ccpulse-speed-')); });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('returns null on first call', () => {

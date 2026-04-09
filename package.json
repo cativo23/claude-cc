@@ -1,11 +1,11 @@
 {
-  "name": "claude-cc",
+  "name": "ccpulse",
   "version": "0.1.0",
-  "description": "Claude Command Center — statusline plugin for Claude Code",
+  "description": "ccpulse — real-time statusline plugin for Claude Code",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "claude-cc": "dist/index.js"
+    "ccpulse": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -28,14 +28,17 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cativo23/claude-cc.git"
+    "url": "https://github.com/cativo23/ccpulse.git"
   },
   "keywords": [
     "claude-code",
     "claude",
     "statusline",
     "terminal",
-    "nerd-font"
+    "nerd-font",
+    "hud",
+    "metrics",
+    "pulse"
   ],
   "files": [
     "dist"
