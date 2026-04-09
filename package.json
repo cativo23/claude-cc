@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
@@ -24,5 +25,19 @@
   "engines": {
     "node": ">=18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cativo23/claude-cc.git"
+  },
+  "keywords": [
+    "claude-code",
+    "claude",
+    "statusline",
+    "terminal",
+    "nerd-font"
+  ],
+  "files": [
+    "dist"
+  ]
 }
