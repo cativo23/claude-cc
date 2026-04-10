@@ -127,7 +127,7 @@ export interface RenderContext {
 // ── Config ──────────────────────────────────────────────────────────
 
 export interface HudConfig {
-  layout: 'custom' | 'minimal' | 'auto';
+  layout: 'full' | 'minimal' | 'auto';
   gsd: boolean;
   display: DisplayToggles;
   colors: ColorConfig;

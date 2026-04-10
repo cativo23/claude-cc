@@ -51,10 +51,32 @@ describe('loadConfig', () => {
 });
 
 describe('mergeCliFlags', () => {
-  it('overrides layout to minimal', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--minimal']).layout).toBe('minimal'); });
+  it('--minimal sets preset and layout', () => {
+    const r = mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--minimal']);
+    expect(r.preset).toBe('minimal');
+    expect(r.layout).toBe('minimal');
+  });
+  it('--balanced sets preset and layout=auto', () => {
+    const r = mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--balanced']);
+    expect(r.preset).toBe('balanced');
+    expect(r.layout).toBe('auto');
+  });
+  it('--full sets preset and layout=full', () => {
+    const r = mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--full']);
+    expect(r.preset).toBe('full');
+    expect(r.layout).toBe('full');
+  });
   it('enables gsd', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--gsd']).gsd).toBe(true); });
   it('no flags = unchanged', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i'])).toEqual(DEFAULT_CONFIG); });
-  it('parses --preset=balanced', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--preset=balanced']).preset).toBe('balanced'); });
-  it('parses --preset=minimal', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--preset=minimal']).preset).toBe('minimal'); });
+  it('--preset=balanced drives layout', () => {
+    const r = mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--preset=balanced']);
+    expect(r.preset).toBe('balanced');
+    expect(r.layout).toBe('auto');
+  });
+  it('--preset=minimal drives layout', () => {
+    const r = mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--preset=minimal']);
+    expect(r.preset).toBe('minimal');
+    expect(r.layout).toBe('minimal');
+  });
   it('parses --icons=none', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--icons=none']).icons).toBe('none'); });
 });

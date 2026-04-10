@@ -13,7 +13,7 @@ export function loadConfig(configDir: string = join(homedir(), '.config', 'lumir
 }
 
 function mergeConfig(raw: Record<string, unknown>): HudConfig {
-  const layout = (['custom', 'minimal', 'auto'] as const).includes(raw.layout as never) ? raw.layout as HudConfig['layout'] : DEFAULT_CONFIG.layout;
+  const layout = (['full', 'minimal', 'auto'] as const).includes(raw.layout as never) ? raw.layout as HudConfig['layout'] : DEFAULT_CONFIG.layout;
   const display = { ...DEFAULT_DISPLAY };
   if (raw.display && typeof raw.display === 'object') {
     for (const k of Object.keys(DEFAULT_DISPLAY) as (keyof DisplayToggles)[]) {
@@ -27,20 +27,34 @@ function mergeConfig(raw: Record<string, unknown>): HudConfig {
   }
   const result: HudConfig = { layout, gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd, display, colors };
   const validPresets = ['full', 'balanced', 'minimal'] as const;
-  if (validPresets.includes(raw.preset as never)) result.preset = raw.preset as HudConfig['preset'];
+  if (validPresets.includes(raw.preset as never)) applyPreset(result, raw.preset as NonNullable<HudConfig['preset']>);
   if (typeof raw.theme === 'string' && raw.theme.length > 0) result.theme = raw.theme;
   const validIcons = ['nerd', 'emoji', 'none'] as const;
   if (validIcons.includes(raw.icons as never)) result.icons = raw.icons as HudConfig['icons'];
   return result;
 }
 
+const PRESET_TO_LAYOUT: Record<string, HudConfig['layout']> = {
+  full: 'full',
+  balanced: 'auto',
+  minimal: 'minimal',
+};
+
+function applyPreset(r: HudConfig, preset: NonNullable<HudConfig['preset']>): void {
+  r.preset = preset;
+  r.layout = PRESET_TO_LAYOUT[preset];
+}
+
 export function mergeCliFlags(config: HudConfig, argv: string[]): HudConfig {
   const r = { ...config, display: { ...config.display }, colors: { ...config.colors } };
-  if (argv.includes('--minimal')) r.layout = 'minimal';
   if (argv.includes('--gsd')) r.gsd = true;
+  // Shorthand flags
+  if (argv.includes('--minimal')) applyPreset(r, 'minimal');
+  if (argv.includes('--balanced')) applyPreset(r, 'balanced');
+  if (argv.includes('--full')) applyPreset(r, 'full');
   for (const arg of argv) {
     const presetMatch = arg.match(/^--preset[= ]?(full|balanced|minimal)$/);
-    if (presetMatch) { r.preset = presetMatch[1] as HudConfig['preset']; continue; }
+    if (presetMatch) { applyPreset(r, presetMatch[1] as NonNullable<HudConfig['preset']>); continue; }
     const iconsMatch = arg.match(/^--icons[= ]?(nerd|emoji|none)$/);
     if (iconsMatch) { r.icons = iconsMatch[1] as HudConfig['icons']; continue; }
   }
