@@ -103,6 +103,37 @@ describe('renderLine2', () => {
     expect(out).toContain('50%');
     expect(out).toContain('mem');
   });
+
+  it('shows cache hit rate when cache_read_input_tokens present', () => {
+    const input = { ...baseInput, context_window: { ...baseInput.context_window, cache_read_input_tokens: 100000, total_input_tokens: 131000 } };
+    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    expect(out).toContain('cache');
+    expect(out).toContain('76%');
+  });
+
+  it('hides cache metrics when toggled off', () => {
+    const input = { ...baseInput, context_window: { ...baseInput.context_window, cache_read_input_tokens: 100000 } };
+    const out = stripAnsi(renderLine2(makeCtx({ input, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: false } } }), c));
+    expect(out).not.toContain('cache');
+  });
+
+  it('shows MCP server count', () => {
+    const mcp = { servers: [{ name: 'a', status: 'ok' as const }, { name: 'b', status: 'ok' as const }] };
+    const out = stripAnsi(renderLine2(makeCtx({ mcp }), c));
+    expect(out).toContain('MCP 2');
+  });
+
+  it('shows MCP errors in red', () => {
+    const mcp = { servers: [{ name: 'a', status: 'ok' as const }, { name: 'b', status: 'error' as const }] };
+    const out = stripAnsi(renderLine2(makeCtx({ mcp }), c));
+    expect(out).toContain('MCP 1/2');
+  });
+
+  it('shows contextTokens estimate', () => {
+    const input = { ...baseInput, context_window: { ...baseInput.context_window, used_percentage: 50, total_input_tokens: 100000 } };
+    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    expect(out).toContain('100k/200k');
+  });
 });
 
 describe('formatCountdown', () => {

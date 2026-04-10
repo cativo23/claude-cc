@@ -78,4 +78,19 @@ describe('renderMinimal', () => {
     const out = renderMinimal(makeCtx(), c);
     expect(out.split('\n').length).toBe(1);
   });
+
+  it('hides model when toggled off', () => {
+    const out = stripAnsi(renderMinimal(makeCtx({ config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, model: false } } }), c));
+    expect(out).not.toContain('Claude Opus 4');
+  });
+
+  it('hides branch when toggled off', () => {
+    const out = stripAnsi(renderMinimal(makeCtx({ git, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, branch: false } } }), c));
+    expect(out).not.toContain('main');
+  });
+
+  it('hides cost at <60 cols', () => {
+    const out = stripAnsi(renderMinimal(makeCtx({ cols: 50 }), c));
+    expect(out).not.toContain('$1.31');
+  });
 });
