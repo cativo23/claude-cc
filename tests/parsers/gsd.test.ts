@@ -18,4 +18,24 @@ describe('getGsdInfo', () => {
     writeFileSync(join(dir, 'todos', 's-agent-1.json'), JSON.stringify([{ status: 'in_progress', activeForm: 'Building X' }]));
     expect(getGsdInfo('s', dir)?.currentTask).toBe('Building X');
   });
+
+  it('sanitizes session ID with special characters', () => {
+    writeFileSync(join(dir, 'todos', 'abc-agent-1.json'), JSON.stringify([{ status: 'in_progress', activeForm: 'Task' }]));
+    // ../evil gets sanitized to empty or safe string — should not match
+    expect(getGsdInfo('../evil', dir)).toBeNull();
+  });
+
+  it('sanitizes session ID with slashes', () => {
+    expect(getGsdInfo('../../etc/passwd', dir)).toBeNull();
+  });
+
+  it('handles malformed JSON in cache file', () => {
+    writeFileSync(join(dir, 'cache', 'gsd-update-check.json'), 'not json');
+    expect(getGsdInfo('s', dir)).toBeNull();
+  });
+
+  it('handles malformed JSON in todos file', () => {
+    writeFileSync(join(dir, 'todos', 's-agent-1.json'), 'broken json');
+    expect(getGsdInfo('s', dir)).toBeNull();
+  });
 });
