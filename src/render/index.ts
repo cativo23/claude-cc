@@ -4,11 +4,13 @@ import { renderLine2 } from './line2.js';
 import { renderLine3 } from './line3.js';
 import { renderLine4 } from './line4.js';
 import { renderMinimal } from './minimal.js';
+import { resolveTheme } from '../themes.js';
 import type { RenderContext } from '../types.js';
 
 export function render(ctx: RenderContext): string {
   const colorMode: ColorMode = ctx.config.colors.mode === 'auto' ? detectColorMode() : ctx.config.colors.mode;
-  const c = createColors(colorMode);
+  const theme = resolveTheme(ctx.config.theme, colorMode);
+  const c = createColors(colorMode, theme);
 
   if (ctx.config.layout === 'singleline' || (ctx.config.layout === 'auto' && ctx.cols < 70)) {
     return renderMinimal(ctx, c);
