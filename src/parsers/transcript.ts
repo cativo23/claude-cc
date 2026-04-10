@@ -6,9 +6,7 @@ import type { TranscriptData, ToolEntry, AgentEntry, TodoEntry, TodoStatus, Thin
 import { EMPTY_TRANSCRIPT } from '../types.js';
 import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js';
 
-let cachedResult: TranscriptData | null = null;
-let cachedMtime: MtimeState | null = null;
-let cachedPath: string | null = null;
+const transcriptCache = new Map<string, { result: TranscriptData; mtime: MtimeState }>();
 
 const MAX_LINES = 50_000;
 
@@ -43,8 +41,9 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   if (!resolved.startsWith(homedir()) && !resolved.startsWith(tmpdir())) return result;
 
   const currentMtime = getMtimeState(transcriptPath);
-  if (currentMtime && cachedPath === transcriptPath && cachedMtime && isMtimeFresh(transcriptPath, cachedMtime) && cachedResult) {
-    return cachedResult;
+  const cached = transcriptCache.get(resolved);
+  if (currentMtime && cached && isMtimeFresh(transcriptPath, cached.mtime)) {
+    return cached.result;
   }
 
   const toolMap = new Map<string, ToolEntry>();
@@ -131,8 +130,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = todos;
   result.thinkingEffort = thinkingEffort;
-  cachedResult = result;
-  cachedMtime = currentMtime;
-  cachedPath = transcriptPath;
+  if (currentMtime) {
+    transcriptCache.set(resolved, { result, mtime: currentMtime });
+  }
   return result;
 }
