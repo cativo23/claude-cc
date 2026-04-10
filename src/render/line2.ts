@@ -18,8 +18,9 @@ function buildContextBar(pct: number, c: Colors): string {
   return `[${bar}] ${pctStr}${icon ? ' ' + icon : ''}`;
 }
 
-function formatCountdown(resetsAt: number): string {
-  const diffMs = resetsAt - Date.now();
+export function formatCountdown(resetsAt: number): string {
+  const resetsAtMs = resetsAt < 1e12 ? resetsAt * 1000 : resetsAt;
+  const diffMs = resetsAtMs - Date.now();
   if (diffMs <= 0) return '';
   const totalSec = Math.floor(diffMs / 1000);
   const h = Math.floor(totalSec / 3600);
