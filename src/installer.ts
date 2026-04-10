@@ -104,11 +104,17 @@ export function uninstall(opts: InstallerOptions = {}): string {
   }
 
   if (existsSync(backupPath)) {
-    copyFileSync(backupPath, settingsPath);
-    unlinkSync(backupPath);
-    lines.push(ok('Restored previous settings from backup'));
-    lines.push(`\n  Restart Claude Code to apply changes.\n`);
-    return lines.join('\n') + '\n';
+    try {
+      JSON.parse(readFileSync(backupPath, 'utf8'));
+      copyFileSync(backupPath, settingsPath);
+      unlinkSync(backupPath);
+      lines.push(ok('Restored previous settings from backup'));
+      lines.push(`\n  Restart Claude Code to apply changes.\n`);
+      return lines.join('\n') + '\n';
+    } catch {
+      lines.push(warn('Backup file is corrupt — skipping restore'));
+      unlinkSync(backupPath);
+    }
   }
 
   try {

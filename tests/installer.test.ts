@@ -119,4 +119,16 @@ describe('uninstall', () => {
     const output = uninstall({ settingsPath });
     expect(output).toContain('Nothing to uninstall');
   });
+
+  it('warns and skips restore when backup is corrupt', () => {
+    const current = { statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 } };
+    writeFileSync(settingsPath, JSON.stringify(current, null, 2));
+    writeFileSync(backupPath, 'this is not valid JSON!!!');
+    const output = uninstall({ settingsPath });
+    expect(output).toContain('corrupt');
+    expect(existsSync(backupPath)).toBe(false);
+    // Should fall through to removing statusLine key
+    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(data.statusLine).toBeUndefined();
+  });
 });
