@@ -20,10 +20,53 @@ describe('loadConfig', () => {
     expect(c.display.branch).toBe(true);
   });
 
-  it('parses preset from config', () => {
+  it('preset balanced disables burnRate, duration, etc.', () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'config.json'), '{"preset":"balanced"}');
-    expect(loadConfig(dir).preset).toBe('balanced');
+    const c = loadConfig(dir);
+    expect(c.preset).toBe('balanced');
+    expect(c.layout).toBe('auto');
+    expect(c.display.burnRate).toBe(false);
+    expect(c.display.duration).toBe(false);
+    expect(c.display.version).toBe(false);
+    // core toggles stay on
+    expect(c.display.model).toBe(true);
+    expect(c.display.cost).toBe(true);
+    expect(c.display.contextBar).toBe(true);
+  });
+
+  it('preset minimal disables most toggles', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"minimal"}');
+    const c = loadConfig(dir);
+    expect(c.preset).toBe('minimal');
+    expect(c.layout).toBe('singleline');
+    expect(c.display.tokens).toBe(false);
+    expect(c.display.tools).toBe(false);
+    expect(c.display.todos).toBe(false);
+    // essentials stay on
+    expect(c.display.model).toBe(true);
+    expect(c.display.branch).toBe(true);
+    expect(c.display.cost).toBe(true);
+  });
+
+  it('user display overrides win over preset', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"minimal","display":{"tokens":true}}');
+    const c = loadConfig(dir);
+    expect(c.preset).toBe('minimal');
+    // preset says false, user says true → user wins
+    expect(c.display.tokens).toBe(true);
+  });
+
+  it('preset full keeps all toggles on', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"full"}');
+    const c = loadConfig(dir);
+    expect(c.preset).toBe('full');
+    expect(c.layout).toBe('multiline');
+    expect(c.display.burnRate).toBe(true);
+    expect(c.display.version).toBe(true);
   });
   it('ignores invalid preset', () => {
     mkdirSync(dir, { recursive: true });
