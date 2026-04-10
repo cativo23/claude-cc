@@ -1,0 +1,4 @@
+{"timestamp":"2026-04-08T10:00:00Z","message":{"content":[{"type":"tool_use","id":"tu1","name":"TodoWrite","input":{"todos":[{"id":"a","content":"Task A","status":"pending"},{"id":"b","content":"Task B","status":"in_progress"}]}}]}}
+{"timestamp":"2026-04-08T10:00:01Z","message":{"content":[{"type":"tool_result","tool_use_id":"tu1","content":"ok"}]}}
+{"timestamp":"2026-04-08T10:00:02Z","message":{"content":[{"type":"tool_use","id":"tu2","name":"TodoWrite","input":{"todos":[{"id":"a","content":"Task A","status":"completed"},{"id":"b","content":"Task B","status":"in_progress"},{"id":"c","content":"Task C","status":"pending"}]}}]}}
+{"timestamp":"2026-04-08T10:00:03Z","message":{"content":[{"type":"tool_result","tool_use_id":"tu2","content":"ok"}]}}

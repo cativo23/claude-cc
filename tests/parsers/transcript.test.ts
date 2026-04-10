@@ -33,6 +33,28 @@ describe('parseTranscript', () => {
   it('rejects paths outside allowed directories', async () => {
     expect((await parseTranscript('/etc/passwd')).tools).toHaveLength(0);
   });
+
+  it('extracts thinkingEffort from transcript', async () => {
+    const result = await parseTranscript(join(FIXTURES, 'transcript-effort.jsonl'));
+    expect(result.thinkingEffort).toBe('high');
+  });
+
+  it('sets sessionStart from first timestamp', async () => {
+    const result = await parseTranscript(join(FIXTURES, 'transcript-basic.jsonl'));
+    expect(result.sessionStart).toBeInstanceOf(Date);
+    expect(result.sessionStart!.toISOString()).toBe('2026-04-08T10:00:00.000Z');
+  });
+
+  it('handles TodoWrite with merge semantics', async () => {
+    const result = await parseTranscript(join(FIXTURES, 'transcript-todowrite.jsonl'));
+    expect(result.todos).toHaveLength(3);
+    expect(result.todos[0].id).toBe('a');
+    expect(result.todos[0].status).toBe('completed');
+    expect(result.todos[1].id).toBe('b');
+    expect(result.todos[1].status).toBe('in_progress');
+    expect(result.todos[2].id).toBe('c');
+    expect(result.todos[2].status).toBe('pending');
+  });
 });
 
 describe('extractToolTarget', () => {
