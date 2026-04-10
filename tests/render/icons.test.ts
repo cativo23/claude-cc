@@ -1,23 +1,62 @@
 import { describe, it, expect } from 'vitest';
-import { ICONS } from '../../src/render/icons.js';
+import { ICONS, NERD_ICONS, EMOJI_ICONS, NO_ICONS, resolveIcons } from '../../src/render/icons.js';
 
-describe('ICONS', () => {
-  it('exports all required icon codepoints', () => {
-    expect(ICONS.model).toBe('\uEE0D');
-    expect(ICONS.branch).toBe('\uE725');
-    expect(ICONS.folder).toBe('\uF07C');
-    expect(ICONS.fire).toBe('\uF06D');
-    expect(ICONS.skull).toBe('\uEE15');
-    expect(ICONS.comment).toBe('\uF075');
-    expect(ICONS.clock).toBe('\uF017');
-    expect(ICONS.bolt).toBe('\uF0E7');
-    expect(ICONS.tree).toBe('\uF1BB');
-    expect(ICONS.cubes).toBe('\uF1B3');
-    expect(ICONS.hammer).toBe('\uEEFF');
-    expect(ICONS.warning).toBe('\uF071');
-    expect(ICONS.barFull).toBe('\u2588');
-    expect(ICONS.barEmpty).toBe('\u2591');
-    expect(ICONS.ellipsis).toBe('\u2026');
-    expect(ICONS.dash).toBe('\u2014');
+describe('ICONS (legacy export)', () => {
+  it('is the same as NERD_ICONS', () => {
+    expect(ICONS).toBe(NERD_ICONS);
+  });
+});
+
+describe('NERD_ICONS', () => {
+  it('uses nerd font codepoints', () => {
+    expect(NERD_ICONS.model).toBe('\uEE0D');
+    expect(NERD_ICONS.branch).toBe('\uE725');
+    expect(NERD_ICONS.folder).toBe('\uF07C');
+    expect(NERD_ICONS.fire).toBe('\uF06D');
+    expect(NERD_ICONS.skull).toBe('\uEE15');
+  });
+});
+
+describe('EMOJI_ICONS', () => {
+  it('uses emoji codepoints', () => {
+    expect(EMOJI_ICONS.model).toBe('\u{1F916}');
+    expect(EMOJI_ICONS.branch).toBe('\u{1F33F}');
+    expect(EMOJI_ICONS.folder).toBe('\u{1F4C2}');
+    expect(EMOJI_ICONS.fire).toBe('\u{1F525}');
+    expect(EMOJI_ICONS.skull).toBe('\u{1F480}');
+  });
+});
+
+describe('NO_ICONS', () => {
+  it('uses empty strings for decorative icons', () => {
+    expect(NO_ICONS.model).toBe('');
+    expect(NO_ICONS.branch).toBe('');
+    expect(NO_ICONS.folder).toBe('');
+    expect(NO_ICONS.clock).toBe('');
+  });
+
+  it('uses ASCII fallbacks for semantic icons', () => {
+    expect(NO_ICONS.fire).toBe('!');
+    expect(NO_ICONS.skull).toBe('!!');
+    expect(NO_ICONS.warning).toBe('!');
+  });
+});
+
+describe('resolveIcons', () => {
+  it('returns NERD_ICONS by default', () => {
+    expect(resolveIcons()).toBe(NERD_ICONS);
+    expect(resolveIcons(undefined)).toBe(NERD_ICONS);
+  });
+
+  it('returns NERD_ICONS for "nerd"', () => {
+    expect(resolveIcons('nerd')).toBe(NERD_ICONS);
+  });
+
+  it('returns EMOJI_ICONS for "emoji"', () => {
+    expect(resolveIcons('emoji')).toBe(EMOJI_ICONS);
+  });
+
+  it('returns NO_ICONS for "none"', () => {
+    expect(resolveIcons('none')).toBe(NO_ICONS);
   });
 });

@@ -1,4 +1,4 @@
-import { ICONS } from './icons.js';
+import { NERD_ICONS, type IconSet } from './icons.js';
 import { getContextColor, type Colors } from './colors.js';
 import type { ClaudeCodeInput, GitStatus } from '../types.js';
 
@@ -13,23 +13,25 @@ export function getModelName(model: ClaudeCodeInput['model']): string {
 
 export interface ContextBarOpts {
   segments?: number;
-  icons?: boolean;
+  showIcons?: boolean;
   pctInsideBar?: boolean;
+  iconSet?: IconSet;
 }
 
 export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): string {
   const segments = opts?.segments ?? 20;
-  const showIcons = opts?.icons ?? true;
+  const showIcons = opts?.showIcons ?? true;
   const pctInsideBar = opts?.pctInsideBar ?? false;
+  const ic = opts?.iconSet ?? NERD_ICONS;
 
   const filled = Math.round((pct / 100) * segments);
   const colorFn = c[getContextColor(pct)];
-  const bar = colorFn(ICONS.barFull.repeat(filled)) + c.dim(ICONS.barEmpty.repeat(segments - filled));
+  const bar = colorFn(ic.barFull.repeat(filled)) + c.dim(ic.barEmpty.repeat(segments - filled));
 
   let icon = '';
   if (showIcons) {
-    if (pct >= 80) icon = c.blinkRed(ICONS.skull);
-    else if (pct >= 65) icon = c.orange(ICONS.fire);
+    if (pct >= 80) icon = c.blinkRed(ic.skull);
+    else if (pct >= 65) icon = c.orange(ic.fire);
   }
 
   const pctStr = colorFn(`${pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%`);

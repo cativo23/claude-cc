@@ -3,6 +3,7 @@ import { renderLine4 } from '../../src/render/line4.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
 import type { GsdInfo, RenderContext } from '../../src/types.js';
+import { NERD_ICONS } from '../../src/render/icons.js';
 
 const c = createColors('named');
 
@@ -19,6 +20,7 @@ function makeCtx(gsd: GsdInfo | null): RenderContext {
     input: baseInput, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
+    icons: NERD_ICONS,
   };
 }
 

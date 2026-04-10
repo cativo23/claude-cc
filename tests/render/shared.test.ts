@@ -61,10 +61,10 @@ describe('buildContextBar', () => {
     expect(bar).toContain('\uF06D'); // fire icon
   });
 
-  it('hides icons when icons=false', () => {
-    const bar = buildContextBar(85, c, { icons: false });
+  it('hides icons when showIcons=false', () => {
+    const bar = buildContextBar(85, c, { showIcons: false });
     expect(bar).not.toContain('\uEE15');
-    const bar70 = buildContextBar(70, c, { icons: false });
+    const bar70 = buildContextBar(70, c, { showIcons: false });
     expect(bar70).not.toContain('\uF06D');
   });
 });

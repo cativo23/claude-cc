@@ -1,4 +1,3 @@
-import { ICONS } from './icons.js';
 import { padLine, displayWidth } from './text.js';
 import { getQuotaColor, type Colors } from './colors.js';
 import { buildContextBar, SEP } from './shared.js';
@@ -19,14 +18,14 @@ export function formatCountdown(resetsAt: number): string {
 }
 
 export function renderLine2(ctx: RenderContext, c: Colors): string {
-  const { input, tokenSpeed, transcript: { thinkingEffort }, config: { display }, cols, memory } = ctx;
+  const { input, tokenSpeed, transcript: { thinkingEffort }, config: { display }, cols, memory, icons } = ctx;
   const leftParts: string[] = [];
   const rightParts: string[] = [];
 
   // Context bar
   if (display.contextBar) {
     const pct = input.context_window.used_percentage;
-    leftParts.push(buildContextBar(pct, c));
+    leftParts.push(buildContextBar(pct, c, { iconSet: icons }));
   }
 
   // Tokens
@@ -36,7 +35,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     const parts: string[] = [];
     if (inTokens != null) parts.push(`${formatTokens(inTokens)}↑`);
     if (outTokens != null) parts.push(`${formatTokens(outTokens)}↓`);
-    if (parts.length > 0) leftParts.push(`${ICONS.comment} ${parts.join(' ')}`);
+    if (parts.length > 0) leftParts.push(`${icons.comment} ${parts.join(' ')}`);
   }
 
   // Cost + burn rate
@@ -52,7 +51,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
 
   // Duration
   if (display.duration && input.cost) {
-    leftParts.push(`${ICONS.clock} ${formatDuration(input.cost.total_duration_ms)}`);
+    leftParts.push(`${icons.clock} ${formatDuration(input.cost.total_duration_ms)}`);
   }
 
   // Memory
@@ -62,7 +61,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
 
   // Token speed
   if (display.tokenSpeed && tokenSpeed != null) {
-    leftParts.push(c.dim(`${ICONS.bolt}${tokenSpeed} tok/s`));
+    leftParts.push(c.dim(`${icons.bolt}${tokenSpeed} tok/s`));
   }
 
   // Rate limits (only show if >=50%)
@@ -74,7 +73,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     for (const [label, win] of limits) {
       if (!win || win.used_percentage < 50) continue;
       const colorFn = c[getQuotaColor(win.used_percentage)];
-      let limitStr = colorFn(`${ICONS.bolt} ${win.used_percentage.toFixed(0)}%(${label})`);
+      let limitStr = colorFn(`${icons.bolt} ${win.used_percentage.toFixed(0)}%(${label})`);
       if (win.used_percentage >= 70 && win.resets_at) {
         const countdown = formatCountdown(win.resets_at);
         if (countdown) limitStr += c.dim(` ${countdown}`);

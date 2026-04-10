@@ -122,6 +122,7 @@ export interface RenderContext {
   gsd: GsdInfo | null;
   cols: number;
   config: HudConfig;
+  icons: import('./render/icons.js').IconSet;
 }
 
 // ── Config ──────────────────────────────────────────────────────────

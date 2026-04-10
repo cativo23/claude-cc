@@ -3,6 +3,7 @@ import { renderLine2, formatCountdown } from '../../src/render/line2.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
 import type { ClaudeCodeInput, RenderContext } from '../../src/types.js';
+import { NERD_ICONS } from '../../src/render/icons.js';
 
 const c = createColors('named');
 
@@ -24,6 +25,7 @@ function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
     input: baseInput, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
+    icons: NERD_ICONS,
     ...overrides,
   };
 }

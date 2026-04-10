@@ -1,5 +1,4 @@
 import { basename } from 'node:path';
-import { ICONS } from './icons.js';
 import { truncField } from './text.js';
 import { getModelName, buildContextBar, formatGitChanges, SEP_MINIMAL } from './shared.js';
 import type { Colors } from './colors.js';
@@ -8,7 +7,7 @@ import { renderLine3 } from './line3.js';
 import type { RenderContext } from '../types.js';
 
 export function renderMinimal(ctx: RenderContext, c: Colors): string {
-  const { input, git, transcript, tokenSpeed, gsd, config: { display }, cols } = ctx;
+  const { input, git, transcript, tokenSpeed, gsd, config: { display }, cols, icons } = ctx;
   const parts: string[] = [];
 
   // Directory
@@ -38,7 +37,7 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
   // Context bar
   if (display.contextBar) {
-    parts.push(buildContextBar(input.context_window.used_percentage, c, { segments: 10, pctInsideBar: true }));
+    parts.push(buildContextBar(input.context_window.used_percentage, c, { segments: 10, pctInsideBar: true, iconSet: icons }));
   }
 
   // Only add these if cols >= 60
@@ -94,12 +93,12 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
     // Worktree
     if (display.worktree && input.worktree?.name) {
-      parts.push(c.dim(`${ICONS.tree} ${truncField(input.worktree.name, 12)}`));
+      parts.push(c.dim(`${icons.tree} ${truncField(input.worktree.name, 12)}`));
     }
 
     // Agent
     if (display.agent && input.agent?.name) {
-      parts.push(c.dim(`${ICONS.cubes} ${truncField(input.agent.name, 12)}`));
+      parts.push(c.dim(`${icons.cubes} ${truncField(input.agent.name, 12)}`));
     }
   }
 

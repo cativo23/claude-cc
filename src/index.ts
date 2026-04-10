@@ -9,6 +9,7 @@ import { getGsdInfo } from './parsers/gsd.js';
 import { getTermCols, getLayoutCols } from './utils/terminal.js';
 import { loadConfig, mergeCliFlags } from './config.js';
 import { render } from './render/index.js';
+import { resolveIcons } from './render/icons.js';
 import { install, uninstall } from './installer.js';
 import type { Dependencies, RenderContext } from './types.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
@@ -42,7 +43,8 @@ export async function main(overrides: Partial<Dependencies> = {}): Promise<strin
   const rawCols = deps.getTermCols();
   const isTTY = !!(process.stdout.columns || process.stderr.columns);
   const cols = getLayoutCols(rawCols, isTTY);
-  return render({ input, git, transcript, tokenSpeed, memory, gsd, cols, config } as RenderContext);
+  const icons = resolveIcons(config.icons);
+  return render({ input, git, transcript, tokenSpeed, memory, gsd, cols, config, icons });
 }
 
 // Run when invoked directly
