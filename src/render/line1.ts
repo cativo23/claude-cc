@@ -1,16 +1,9 @@
 import { basename } from 'node:path';
 import { ICONS } from './icons.js';
 import { fitSegments, truncField } from './text.js';
+import { getModelName, formatGitChanges, SEP } from './shared.js';
 import type { Colors } from './colors.js';
 import type { ClaudeCodeInput, GitStatus, TranscriptData, DisplayToggles } from '../types.js';
-
-const SEP = ` \x1b[90m│\x1b[0m `;
-
-function getModelName(model: ClaudeCodeInput['model']): string {
-  if (typeof model === 'string') return model;
-  if (model && typeof model === 'object' && 'display_name' in model) return model.display_name;
-  return '';
-}
 
 function getActiveTodo(transcript: TranscriptData): string | undefined {
   const inProgress = transcript.todos.filter(t => t.status === 'in_progress');
@@ -41,10 +34,7 @@ export function renderLine1(
     let branchStr = c.magenta(`${ICONS.branch} ${branchName}`);
 
     if (display.gitChanges) {
-      const parts: string[] = [];
-      if (git.staged > 0) parts.push(c.green(`+${git.staged}`));
-      if (git.modified > 0) parts.push(c.yellow(`!${git.modified}`));
-      if (git.untracked > 0) parts.push(c.gray(`?${git.untracked}`));
+      const parts = formatGitChanges(git, c);
       if (parts.length > 0) branchStr += ' ' + parts.join(' ');
     }
     left.push(branchStr);

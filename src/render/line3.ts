@@ -1,10 +1,10 @@
 import { ICONS } from './icons.js';
 import { truncField } from './text.js';
+import { SEP } from './shared.js';
 import type { Colors } from './colors.js';
 import type { ToolEntry, TodoEntry, DisplayToggles } from '../types.js';
 
 const EXCLUDED_TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate']);
-const SEP_GRAY = ` \x1b[90m│\x1b[0m `;
 
 function buildToolsPart(tools: ToolEntry[], c: Colors): string {
   const relevant = tools.filter(t => !EXCLUDED_TOOLS.has(t.name));
@@ -70,5 +70,5 @@ export function renderLine3(
   if (!toolsPart && !todosPart) return '';
   if (!toolsPart) return todosPart;
   if (!todosPart) return toolsPart;
-  return toolsPart + SEP_GRAY + todosPart;
+  return toolsPart + SEP + todosPart;
 }

@@ -1,22 +1,9 @@
 import { ICONS } from './icons.js';
 import { padLine, displayWidth } from './text.js';
-import { getContextColor, getQuotaColor, type Colors } from './colors.js';
+import { getQuotaColor, type Colors } from './colors.js';
+import { buildContextBar, SEP } from './shared.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
 import type { ClaudeCodeInput, DisplayToggles, ThinkingEffort, MemoryInfo } from '../types.js';
-
-const SEP = ` \x1b[90m│\x1b[0m `;
-
-function buildContextBar(pct: number, c: Colors): string {
-  const SEGMENTS = 20;
-  const filled = Math.round((pct / 100) * SEGMENTS);
-  const colorFn = c[getContextColor(pct)];
-  const bar = colorFn(ICONS.barFull.repeat(filled)) + c.dim(ICONS.barEmpty.repeat(SEGMENTS - filled));
-  let icon = '';
-  if (pct >= 80) icon = c.blinkRed(ICONS.skull);
-  else if (pct >= 65) icon = c.orange(ICONS.fire);
-  const pctStr = colorFn(`${pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%`);
-  return `[${bar}] ${pctStr}${icon ? ' ' + icon : ''}`;
-}
 
 export function formatCountdown(resetsAt: number): string {
   const resetsAtMs = resetsAt < 1e12 ? resetsAt * 1000 : resetsAt;

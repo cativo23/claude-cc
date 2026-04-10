@@ -1,26 +1,11 @@
 import { basename } from 'node:path';
 import { ICONS } from './icons.js';
 import { truncField } from './text.js';
-import { getContextColor, type Colors } from './colors.js';
+import { getModelName, buildContextBar, formatGitChanges, SEP_MINIMAL } from './shared.js';
+import type { Colors } from './colors.js';
 import { formatTokens, formatDuration, formatCost } from '../utils/format.js';
 import { renderLine3 } from './line3.js';
 import type { ClaudeCodeInput, GitStatus, TranscriptData, DisplayToggles, GsdInfo } from '../types.js';
-
-const SEP = ` \x1b[90m|\x1b[0m `;
-
-function getModelName(model: ClaudeCodeInput['model']): string {
-  if (typeof model === 'string') return model;
-  if (model && typeof model === 'object' && 'display_name' in model) return model.display_name;
-  return '';
-}
-
-function buildContextBar(pct: number, c: Colors): string {
-  const SEGMENTS = 10;
-  const filled = Math.round((pct / 100) * SEGMENTS);
-  const colorFn = c[getContextColor(pct)];
-  const bar = colorFn(ICONS.barFull.repeat(filled)) + c.dim(ICONS.barEmpty.repeat(SEGMENTS - filled));
-  return `[${bar} ${colorFn(`${pct.toFixed(0)}%`)}]`;
-}
 
 export function renderMinimal(
   input: ClaudeCodeInput,
@@ -47,10 +32,7 @@ export function renderMinimal(
     const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : git.branch.length;
     let branchStr = c.magenta(truncField(git.branch, branchLen));
     if (display.gitChanges) {
-      const changeParts: string[] = [];
-      if (git.staged > 0) changeParts.push(c.green(`+${git.staged}`));
-      if (git.modified > 0) changeParts.push(c.yellow(`~${git.modified}`));
-      if (git.untracked > 0) changeParts.push(c.gray(`?${git.untracked}`));
+      const changeParts = formatGitChanges(git, c);
       if (changeParts.length > 0) branchStr += ' ' + changeParts.join(' ');
     }
     parts.push(branchStr);
@@ -64,7 +46,7 @@ export function renderMinimal(
 
   // Context bar
   if (display.contextBar) {
-    parts.push(buildContextBar(input.context_window.used_percentage, c));
+    parts.push(buildContextBar(input.context_window.used_percentage, c, { segments: 10, pctInsideBar: true }));
   }
 
   // Only add these if cols >= 60
@@ -129,7 +111,7 @@ export function renderMinimal(
     }
   }
 
-  const mainLine = parts.join(SEP);
+  const mainLine = parts.join(SEP_MINIMAL);
 
   // Append tools/todos as extra line
   const l3 = renderLine3(transcript.tools, transcript.todos, c);
