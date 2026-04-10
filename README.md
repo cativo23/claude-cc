@@ -23,20 +23,26 @@ Real-time statusline plugin for [Claude Code](https://code.claude.com).
 
 ## Install
 
+Quick setup (auto-configures Claude Code):
+
+```bash
+npx lumira install
+```
+
+Or install globally:
+
 ```bash
 npm install -g lumira
+lumira install
 ```
 
-Or clone and build:
+To uninstall:
 
 ```bash
-git clone https://github.com/cativo23/lumira.git
-cd lumira
-npm install
-npm run build
+npx lumira uninstall
 ```
 
-## Setup
+### Manual setup
 
 Add to `~/.claude/settings.json`:
 
@@ -44,7 +50,7 @@ Add to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "lumira",
+    "command": "npx lumira@latest",
     "padding": 0
   }
 }
