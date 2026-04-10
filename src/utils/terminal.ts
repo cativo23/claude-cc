@@ -9,7 +9,7 @@ function getTermColsFromProcTree(): number {
       for (const fd of fds) {
         try {
           const link = readlinkSync(`/proc/${pid}/fd/${fd}`);
-          if (/^\/dev\/(pts\/\d+|tty\w*)$/.test(link)) {
+          if (/^\/dev\/(pts\/\d+|tty[a-zA-Z0-9]*)$/.test(link)) {
             const out = execSync(`stty size < ${link}`, { shell: '/bin/sh', timeout: 500, encoding: 'utf8' }).trim();
             const cols = parseInt(out.split(/\s+/)[1], 10);
             if (cols > 0) return cols;
