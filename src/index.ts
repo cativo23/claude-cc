@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { readStdin as defaultReadStdin } from './stdin.js';
 import { parseGitStatus } from './parsers/git.js';
 import { parseTranscript } from './parsers/transcript.js';
@@ -50,9 +51,20 @@ export async function main(overrides: Partial<Dependencies> = {}): Promise<strin
   return render({ input, git, transcript, tokenSpeed, memory, gsd, mcp, cols, config, icons });
 }
 
-// Run when invoked directly
-const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] && (__filename === process.argv[1] || __filename === process.argv[1] + '.js')) {
+// Run when invoked directly.
+// Resolve through realpath to handle npx symlinks.
+function isDirectRun(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    const self = realpathSync(fileURLToPath(import.meta.url)).replace(/\.js$/, '');
+    const invoked = realpathSync(process.argv[1]).replace(/\.js$/, '');
+    return self === invoked;
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   const cmd = process.argv[2];
   if (cmd === 'install') {
     install().then(o => process.stdout.write(o)).catch(e => process.stderr.write(`Install error: ${e.message}\n`));
