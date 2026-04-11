@@ -69,8 +69,8 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
     // Lines changed
     if (display.linesChanged && input.cost) {
-      const added = (input.cost?.total_lines_added ?? input.metrics?.files?.total_lines_added ?? 0) ?? 0;
-      const removed = (input.cost?.total_lines_removed ?? input.metrics?.files?.total_lines_removed ?? 0) ?? 0;
+      const added = (input.cost?.total_lines_added ?? input.metrics?.files?.total_lines_added) ?? 0;
+      const removed = (input.cost?.total_lines_removed ?? input.metrics?.files?.total_lines_removed) ?? 0;
       if (added > 0 || removed > 0) {
         parts.push(`${c.green(`+${added}`)}${c.red(`-${removed}`)}`);
       }

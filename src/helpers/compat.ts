@@ -5,7 +5,7 @@ import type { ClaudeCodeInput } from '../types.js';
  * Qwen uses `metrics.files` instead of `cost` for line changes,
  * and may not have cost/duration at all.
  */
-export function getCost(input: ClaudeCodeInput) {
+export function getCost(input: StatuslineInput) {
   const cost = input.cost;
   const metricsFiles = input.metrics?.files;
   return {
@@ -19,7 +19,7 @@ export function getCost(input: ClaudeCodeInput) {
 /**
  * Normalizes current usage. Qwen sends a number, Claude sends { output_tokens: number }.
  */
-export function getCurrentUsage(input: ClaudeCodeInput): number {
+export function getCurrentUsage(input: StatuslineInput): number {
   const cu = input.context_window.current_usage;
   if (typeof cu === 'number') return cu;
   return cu?.output_tokens ?? 0;
@@ -28,6 +28,6 @@ export function getCurrentUsage(input: ClaudeCodeInput): number {
 /**
  * Get working directory: Claude has `cwd`, Qwen has `workspace.current_dir`.
  */
-export function getCwd(input: ClaudeCodeInput): string {
+export function getCwd(input: StatuslineInput): string {
   return input.cwd || input.workspace?.current_dir || process.cwd();
 }

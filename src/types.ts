@@ -245,3 +245,48 @@ export interface Dependencies {
   getTermCols: () => number;
   loadConfig?: () => HudConfig;
 }
+
+// ── Qwen Code stdin JSON ────────────────────────────────────────────
+
+export interface QwenInput {
+  session_id: string;
+  version: string;
+  model: { display_name: string };
+  context_window: {
+    context_window_size: number;
+    used_percentage: number;
+    remaining_percentage: number;
+    current_usage: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+  };
+  workspace: { current_dir: string };
+  metrics: {
+    models: Record<string, {
+      api: {
+        total_requests: number;
+        total_errors: number;
+        total_latency_ms: number;
+      };
+      tokens: {
+        prompt: number;
+        completion: number;
+        total: number;
+        cached: number;
+        thoughts: number;
+      };
+    }>;
+    files: {
+      total_lines_added: number;
+      total_lines_removed: number;
+    };
+  };
+  git?: { branch: string };
+  vim?: { mode: string };
+}
+
+/** Detect if the input came from Qwen Code vs Claude Code.
+ *  Qwen sends metrics.models; Claude sends cost.total_cost_usd. */
+export function isQwenInput(input: ClaudeCodeInput & { metrics?: unknown }): input is QwenInput {
+  return !!(input.metrics && typeof input.metrics === 'object' && 'models' in input.metrics);
+}
