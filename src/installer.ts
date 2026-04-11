@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 
 // ── ANSI helpers ────────────────────────────────────────────────────
@@ -48,6 +49,32 @@ export function promptYN(question: string): Promise<boolean> {
   });
 }
 
+// ── Skill installer ─────────────────────────────────────────────────
+function installSkill(): string[] {
+  const lines: string[] = [];
+  const destDir = join(homedir(), '.claude', 'skills', 'lumira');
+  const destFile = join(destDir, 'SKILL.md');
+
+  // Resolve skill source: dist/../skills/lumira/SKILL.md
+  const thisDir = dirname(fileURLToPath(import.meta.url));
+  const srcFile = resolve(thisDir, '..', 'skills', 'lumira', 'SKILL.md');
+
+  if (!existsSync(srcFile)) {
+    lines.push(warn('Skill file not found in package — skipping /lumira skill'));
+    return lines;
+  }
+
+  try {
+    mkdirSync(destDir, { recursive: true });
+    copyFileSync(srcFile, destFile);
+    lines.push(ok(`Installed ${DIM}/lumira${RST} skill → ${DIM}~/.claude/skills/lumira/${RST}`));
+  } catch {
+    lines.push(warn('Could not install /lumira skill — copy manually from skills/lumira/SKILL.md'));
+  }
+
+  return lines;
+}
+
 // ── Install ─────────────────────────────────────────────────────────
 export async function install(opts: InstallerOptions = {}): Promise<string> {
   const settingsPath = opts.settingsPath ?? defaultSettingsPath();
@@ -69,6 +96,7 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
   if (settings.statusLine) {
     if (isLumira(settings.statusLine)) {
       lines.push(ok('lumira is already configured as your statusline'));
+      lines.push(...installSkill());
       return lines.join('\n') + '\n';
     }
 
@@ -88,6 +116,10 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
   mkdirSync(dirname(settingsPath), { recursive: true });
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
   lines.push(ok('Configured lumira as statusline'));
+
+  // Install /lumira skill
+  lines.push(...installSkill());
+
   lines.push(`\n  Restart Claude Code to see your statusline.\n`);
   return lines.join('\n') + '\n';
 }
