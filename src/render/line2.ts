@@ -57,10 +57,10 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
 
   // Cost + burn rate
   if (display.cost && input.cost) {
-    const costStr = formatCost(input.cost.total_cost_usd);
+    const costStr = formatCost((input.cost?.total_cost_usd ?? 0));
     let costPart = costStr;
     if (display.burnRate) {
-      const burn = formatBurnRate(input.cost.total_cost_usd, input.cost.total_duration_ms);
+      const burn = formatBurnRate((input.cost?.total_cost_usd ?? 0), (input.cost?.total_duration_ms ?? 0));
       if (burn) costPart += ` ${c.dim(burn)}`;
     }
     leftParts.push(costPart);
@@ -68,7 +68,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
 
   // Duration
   if (display.duration && input.cost) {
-    leftParts.push(`${icons.clock} ${formatDuration(input.cost.total_duration_ms)}`);
+    leftParts.push(`${icons.clock} ${formatDuration((input.cost?.total_duration_ms ?? 0))}`);
   }
 
   // Memory

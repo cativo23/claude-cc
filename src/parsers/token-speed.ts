@@ -3,10 +3,11 @@ import { tmpdir } from 'node:os';
 
 const SPEED_CACHE_TTL = 2000;
 interface SpeedCache { outputTokens: number; timestamp: number; }
-interface ContextWindow { used_percentage: number; remaining_percentage: number; current_usage?: { output_tokens: number }; }
+interface ContextWindow { used_percentage: number; remaining_percentage: number; current_usage?: number | { output_tokens: number }; }
 
 export function getTokenSpeed(contextWindow: ContextWindow, cacheDir: string = tmpdir()): number | null {
-  const outputTokens = contextWindow?.current_usage?.output_tokens;
+  const cu = contextWindow?.current_usage;
+  const outputTokens = typeof cu === "number" ? cu : cu?.output_tokens;
   if (typeof outputTokens !== 'number' || !Number.isFinite(outputTokens)) return null;
 
   const now = Date.now();

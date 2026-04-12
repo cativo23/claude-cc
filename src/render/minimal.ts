@@ -54,12 +54,12 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
     // Cost
     if (display.cost && input.cost) {
-      parts.push(formatCost(input.cost.total_cost_usd));
+      parts.push(formatCost((input.cost?.total_cost_usd ?? 0)));
     }
 
     // Duration
     if (display.duration && input.cost) {
-      parts.push(formatDuration(input.cost.total_duration_ms));
+      parts.push(formatDuration((input.cost?.total_duration_ms ?? 0)));
     }
 
     // Token speed
@@ -69,8 +69,8 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
     // Lines changed
     if (display.linesChanged && input.cost) {
-      const added = input.cost.total_lines_added ?? 0;
-      const removed = input.cost.total_lines_removed ?? 0;
+      const added = (input.cost?.total_lines_added ?? input.metrics?.files?.total_lines_added) ?? 0;
+      const removed = (input.cost?.total_lines_removed ?? input.metrics?.files?.total_lines_removed) ?? 0;
       if (added > 0 || removed > 0) {
         parts.push(`${c.green(`+${added}`)}${c.red(`-${removed}`)}`);
       }

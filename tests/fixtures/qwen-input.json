@@ -1,0 +1,37 @@
+{
+  "session_id": "test-qwen-session",
+  "version": "0.14.3",
+  "model": { "display_name": "coder-model" },
+  "context_window": {
+    "context_window_size": 1000000,
+    "used_percentage": 2,
+    "remaining_percentage": 98,
+    "current_usage": 20369,
+    "total_input_tokens": 55915,
+    "total_output_tokens": 595
+  },
+  "workspace": { "current_dir": "/home/user/projects/my-app" },
+  "git": { "branch": "main" },
+  "metrics": {
+    "models": {
+      "coder-model": {
+        "api": {
+          "total_requests": 3,
+          "total_errors": 0,
+          "total_latency_ms": 22770
+        },
+        "tokens": {
+          "prompt": 55915,
+          "completion": 595,
+          "total": 56510,
+          "cached": 35889,
+          "thoughts": 69
+        }
+      }
+    },
+    "files": {
+      "total_lines_added": 120,
+      "total_lines_removed": 30
+    }
+  }
+}
