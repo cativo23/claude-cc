@@ -69,10 +69,30 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
     // Lines changed
     if (display.linesChanged) {
-      const added = (input.cost?.total_lines_added ?? (input as any).metrics?.files?.total_lines_added ?? input.metrics?.files?.total_lines_added) ?? 0;
-      const removed = (input.cost?.total_lines_removed ?? (input as any).metrics?.files?.total_lines_removed ?? input.metrics?.files?.total_lines_removed) ?? 0;
+      const added = (input.cost?.total_lines_added ?? (input as any).metrics?.files?.total_lines_added) ?? 0;
+      const removed = (input.cost?.total_lines_removed ?? (input as any).metrics?.files?.total_lines_removed) ?? 0;
       if (added > 0 || removed > 0) {
         parts.push(`${c.green(`+${added}`)}${c.red(`-${removed}`)}`);
+      }
+    }
+
+    // Qwen Code: API metrics (requests, cached tokens, thoughts)
+    const qi = input as any;
+    if (qi.metrics?.models) {
+      const entries = Object.values(qi.metrics.models);
+      if (entries.length > 0) {
+        const mm = entries[0] as any;
+        if (mm?.api?.total_requests > 0) {
+          let reqStr = `${mm.api.total_requests}req`;
+          if (mm.api.total_errors > 0) reqStr += `(${mm.api.total_errors}err)`;
+          parts.push(c.dim(`${icons.bolt}${reqStr}`));
+        }
+        if (mm?.tokens?.cached > 0) {
+          parts.push(c.dim(`${icons.comment}${formatTokens(mm.tokens.cached)}cached`));
+        }
+        if (mm?.tokens?.thoughts > 0) {
+          parts.push(c.dim(`^${formatTokens(mm.tokens.thoughts)}`));
+        }
       }
     }
 

@@ -160,7 +160,7 @@ export interface HudConfig {
    * User-facing preset — drives layout + display toggles (Phase 3).
    * CLI: --full | --balanced | --minimal | --preset=<value>
    */
-  preset?: 'full' | 'balanced' | 'minimal';
+  preset?: 'full' | 'balanced' | 'minimal' | 'qwen';
   theme?: string;
   icons?: 'nerd' | 'emoji' | 'none';
 }

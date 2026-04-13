@@ -22,7 +22,7 @@ function mergeConfig(raw: Record<string, unknown>): HudConfig {
   const result: HudConfig = { layout, gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd, display: { ...DEFAULT_DISPLAY }, colors };
 
   // Apply preset FIRST (sets layout + display defaults)
-  const validPresets = ['full', 'balanced', 'minimal'] as const;
+  const validPresets = ['full', 'balanced', 'minimal', 'qwen'] as const;
   if (validPresets.includes(raw.preset as never)) applyPreset(result, raw.preset as NonNullable<HudConfig['preset']>);
 
   // Then overlay user's explicit display toggles (user wins over preset)
@@ -67,6 +67,30 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       cacheMetrics: false,
     },
   },
+  qwen: {
+    layout: 'singleline',
+    display: {
+      tokens: false,
+      burnRate: false,
+      duration: false,
+      tokenSpeed: false,
+      rateLimits: false,
+      tools: false,
+      todos: false,
+      vim: false,
+      effort: false,
+      worktree: false,
+      agent: false,
+      sessionName: false,
+      style: false,
+      version: false,
+      linesChanged: false,
+      memory: false,
+      contextTokens: false,
+      cacheMetrics: false,
+      mcp: false,
+    },
+  },
   minimal: {
     layout: 'singleline',
     display: {
@@ -108,6 +132,7 @@ export function mergeCliFlags(config: HudConfig, argv: string[]): HudConfig {
   // Shorthand flags
   if (argv.includes('--minimal')) applyPreset(r, 'minimal');
   if (argv.includes('--balanced')) applyPreset(r, 'balanced');
+  if (argv.includes('--qwen')) applyPreset(r, 'qwen');
   if (argv.includes('--full')) applyPreset(r, 'full');
   for (const arg of argv) {
     const presetMatch = arg.match(/^--preset[= ]?(full|balanced|minimal)$/);
