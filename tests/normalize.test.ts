@@ -22,7 +22,7 @@ describe('normalize', () => {
     });
 
     it('detects Qwen Code input', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.platform).toBe('qwen-code');
     });
   });
@@ -34,17 +34,17 @@ describe('normalize', () => {
     });
 
     it('extracts model name from Qwen input', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.model).toBe('coder-model');
     });
 
     it('extracts session ID from both', () => {
       expect(normalize(claudeInput).sessionId).toBe('test-session-123');
-      expect(normalize(qwenInput as unknown as ClaudeCodeInput).sessionId).toBe('test-qwen-session');
+      expect(normalize(qwenInput).sessionId).toBe('test-qwen-session');
     });
 
     it('extracts version', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.version).toBe('0.14.3');
     });
 
@@ -52,8 +52,8 @@ describe('normalize', () => {
       const claude = normalize(claudeInput);
       expect(claude.cwd).toBe('/home/user/project');
 
-      const qwen = normalize(qwenInput as unknown as ClaudeCodeInput);
-      expect(qwen.cwd).toBe('/home/user/projects/my-app');
+      const qwen = normalize(qwenInput);
+      expect(qwen.cwd).toBe('/tmp/test-workspace');
     });
   });
 
@@ -65,7 +65,7 @@ describe('normalize', () => {
     });
 
     it('unifies input/output tokens from Qwen', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.tokens.input).toBe(55915);
       expect(result.tokens.output).toBe(595);
     });
@@ -76,12 +76,12 @@ describe('normalize', () => {
     });
 
     it('extracts cached tokens from Qwen', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.tokens.cached).toBe(35889);
     });
 
     it('extracts thoughts from Qwen', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.tokens.thoughts).toBe(69);
     });
 
@@ -94,11 +94,11 @@ describe('normalize', () => {
   describe('context window', () => {
     it('extracts used percentage from both', () => {
       expect(normalize(claudeInput).context.usedPercentage).toBe(5.2);
-      expect(normalize(qwenInput as unknown as ClaudeCodeInput).context.usedPercentage).toBe(2);
+      expect(normalize(qwenInput).context.usedPercentage).toBe(2);
     });
 
     it('extracts window size from Qwen', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.context.windowSize).toBe(1000000);
     });
 
@@ -115,7 +115,7 @@ describe('normalize', () => {
     });
 
     it('cost is undefined for Qwen', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.cost).toBeUndefined();
     });
 
@@ -125,14 +125,14 @@ describe('normalize', () => {
     });
 
     it('duration is undefined for Qwen', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.durationMs).toBeUndefined();
     });
   });
 
   describe('performance metrics (Qwen only)', () => {
     it('extracts API metrics from Qwen', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.performance).toEqual({
         requests: 3,
         errors: 0,
@@ -148,21 +148,21 @@ describe('normalize', () => {
 
   describe('git branch', () => {
     it('extracts branch from Qwen native git', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.gitBranch).toBe('main');
     });
 
     it('gitBranch is undefined when Qwen does not send it', () => {
       const noGit = { ...qwenInput };
       delete (noGit as Record<string, unknown>).git;
-      const result = normalize(noGit as unknown as ClaudeCodeInput);
+      const result = normalize(noGit );
       expect(result.gitBranch).toBeUndefined();
     });
   });
 
   describe('file changes', () => {
     it('extracts lines changed from Qwen metrics', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.linesAdded).toBe(120);
       expect(result.linesRemoved).toBe(30);
     });
@@ -176,7 +176,7 @@ describe('normalize', () => {
     it('defaults to 0 when not present', () => {
       const noMetrics = { ...qwenInput };
       delete (noMetrics.metrics as Record<string, unknown>).files;
-      const result = normalize(noMetrics as unknown as ClaudeCodeInput);
+      const result = normalize(noMetrics );
       expect(result.linesAdded).toBe(0);
       expect(result.linesRemoved).toBe(0);
     });
@@ -191,7 +191,7 @@ describe('normalize', () => {
 
     it('vimMode is undefined when not present', () => {
       expect(normalize(claudeInput).vimMode).toBeUndefined();
-      expect(normalize(qwenInput as unknown as ClaudeCodeInput).vimMode).toBeUndefined();
+      expect(normalize(qwenInput).vimMode).toBeUndefined();
     });
   });
 
@@ -203,7 +203,7 @@ describe('normalize', () => {
     });
 
     it('preserves original Qwen input', () => {
-      const result = normalize(qwenInput as unknown as ClaudeCodeInput);
+      const result = normalize(qwenInput);
       expect(result.raw).toBe(qwenInput);
     });
   });
@@ -212,7 +212,7 @@ describe('normalize', () => {
 describe('empty model metrics', () => {
   it('handles Qwen input with empty models object', () => {
     const input = { ...qwenInput, metrics: { models: {}, files: { total_lines_added: 0, total_lines_removed: 0 } } };
-    const result = normalize(input as unknown as ClaudeCodeInput);
+    const result = normalize(input );
     expect(result.performance).toBeUndefined();
     expect(result.tokens.cached).toBeUndefined();
     expect(result.tokens.thoughts).toBeUndefined();

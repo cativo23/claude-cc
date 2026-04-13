@@ -130,7 +130,7 @@ export interface McpInfo {
 // ── Render context ──────────────────────────────────────────────────
 
 export interface RenderContext {
-  input: ClaudeCodeInput;
+  input: RawInput;
   git: GitStatus;
   transcript: TranscriptData;
   tokenSpeed: number | null;
@@ -235,7 +235,7 @@ export const DEFAULT_CONFIG: HudConfig = {
 // ── Dependency injection ────────────────────────────────────────────
 
 export interface Dependencies {
-  readStdin: () => Promise<ClaudeCodeInput>;
+  readStdin: () => Promise<RawInput>;
   parseGit: (cwd: string) => Promise<GitStatus>;
   parseTranscript: (path: string) => Promise<TranscriptData>;
   getTokenSpeed: (contextWindow: ClaudeCodeInput['context_window']) => number | null;
@@ -259,8 +259,9 @@ export interface QwenInput {
     current_usage: number;
     total_input_tokens: number;
     total_output_tokens: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
   };
-  workspace: { current_dir: string };
   metrics: {
     models: Record<string, {
       api: {
@@ -283,6 +284,17 @@ export interface QwenInput {
   };
   git?: { branch: string };
   vim?: { mode: string };
+  workspace?: { current_dir: string };
+  // Optional fields shared with ClaudeCodeInput (Qwen does not send these)
+  session_name?: string;
+  cwd?: string;
+  cost?: { total_cost_usd: number; total_duration_ms: number; total_lines_added?: number; total_lines_removed?: number };
+  transcript_path?: string;
+  output_style?: { name: string };
+  agent?: { name: string };
+  worktree?: { name: string };
+  rate_limits?: { five_hour?: { used_percentage: number; resets_at?: number }; seven_day?: { used_percentage: number; resets_at?: number } };
+  exceeds_200k_tokens?: boolean;
 }
 
 /** Detect if the input came from Qwen Code vs Claude Code.
@@ -290,3 +302,6 @@ export interface QwenInput {
 export function isQwenInput(input: ClaudeCodeInput & { metrics?: unknown }): input is QwenInput {
   return !!(input.metrics && typeof input.metrics === 'object' && 'models' in input.metrics);
 }
+
+/** Union of all supported platform input types */
+export type RawInput = ClaudeCodeInput | QwenInput;

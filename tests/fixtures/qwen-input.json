@@ -10,7 +10,7 @@
     "total_input_tokens": 55915,
     "total_output_tokens": 595
   },
-  "workspace": { "current_dir": "/home/user/projects/my-app" },
+  "workspace": { "current_dir": "/tmp/test-workspace" },
   "git": { "branch": "main" },
   "metrics": {
     "models": {

@@ -98,7 +98,7 @@ npm version patch   # or minor / major
 
 - **No platform-specific branching in renderers** — use feature detection, not platform identity
 - **`normalize()` is the single source of truth** for platform differences
-- **`as any` only in renderers** for accessing Qwen-specific fields; never in core logic
+- **No `as any` anywhere**. Use union types (`RawInput`), type guards (`isQwenInput()`), or normalization to handle platform differences.
 - **Keep AGENTS.md updated** — stale instructions cause agents to execute outdated steps
 
 ## References

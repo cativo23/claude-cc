@@ -3,6 +3,7 @@ import { getQuotaColor, type Colors } from './colors.js';
 import { buildContextBar, SEP } from './shared.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
 import type { RenderContext } from '../types.js';
+import { isQwenInput } from '../types.js';
 
 export function formatCountdown(resetsAt: number): string {
   const resetsAtMs = resetsAt < 1e12 ? resetsAt * 1000 : resetsAt;
@@ -55,20 +56,20 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
 
-  // Cost + burn rate
+  // Cost + burn rate (Claude only — Qwen doesn't send cost data)
   if (display.cost && input.cost) {
-    const costStr = formatCost((input.cost?.total_cost_usd ?? 0));
+    const costStr = formatCost(input.cost.total_cost_usd);
     let costPart = costStr;
     if (display.burnRate) {
-      const burn = formatBurnRate((input.cost?.total_cost_usd ?? 0), (input.cost?.total_duration_ms ?? 0));
+      const burn = formatBurnRate(input.cost.total_cost_usd, input.cost.total_duration_ms);
       if (burn) costPart += ` ${c.dim(burn)}`;
     }
     leftParts.push(costPart);
   }
 
-  // Duration
+  // Duration (Claude only)
   if (display.duration && input.cost) {
-    leftParts.push(`${icons.clock} ${formatDuration((input.cost?.total_duration_ms ?? 0))}`);
+    leftParts.push(`${icons.clock} ${formatDuration(input.cost.total_duration_ms)}`);
   }
 
   // Memory
@@ -88,23 +89,24 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   }
 
   // Qwen Code: API metrics (requests, cached tokens, thoughts)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const qi = input as any;
-  if (qi.metrics?.models) {
-    const entries = Object.values(qi.metrics.models);
+  if (isQwenInput(input) && input.metrics?.models) {
+    const entries = Object.values(input.metrics.models);
     if (entries.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mm = entries[0] as any;
-      if (mm?.api?.total_requests > 0) {
+      const mm = entries[0];
+      // API requests
+      if (mm.api?.total_requests > 0) {
         let reqStr = `${mm.api.total_requests} req`;
         if (mm.api.total_errors > 0) reqStr += c.red(` (${mm.api.total_errors} err)`);
         leftParts.push(c.dim(`${icons.bolt} ${reqStr}`));
       }
-      if (mm?.tokens?.cached > 0) {
+      // Cached tokens
+      if (mm.tokens?.cached > 0) {
         leftParts.push(c.dim(`${icons.comment} ${formatTokens(mm.tokens.cached)} cached`));
       }
-      if (mm?.tokens?.thoughts > 0) {
-        leftParts.push(c.dim(`^${formatTokens(mm.tokens.thoughts)} thought`));
+      // Thoughts (reasoning tokens)
+      if (mm.tokens?.thoughts > 0) {
+        const label = mm.tokens.thoughts === 1 ? 'thought' : 'thoughts';
+        leftParts.push(c.dim(`^${formatTokens(mm.tokens.thoughts)} ${label}`));
       }
     }
   }

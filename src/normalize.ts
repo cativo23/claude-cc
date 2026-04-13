@@ -4,10 +4,10 @@
 // Platform-specific quirks are handled once here.
 // Renderers check field presence, not platform identity.
 
-import type { ClaudeCodeInput, QwenInput } from './types.js';
+import type { ClaudeCodeInput, QwenInput, RawInput } from './types.js';
+import { isQwenInput } from './types.js';
 
 export type Platform = 'claude-code' | 'qwen-code';
-export type RawInput = ClaudeCodeInput | QwenInput;
 
 export interface NormalizedInput {
   /** Which platform sent the data */
@@ -62,17 +62,15 @@ export interface NormalizedInput {
   raw: RawInput;
 }
 
-function detectPlatform(input: ClaudeCodeInput & { metrics?: unknown }): Platform {
-  return 'metrics' in input && input.metrics != null ? 'qwen-code' : 'claude-code';
-}
-
 export function normalize(input: RawInput): NormalizedInput {
-  const platform = detectPlatform(input as ClaudeCodeInput & { metrics?: unknown });
-  const isQwen = platform === 'qwen-code';
-  const qwen = isQwen ? input as unknown as QwenInput : null;
-  const claude = isQwen ? null : input as ClaudeCodeInput;
+  const platform: Platform = isQwenInput(input) ? 'qwen-code' : 'claude-code';
+  const qwen = isQwenInput(input) ? input : null;
+  const claude = isQwenInput(input) ? null : input as ClaudeCodeInput;
 
-  const modelName = typeof input.model === 'string' ? input.model : input.model.display_name;
+  // Model name with null guard for malformed input
+  const modelName = typeof input.model === 'string'
+    ? input.model
+    : (input.model?.display_name ?? 'unknown');
   const cwd = (input as { cwd?: string }).cwd || input.workspace?.current_dir || process.cwd();
 
   // Token unification
@@ -82,7 +80,7 @@ export function normalize(input: RawInput): NormalizedInput {
   let cached: number | undefined;
   let thoughts: number | undefined;
 
-  if (isQwen && qwen) {
+  if (qwen) {
     const entries = Object.values(qwen.metrics.models);
     if (entries.length > 0) {
       cached = entries[0].tokens?.cached;
@@ -94,7 +92,7 @@ export function normalize(input: RawInput): NormalizedInput {
 
   // Performance (Qwen only)
   let performance: NormalizedInput['performance'];
-  if (isQwen && qwen) {
+  if (qwen) {
     const entries = Object.values(qwen.metrics.models);
     if (entries.length > 0 && entries[0]?.api) {
       performance = {
@@ -108,7 +106,7 @@ export function normalize(input: RawInput): NormalizedInput {
   // Lines changed
   let linesAdded = 0;
   let linesRemoved = 0;
-  if (isQwen && qwen) {
+  if (qwen) {
     linesAdded = qwen.metrics.files?.total_lines_added ?? 0;
     linesRemoved = qwen.metrics.files?.total_lines_removed ?? 0;
   } else if (claude) {
@@ -130,12 +128,12 @@ export function normalize(input: RawInput): NormalizedInput {
     },
     context: {
       usedPercentage: input.context_window.used_percentage,
-      windowSize: isQwen && qwen ? qwen.context_window.context_window_size : undefined,
+      windowSize: qwen ? qwen.context_window.context_window_size : undefined,
     },
     cost: claude ? claude.cost?.total_cost_usd : undefined,
     durationMs: claude ? claude.cost?.total_duration_ms : undefined,
     performance,
-    gitBranch: isQwen && qwen ? qwen.git?.branch : undefined,
+    gitBranch: qwen ? qwen.git?.branch : undefined,
     linesAdded,
     linesRemoved,
     vimMode: input.vim?.mode,

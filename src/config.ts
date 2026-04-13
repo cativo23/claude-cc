@@ -135,7 +135,7 @@ export function mergeCliFlags(config: HudConfig, argv: string[]): HudConfig {
   if (argv.includes('--qwen')) applyPreset(r, 'qwen');
   if (argv.includes('--full')) applyPreset(r, 'full');
   for (const arg of argv) {
-    const presetMatch = arg.match(/^--preset[= ]?(full|balanced|minimal)$/);
+    const presetMatch = arg.match(/^--preset[= ]?(full|balanced|minimal|qwen)$/);
     if (presetMatch) { applyPreset(r, presetMatch[1] as NonNullable<HudConfig['preset']>); continue; }
     const iconsMatch = arg.match(/^--icons[= ]?(nerd|emoji|none)$/);
     if (iconsMatch) { r.icons = iconsMatch[1] as HudConfig['icons']; continue; }

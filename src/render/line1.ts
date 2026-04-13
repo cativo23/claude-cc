@@ -3,10 +3,16 @@ import { fitSegments, truncField } from './text.js';
 import { getModelName, formatGitChanges, SEP } from './shared.js';
 import type { Colors } from './colors.js';
 import type { RenderContext, TranscriptData } from '../types.js';
+import { isQwenInput } from '../types.js';
 
 function getActiveTodo(transcript: TranscriptData): string | undefined {
   const inProgress = transcript.todos.filter(t => t.status === 'in_progress');
   return inProgress[0]?.content;
+}
+
+/** Strip ANSI control characters and other non-printable chars from branch names */
+function sanitizeBranch(branch: string): string {
+  return branch.replace(/[\x00-\x1f\x7f]/g, '');
 }
 
 export function renderLine1(ctx: RenderContext, c: Colors): string {
@@ -21,7 +27,8 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
   }
 
   // Branch + git changes (prefer Qwen's native git.branch, fallback to external git)
-  const branchName = (input as any).git?.branch || git.branch;
+  const qwenBranch = isQwenInput(input) ? sanitizeBranch(input.git?.branch || '') : undefined;
+  const branchName = qwenBranch || git.branch;
   if (display.branch && branchName) {
     const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : cols < 100 ? 30 : cols < 120 ? 40 : 60;
     const bName = truncField(branchName, branchLen);
@@ -46,8 +53,9 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
 
   // Lines changed (right side) — from Claude cost or Qwen metrics
   if (display.linesChanged) {
-    const added = (input.cost?.total_lines_added ?? (input as any).metrics?.files?.total_lines_added) ?? 0;
-    const removed = (input.cost?.total_lines_removed ?? (input as any).metrics?.files?.total_lines_removed) ?? 0;
+    const qwenMetrics = isQwenInput(input) ? input.metrics?.files : undefined;
+    const added = (input.cost?.total_lines_added ?? qwenMetrics?.total_lines_added) ?? 0;
+    const removed = (input.cost?.total_lines_removed ?? qwenMetrics?.total_lines_removed) ?? 0;
     if (added > 0 || removed > 0) {
       right.push(`${c.green(`+${added}`)} ${c.red(`-${removed}`)}`);
     }

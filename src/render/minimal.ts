@@ -5,6 +5,7 @@ import type { Colors } from './colors.js';
 import { formatTokens, formatDuration, formatCost } from '../utils/format.js';
 import { renderLine3 } from './line3.js';
 import type { RenderContext } from '../types.js';
+import { isQwenInput } from '../types.js';
 
 export function renderMinimal(ctx: RenderContext, c: Colors): string {
   const { input, git, transcript, tokenSpeed, gsd, config: { display }, cols, icons } = ctx;
@@ -18,10 +19,12 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
     parts.push(c.brightBlue(truncField(dirName, dirLen)));
   }
 
-  // Branch
-  if (display.branch && git.branch) {
-    const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : git.branch.length;
-    let branchStr = c.magenta(truncField(git.branch, branchLen));
+  // Branch (use Qwen's native git.branch if available)
+  const qwenBranch = isQwenInput(input) ? input.git?.branch : undefined;
+  const branchName = qwenBranch || git.branch;
+  if (display.branch && branchName) {
+    const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : branchName.length;
+    let branchStr = c.magenta(truncField(branchName, branchLen));
     if (display.gitChanges) {
       const changeParts = formatGitChanges(git, c);
       if (changeParts.length > 0) branchStr += ' ' + changeParts.join(' ');
@@ -52,14 +55,14 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
       if (tParts.length > 0) parts.push(tParts.join(' '));
     }
 
-    // Cost
+    // Cost (Claude only)
     if (display.cost && input.cost) {
-      parts.push(formatCost((input.cost?.total_cost_usd ?? 0)));
+      parts.push(formatCost(input.cost.total_cost_usd));
     }
 
-    // Duration
+    // Duration (Claude only)
     if (display.duration && input.cost) {
-      parts.push(formatDuration((input.cost?.total_duration_ms ?? 0)));
+      parts.push(formatDuration(input.cost.total_duration_ms));
     }
 
     // Token speed
@@ -67,31 +70,32 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
       parts.push(c.dim(`${tokenSpeed} tok/s`));
     }
 
-    // Lines changed
+    // Lines changed (from Claude cost or Qwen metrics)
     if (display.linesChanged) {
-      const added = (input.cost?.total_lines_added ?? (input as any).metrics?.files?.total_lines_added) ?? 0;
-      const removed = (input.cost?.total_lines_removed ?? (input as any).metrics?.files?.total_lines_removed) ?? 0;
+      const qwenMetrics = isQwenInput(input) ? input.metrics?.files : undefined;
+      const added = (input.cost?.total_lines_added ?? qwenMetrics?.total_lines_added) ?? 0;
+      const removed = (input.cost?.total_lines_removed ?? qwenMetrics?.total_lines_removed) ?? 0;
       if (added > 0 || removed > 0) {
         parts.push(`${c.green(`+${added}`)}${c.red(`-${removed}`)}`);
       }
     }
 
     // Qwen Code: API metrics (requests, cached tokens, thoughts)
-    const qi = input as any;
-    if (qi.metrics?.models) {
-      const entries = Object.values(qi.metrics.models);
+    if (isQwenInput(input) && input.metrics?.models) {
+      const entries = Object.values(input.metrics.models);
       if (entries.length > 0) {
-        const mm = entries[0] as any;
-        if (mm?.api?.total_requests > 0) {
-          let reqStr = `${mm.api.total_requests}req`;
-          if (mm.api.total_errors > 0) reqStr += `(${mm.api.total_errors}err)`;
-          parts.push(c.dim(`${icons.bolt}${reqStr}`));
+        const mm = entries[0];
+        if (mm.api?.total_requests > 0) {
+          let reqStr = `${mm.api.total_requests} req`;
+          if (mm.api.total_errors > 0) reqStr += `(${mm.api.total_errors} err)`;
+          parts.push(c.dim(`${icons.bolt} ${reqStr}`));
         }
-        if (mm?.tokens?.cached > 0) {
-          parts.push(c.dim(`${icons.comment}${formatTokens(mm.tokens.cached)}cached`));
+        if (mm.tokens?.cached > 0) {
+          parts.push(c.dim(`${icons.comment} ${formatTokens(mm.tokens.cached)} cached`));
         }
-        if (mm?.tokens?.thoughts > 0) {
-          parts.push(c.dim(`^${formatTokens(mm.tokens.thoughts)}`));
+        if (mm.tokens?.thoughts > 0) {
+          const label = mm.tokens.thoughts === 1 ? 'thought' : 'thoughts';
+          parts.push(c.dim(`^${formatTokens(mm.tokens.thoughts)} ${label}`));
         }
       }
     }
