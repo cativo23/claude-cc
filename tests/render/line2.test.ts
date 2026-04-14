@@ -4,6 +4,7 @@ import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
 import type { ClaudeCodeInput, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
+import { normalize } from '../../src/normalize.js';
 
 const c = createColors('named');
 
@@ -20,9 +21,9 @@ const baseInput: ClaudeCodeInput = {
   workspace: { current_dir: '/home/user/project' },
 };
 
-function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
+function makeCtx(overrides: Partial<RenderContext> = {}, inputOverride?: Partial<ClaudeCodeInput>): RenderContext {
   return {
-    input: baseInput, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
+    input: normalize({ ...baseInput, ...inputOverride }), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd: null, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,
@@ -53,8 +54,8 @@ describe('renderLine2', () => {
   });
 
   it('does not show burn rate when duration <= 60s', () => {
-    const input = { ...baseInput, cost: { ...baseInput.cost, total_duration_ms: 30000 } };
-    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    const inputOverride = { cost: { ...baseInput.cost, total_duration_ms: 30000 } };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride as any), c));
     expect(out).not.toContain('/h');
   });
 
@@ -64,21 +65,21 @@ describe('renderLine2', () => {
   });
 
   it('does not show rate limits below 50%', () => {
-    const input = { ...baseInput, rate_limits: { five_hour: { used_percentage: 30 } } };
-    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    const inputOverride = { rate_limits: { five_hour: { used_percentage: 30 } } };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
     expect(out).not.toContain('5h');
   });
 
   it('shows rate limits at >=50%', () => {
-    const input = { ...baseInput, rate_limits: { five_hour: { used_percentage: 72 } } };
-    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    const inputOverride = { rate_limits: { five_hour: { used_percentage: 72 } } };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
     expect(out).toContain('72%');
     expect(out).toContain('5h');
   });
 
   it('shows vim mode', () => {
-    const input = { ...baseInput, vim: { mode: 'i' } };
-    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    const inputOverride = { vim: { mode: 'i' } };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
     expect(out).toContain('[i]');
   });
 
@@ -105,15 +106,15 @@ describe('renderLine2', () => {
   });
 
   it('shows cache hit rate when cache_read_input_tokens present', () => {
-    const input = { ...baseInput, context_window: { ...baseInput.context_window, cache_read_input_tokens: 100000, total_input_tokens: 131000 } };
-    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    const inputOverride = { context_window: { ...baseInput.context_window, cache_read_input_tokens: 100000, total_input_tokens: 131000 } };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
     expect(out).toContain('cache');
     expect(out).toContain('76%');
   });
 
   it('hides cache metrics when toggled off', () => {
-    const input = { ...baseInput, context_window: { ...baseInput.context_window, cache_read_input_tokens: 100000 } };
-    const out = stripAnsi(renderLine2(makeCtx({ input, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: false } } }), c));
+    const inputOverride = { context_window: { ...baseInput.context_window, cache_read_input_tokens: 100000 } };
+    const out = stripAnsi(renderLine2(makeCtx({ config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: false } } }, inputOverride), c));
     expect(out).not.toContain('cache');
   });
 
@@ -130,8 +131,8 @@ describe('renderLine2', () => {
   });
 
   it('shows contextTokens estimate', () => {
-    const input = { ...baseInput, context_window: { ...baseInput.context_window, used_percentage: 50, total_input_tokens: 100000 } };
-    const out = stripAnsi(renderLine2(makeCtx({ input }), c));
+    const inputOverride = { context_window: { ...baseInput.context_window, used_percentage: 50, total_input_tokens: 100000 } };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
     expect(out).toContain('100k/200k');
   });
 });

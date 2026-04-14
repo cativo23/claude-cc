@@ -4,6 +4,7 @@ import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
 import type { ClaudeCodeInput, GitStatus, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
+import { normalize } from '../../src/normalize.js';
 
 const c = createColors('named');
 
@@ -18,9 +19,9 @@ const baseInput: ClaudeCodeInput = {
 
 const git: GitStatus = { branch: 'main', staged: 1, modified: 2, untracked: 3 };
 
-function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
+function makeCtx(overrides: Partial<RenderContext> = {}, inputOverride?: Partial<ClaudeCodeInput>): RenderContext {
   return {
-    input: baseInput, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
+    input: normalize({ ...baseInput, ...inputOverride }), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd: null, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,
@@ -79,8 +80,8 @@ describe('renderLine1', () => {
   });
 
   it('handles object model with display_name', () => {
-    const input = { ...baseInput, model: { display_name: 'Sonnet 3.7' } };
-    const out = stripAnsi(renderLine1(makeCtx({ input }), c));
+    const inputOverride = { model: { display_name: 'Sonnet 3.7' } };
+    const out = stripAnsi(renderLine1(makeCtx({}, inputOverride), c));
     expect(out).toContain('Sonnet 3.7');
   });
 });

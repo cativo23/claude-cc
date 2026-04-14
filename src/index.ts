@@ -8,13 +8,14 @@ import { getTokenSpeed } from './parsers/token-speed.js';
 import { getMemoryInfo } from './parsers/memory.js';
 import { getGsdInfo } from './parsers/gsd.js';
 import { getMcpInfo } from './parsers/mcp.js';
-import { getTermCols, getLayoutCols } from './utils/terminal.js';
+import { getLayoutCols, getTermCols } from './utils/terminal.js';
 import { loadConfig, mergeCliFlags } from './config.js';
 import { render } from './render/index.js';
 import { resolveIcons } from './render/icons.js';
 import { install, uninstall } from './installer.js';
-import type { Dependencies, RenderContext } from './types.js';
+import type { Dependencies } from './types.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
+import { normalize } from './normalize.js';
 
 const defaultDeps: Dependencies = {
   readStdin: () => defaultReadStdin(process.stdin),
@@ -48,7 +49,8 @@ export async function main(overrides: Partial<Dependencies> = {}): Promise<strin
   const isTTY = !!(process.stdout.columns || process.stderr.columns);
   const cols = getLayoutCols(rawCols, isTTY);
   const icons = resolveIcons(config.icons);
-  return render({ input, git, transcript, tokenSpeed, memory, gsd, mcp, cols, config, icons });
+  const normalizedInput = normalize(input);
+  return render({ input: normalizedInput, git, transcript, tokenSpeed, memory, gsd, mcp, cols, config, icons });
 }
 
 // Run when invoked directly.

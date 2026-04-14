@@ -7,13 +7,14 @@ export interface ClaudeCodeInput {
   cwd?: string;
   workspace?: { current_dir: string };
   context_window: {
+    context_window_size?: number;
     used_percentage: number;
     remaining_percentage: number;
+    current_usage?: number | { output_tokens: number };
     total_input_tokens?: number;
     total_output_tokens?: number;
     cache_read_input_tokens?: number;
     cache_creation_input_tokens?: number;
-    current_usage?: { output_tokens: number };
   };
   cost: {
     total_cost_usd: number;
@@ -124,8 +125,10 @@ export interface McpInfo {
 
 // ── Render context ──────────────────────────────────────────────────
 
+import type { NormalizedInput } from './normalize.js';
+
 export interface RenderContext {
-  input: ClaudeCodeInput;
+  input: NormalizedInput;
   git: GitStatus;
   transcript: TranscriptData;
   tokenSpeed: number | null;
@@ -155,7 +158,7 @@ export interface HudConfig {
    * User-facing preset — drives layout + display toggles (Phase 3).
    * CLI: --full | --balanced | --minimal | --preset=<value>
    */
-  preset?: 'full' | 'balanced' | 'minimal';
+  preset?: 'full' | 'balanced' | 'minimal' | 'qwen';
   theme?: string;
   icons?: 'nerd' | 'emoji' | 'none';
 }
@@ -230,7 +233,7 @@ export const DEFAULT_CONFIG: HudConfig = {
 // ── Dependency injection ────────────────────────────────────────────
 
 export interface Dependencies {
-  readStdin: () => Promise<ClaudeCodeInput>;
+  readStdin: () => Promise<RawInput>;
   parseGit: (cwd: string) => Promise<GitStatus>;
   parseTranscript: (path: string) => Promise<TranscriptData>;
   getTokenSpeed: (contextWindow: ClaudeCodeInput['context_window']) => number | null;
@@ -240,3 +243,57 @@ export interface Dependencies {
   getTermCols: () => number;
   loadConfig?: () => HudConfig;
 }
+
+// ── Qwen Code stdin JSON ────────────────────────────────────────────
+
+export interface QwenInput {
+  session_id: string;
+  version: string;
+  model: { display_name: string };
+  context_window: {
+    context_window_size: number;
+    used_percentage: number;
+    remaining_percentage: number;
+    current_usage: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
+  metrics: {
+    models: Record<string, {
+      api: {
+        total_requests: number;
+        total_errors: number;
+        total_latency_ms: number;
+      };
+      tokens: {
+        prompt: number;
+        completion: number;
+        total: number;
+        cached: number;
+        thoughts: number;
+      };
+    }>;
+    files: {
+      total_lines_added: number;
+      total_lines_removed: number;
+    };
+  };
+  git?: { branch: string };
+  vim?: { mode: string };
+  workspace?: { current_dir: string };
+  // Optional fields shared with ClaudeCodeInput (Qwen does not send these)
+  session_name?: string;
+  cwd?: string;
+  cost?: { total_cost_usd: number; total_duration_ms: number; total_lines_added?: number; total_lines_removed?: number };
+  transcript_path?: string;
+  output_style?: { name: string };
+  agent?: { name: string };
+  worktree?: { name: string };
+  rate_limits?: { five_hour?: { used_percentage: number; resets_at?: number }; seven_day?: { used_percentage: number; resets_at?: number } };
+  exceeds_200k_tokens?: boolean;
+}
+
+/** Union of all supported platform input types */
+export type RawInput = ClaudeCodeInput | QwenInput;

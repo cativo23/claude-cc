@@ -11,7 +11,7 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
   const parts: string[] = [];
 
   // Directory
-  const cwd = input.cwd || input.workspace?.current_dir || '';
+  const cwd = input.cwd;
   if (display.directory && cwd) {
     const dirName = basename(cwd) || cwd;
     const dirLen = cols < 60 ? 12 : cols < 80 ? 20 : 30;
@@ -19,9 +19,10 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
   }
 
   // Branch
-  if (display.branch && git.branch) {
-    const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : git.branch.length;
-    let branchStr = c.magenta(truncField(git.branch, branchLen));
+  const branchName = input.gitBranch || git.branch;
+  if (display.branch && branchName) {
+    const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : branchName.length;
+    let branchStr = c.magenta(truncField(branchName, branchLen));
     if (display.gitChanges) {
       const changeParts = formatGitChanges(git, c);
       if (changeParts.length > 0) branchStr += ' ' + changeParts.join(' ');
@@ -31,35 +32,35 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
   // Model
   if (display.model) {
-    const modelName = getModelName(input.model);
+    const modelName = getModelName(input.raw.model);
     if (modelName) parts.push(c.cyan(truncField(modelName, 20)));
   }
 
   // Context bar
   if (display.contextBar) {
-    parts.push(buildContextBar(input.context_window.used_percentage, c, { segments: 10, pctInsideBar: true, iconSet: icons }));
+    parts.push(buildContextBar(input.context.usedPercentage, c, { segments: 10, pctInsideBar: true, iconSet: icons }));
   }
 
   // Only add these if cols >= 60
   if (cols >= 60) {
     // Tokens
     if (display.tokens) {
-      const inTokens = input.context_window.total_input_tokens;
-      const outTokens = input.context_window.total_output_tokens;
+      const inTokens = input.tokens.input;
+      const outTokens = input.tokens.output;
       const tParts: string[] = [];
-      if (inTokens != null) tParts.push(`${formatTokens(inTokens)}↑`);
-      if (outTokens != null) tParts.push(`${formatTokens(outTokens)}↓`);
+      if (inTokens > 0) tParts.push(`${formatTokens(inTokens)}↑`);
+      if (outTokens > 0) tParts.push(`${formatTokens(outTokens)}↓`);
       if (tParts.length > 0) parts.push(tParts.join(' '));
     }
 
-    // Cost
-    if (display.cost && input.cost) {
-      parts.push(formatCost(input.cost.total_cost_usd));
+    // Cost (Claude only)
+    if (display.cost && input.cost != null) {
+      parts.push(formatCost(input.cost));
     }
 
-    // Duration
-    if (display.duration && input.cost) {
-      parts.push(formatDuration(input.cost.total_duration_ms));
+    // Duration (Claude only)
+    if (display.duration && input.durationMs != null) {
+      parts.push(formatDuration(input.durationMs));
     }
 
     // Token speed
@@ -68,17 +69,34 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
     }
 
     // Lines changed
-    if (display.linesChanged && input.cost) {
-      const added = input.cost.total_lines_added ?? 0;
-      const removed = input.cost.total_lines_removed ?? 0;
+    if (display.linesChanged) {
+      const added = input.linesAdded;
+      const removed = input.linesRemoved;
       if (added > 0 || removed > 0) {
         parts.push(`${c.green(`+${added}`)}${c.red(`-${removed}`)}`);
       }
     }
 
+    // Qwen Code: API metrics (requests, cached tokens, thoughts)
+    if (input.platform === 'qwen-code' && input.performance) {
+      const perf = input.performance;
+      if (perf.requests > 0) {
+        let reqStr = `${perf.requests} req`;
+        if (perf.errors > 0) reqStr += `(${perf.errors} err)`;
+        parts.push(c.dim(`${icons.bolt} ${reqStr}`));
+      }
+      if (input.tokens.cached != null && input.tokens.cached > 0) {
+        parts.push(c.dim(`${icons.comment} ${formatTokens(input.tokens.cached)} cached`));
+      }
+      if (input.tokens.thoughts != null && input.tokens.thoughts > 0) {
+        const label = input.tokens.thoughts === 1 ? 'thought' : 'thoughts';
+        parts.push(c.dim(`^${formatTokens(input.tokens.thoughts)} ${label}`));
+      }
+    }
+
     // Style
-    if (display.style && input.output_style?.name) {
-      parts.push(c.dim(input.output_style.name));
+    if (display.style && input.raw.output_style?.name) {
+      parts.push(c.dim(input.raw.output_style.name));
     }
 
     // Version
@@ -92,13 +110,13 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
     }
 
     // Worktree
-    if (display.worktree && input.worktree?.name) {
-      parts.push(c.dim(`${icons.tree} ${truncField(input.worktree.name, 12)}`));
+    if (display.worktree && input.raw.worktree?.name) {
+      parts.push(c.dim(`${icons.tree} ${truncField(input.raw.worktree.name, 12)}`));
     }
 
     // Agent
-    if (display.agent && input.agent?.name) {
-      parts.push(c.dim(`${icons.cubes} ${truncField(input.agent.name, 12)}`));
+    if (display.agent && input.raw.agent?.name) {
+      parts.push(c.dim(`${icons.cubes} ${truncField(input.raw.agent.name, 12)}`));
     }
   }
 

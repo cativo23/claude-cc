@@ -1,9 +1,11 @@
 # lumira
 
-Real-time statusline plugin for [Claude Code](https://code.claude.com).
+Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen Code.
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
-![Tests](https://img.shields.io/badge/tests-136%20passing-green)
+![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-2d3748?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCI+PHBhdGggZD0iTTY0IDEyOEMzNS44IDEyOCAxMyAxMDUuMiAxMyA3N0MxMyA0OC44IDM1LjggMjYgNjQgMjZjMjguMiAwIDUxIDIyLjggNTEgNTFzLTIyLjggNTEtNTEgNTF6IiBmaWxsPSIjMjQyNTJGIi8+PC9zdmc+)
+![Qwen Code](https://img.shields.io/badge/Qwen_Code-compatible-6156FF)
+![Tests](https://github.com/cativo23/lumira/actions/workflows/ci.yml/badge.svg)
 ![Dependencies](https://img.shields.io/badge/runtime%20deps-0-brightgreen)
 
 ## Features
@@ -20,6 +22,7 @@ Real-time statusline plugin for [Claude Code](https://code.claude.com).
 - **3-tier color system** — named ANSI, 256-color, truecolor (auto-detected)
 - **Config-driven** — toggle any feature via JSON config + CLI flags
 - **Zero runtime dependencies**
+- **Dual-platform support** — works with both Claude Code and Qwen Code statusline payloads
 
 ## Install
 
@@ -129,12 +132,28 @@ All fields are optional — defaults are shown above.
 ```bash
 lumira --minimal    # Force minimal mode
 lumira --gsd        # Enable GSD integration
+lumira --qwen       # Force Qwen Code single-line output
+```
+
+### Qwen Code
+
+Lumira auto-detects the platform. For Qwen Code, use the `--qwen` preset for a single-line output with model, context bar, requests, cached tokens, and thoughts:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "npx lumira@latest --qwen",
+    "padding": 0
+  }
+}
 ```
 
 ## Architecture
 
-```
-stdin (JSON from Claude Code)
+```text
+stdin (JSON from Claude Code or Qwen Code)
+  → normalize() — unifies both platform payloads
   → parsers (git, transcript, token-speed, memory, gsd)
   → RenderContext
   → render (line1-4 or minimal)

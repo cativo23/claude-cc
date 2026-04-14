@@ -16,15 +16,16 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
 
   // Model
   if (display.model) {
-    const modelName = getModelName(input.model);
+    const modelName = getModelName(input.raw.model);
     if (modelName) left.push(c.cyan(`${icons.model} ${modelName}`));
   }
 
-  // Branch + git changes
-  if (display.branch && git.branch) {
+  // Branch + git changes (prefer Qwen's native git.branch, fallback to external git)
+  const branchName = input.gitBranch || git.branch;
+  if (display.branch && branchName) {
     const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : cols < 100 ? 30 : cols < 120 ? 40 : 60;
-    const branchName = truncField(git.branch, branchLen);
-    let branchStr = c.magenta(`${icons.branch} ${branchName}`);
+    const bName = truncField(branchName, branchLen);
+    let branchStr = c.magenta(`${icons.branch} ${bName}`);
 
     if (display.gitChanges) {
       const parts = formatGitChanges(git, c);
@@ -35,7 +36,7 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
 
   // Directory
   if (display.directory) {
-    const cwd = input.cwd || input.workspace?.current_dir || '';
+    const cwd = input.cwd;
     if (cwd) {
       const dirName = basename(cwd) || cwd;
       const dirLen = cols < 80 ? 12 : cols < 120 ? 20 : 30;
@@ -44,9 +45,9 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
   }
 
   // Lines changed (right side)
-  if (display.linesChanged && input.cost) {
-    const added = input.cost.total_lines_added ?? 0;
-    const removed = input.cost.total_lines_removed ?? 0;
+  if (display.linesChanged) {
+    const added = input.linesAdded;
+    const removed = input.linesRemoved;
     if (added > 0 || removed > 0) {
       right.push(`${c.green(`+${added}`)} ${c.red(`-${removed}`)}`);
     }
@@ -59,23 +60,23 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
   }
 
   // Worktree
-  if (display.worktree && input.worktree?.name) {
-    right.push(c.gray(`${icons.tree} ${truncField(input.worktree.name, 15)}`));
+  if (display.worktree && input.raw.worktree?.name) {
+    right.push(c.gray(`${icons.tree} ${truncField(input.raw.worktree.name, 15)}`));
   }
 
   // Agent
-  if (display.agent && input.agent?.name) {
-    right.push(c.gray(`${icons.cubes} ${truncField(input.agent.name, 15)}`));
+  if (display.agent && input.raw.agent?.name) {
+    right.push(c.gray(`${icons.cubes} ${truncField(input.raw.agent.name, 15)}`));
   }
 
   // Session name
-  if (display.sessionName && input.session_name) {
-    right.push(c.dim(truncField(input.session_name, 20)));
+  if (display.sessionName && input.raw.session_name) {
+    right.push(c.dim(truncField(input.raw.session_name, 20)));
   }
 
   // Style
-  if (display.style && input.output_style?.name) {
-    right.push(c.gray(input.output_style.name));
+  if (display.style && input.raw.output_style?.name) {
+    right.push(c.gray(input.raw.output_style.name));
   }
 
   // Version

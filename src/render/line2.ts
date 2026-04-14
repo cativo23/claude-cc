@@ -24,51 +24,51 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
 
   // Context bar
   if (display.contextBar) {
-    const pct = input.context_window.used_percentage;
+    const pct = input.context.usedPercentage;
     leftParts.push(buildContextBar(pct, c, { iconSet: icons }));
   }
 
   // Context tokens (estimated used/capacity from percentage)
-  if (display.contextTokens && input.context_window.total_input_tokens != null && input.context_window.used_percentage > 0) {
-    const used = input.context_window.total_input_tokens;
-    const capacity = Math.round(used / (input.context_window.used_percentage / 100));
+  if (display.contextTokens && input.tokens.input > 0 && input.context.usedPercentage > 0) {
+    const used = input.tokens.input;
+    const capacity = Math.round(used / (input.context.usedPercentage / 100));
     leftParts.push(c.dim(`${formatTokens(used)}/${formatTokens(capacity)}`));
   }
 
   // Tokens
   if (display.tokens) {
-    const inTokens = input.context_window.total_input_tokens;
-    const outTokens = input.context_window.total_output_tokens;
+    const inTokens = input.tokens.input;
+    const outTokens = input.tokens.output;
     const parts: string[] = [];
-    if (inTokens != null) parts.push(`${formatTokens(inTokens)}↑`);
-    if (outTokens != null) parts.push(`${formatTokens(outTokens)}↓`);
+    if (inTokens > 0) parts.push(`${formatTokens(inTokens)}↑`);
+    if (outTokens > 0) parts.push(`${formatTokens(outTokens)}↓`);
     if (parts.length > 0) leftParts.push(`${icons.comment} ${parts.join(' ')}`);
   }
 
   // Cache metrics (hit rate)
   if (display.cacheMetrics) {
-    const cacheRead = input.context_window.cache_read_input_tokens;
-    const totalIn = input.context_window.total_input_tokens;
-    if (cacheRead != null && totalIn != null && totalIn > 0) {
+    const cacheRead = input.tokens.cached;
+    const totalIn = input.tokens.input;
+    if (cacheRead != null && totalIn > 0) {
       const hitRate = Math.round((cacheRead / totalIn) * 100);
       leftParts.push(c.dim(`cache ${hitRate}%`));
     }
   }
 
-  // Cost + burn rate
-  if (display.cost && input.cost) {
-    const costStr = formatCost(input.cost.total_cost_usd);
+  // Cost + burn rate (Claude only — Qwen doesn't send cost data)
+  if (display.cost && input.cost != null) {
+    const costStr = formatCost(input.cost);
     let costPart = costStr;
-    if (display.burnRate) {
-      const burn = formatBurnRate(input.cost.total_cost_usd, input.cost.total_duration_ms);
+    if (display.burnRate && input.durationMs != null) {
+      const burn = formatBurnRate(input.cost, input.durationMs);
       if (burn) costPart += ` ${c.dim(burn)}`;
     }
     leftParts.push(costPart);
   }
 
-  // Duration
-  if (display.duration && input.cost) {
-    leftParts.push(`${icons.clock} ${formatDuration(input.cost.total_duration_ms)}`);
+  // Duration (Claude only)
+  if (display.duration && input.durationMs != null) {
+    leftParts.push(`${icons.clock} ${formatDuration(input.durationMs)}`);
   }
 
   // Memory
@@ -87,16 +87,36 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
 
+  // Qwen Code: API metrics (requests, cached tokens, thoughts)
+  if (input.platform === 'qwen-code' && input.performance) {
+    const perf = input.performance;
+    // API requests
+    if (perf.requests > 0) {
+      let reqStr = `${perf.requests} req`;
+      if (perf.errors > 0) reqStr += c.red(` (${perf.errors} err)`);
+      leftParts.push(c.dim(`${icons.bolt} ${reqStr}`));
+    }
+    // Cached tokens (from qwen metrics format vs claude format)
+    if (input.tokens.cached != null && input.tokens.cached > 0) {
+      leftParts.push(c.dim(`${icons.comment} ${formatTokens(input.tokens.cached)} cached`));
+    }
+    // Thoughts (reasoning tokens)
+    if (input.tokens.thoughts != null && input.tokens.thoughts > 0) {
+      const label = input.tokens.thoughts === 1 ? 'thought' : 'thoughts';
+      leftParts.push(c.dim(`^${formatTokens(input.tokens.thoughts)} ${label}`));
+    }
+  }
+
   // Token speed
   if (display.tokenSpeed && tokenSpeed != null) {
     leftParts.push(c.dim(`${icons.bolt}${tokenSpeed} tok/s`));
   }
 
   // Rate limits (only show if >=50%)
-  if (display.rateLimits && input.rate_limits) {
-    const limits: [string, typeof input.rate_limits.five_hour][] = [
-      ['5h', input.rate_limits.five_hour],
-      ['7d', input.rate_limits.seven_day],
+  if (display.rateLimits && input.raw.rate_limits) {
+    const limits: [string, typeof input.raw.rate_limits.five_hour][] = [
+      ['5h', input.raw.rate_limits.five_hour],
+      ['7d', input.raw.rate_limits.seven_day],
     ];
     for (const [label, win] of limits) {
       if (!win || win.used_percentage < 50) continue;
@@ -111,8 +131,8 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   }
 
   // Right side: vim mode
-  if (display.vim && input.vim?.mode) {
-    rightParts.push(c.dim(`[${input.vim.mode}]`));
+  if (display.vim && input.vimMode) {
+    rightParts.push(c.dim(`[${input.vimMode}]`));
   }
 
   // Right side: effort (hidden if medium)
