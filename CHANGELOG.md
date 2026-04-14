@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-04-14
+
+### Changed
+
+- Upgrade dependencies: TypeScript 6.0.2, vitest 4.1.4, @types/node 25.x
+- Add `types: ['node']` to tsconfig for @types/node@25 compatibility
+
+## [0.2.1] - 2026-04-11
+
+### Changed
+
+- Normalize repository name to `lumira` across docs and config
+- Wire install/uninstall subcommands into CLI entry point
+
+## [0.2.0] - 2026-04-10
+
+### Added
+
+- `/lumira` skill for natural language configuration
+- MCP server health display with parser and display toggle
+- Named color themes: dracula, nord, tokyo-night, catppuccin, monokai
+- Icon modes (nerd/emoji/none)
+- Presets system with display toggle defaults
+- Install/uninstall commands with backup support
+- `contextTokens` display toggle and cache metrics display
+- Cache metrics in line 2
+
+### Changed
+
+- Remove context bar brackets for cleaner display
+- Rename layout values: `custom` → `full`, `multiline/singleline/auto`
+- Unify all renderer signatures to `(ctx: RenderContext, c: Colors)`
+- Make `loadConfig` injectable via Dependencies interface
+- Extract shared render utilities into `src/render/shared.ts`
+
+### Fixed
+
+- Resolve npx symlinks with `realpathSync` for direct-run detection
+- Tighten TTY regex to exclude underscore
+- Replace module-level globals with per-path Map cache in transcript parser
+- Validate backup JSON before restoring on uninstall
+- Handle `resets_at` in seconds by converting to milliseconds
+- Respect `display.tools` and `display.todos` in renderLine3
+- Count M in col 0 as staged, not excluded
+- Write cache to per-user subdirectory to prevent TOCTOU attacks
+- Validate `/proc` symlink target before shell interpolation
+- Installer now copies `/lumira` skill to `~/.claude/skills/`
+
 ## [0.1.0] - 2026-04-09
 
 ### Added
@@ -48,5 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/cativo23/lumira/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/cativo23/lumira/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/cativo23/lumira/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/cativo23/lumira/releases/tag/v0.1.0
