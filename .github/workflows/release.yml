@@ -110,6 +110,8 @@ jobs:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
+      - run: npm ci
+
       - name: Publish to npm
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
