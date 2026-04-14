@@ -13,6 +13,7 @@ import { loadConfig, mergeCliFlags } from './config.js';
 import { render } from './render/index.js';
 import { resolveIcons } from './render/icons.js';
 import { install, uninstall } from './installer.js';
+import { normalize } from './normalize.js';
 import type { Dependencies, RenderContext } from './types.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
 
@@ -48,7 +49,8 @@ export async function main(overrides: Partial<Dependencies> = {}): Promise<strin
   const isTTY = !!(process.stdout.columns || process.stderr.columns);
   const cols = getLayoutCols(rawCols, isTTY);
   const icons = resolveIcons(config.icons);
-  return render({ input, git, transcript, tokenSpeed, memory, gsd, mcp, cols, config, icons });
+  const normalized = normalize(input);
+  return render({ input, normalized, git, transcript, tokenSpeed, memory, gsd, mcp, cols, config, icons });
 }
 
 // Run when invoked directly.

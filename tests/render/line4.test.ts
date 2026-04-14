@@ -4,6 +4,7 @@ import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
 import type { GsdInfo, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
+import { normalize } from '../../src/normalize.js';
 
 const c = createColors('named');
 
@@ -17,7 +18,7 @@ const baseInput = {
 
 function makeCtx(gsd: GsdInfo | null): RenderContext {
   return {
-    input: baseInput, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
+    input: baseInput, normalized: normalize(baseInput as never), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,

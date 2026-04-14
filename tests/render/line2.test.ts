@@ -4,6 +4,7 @@ import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
 import type { ClaudeCodeInput, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
+import { normalize } from '../../src/normalize.js';
 
 const c = createColors('named');
 
@@ -21,8 +22,9 @@ const baseInput: ClaudeCodeInput = {
 };
 
 function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
+  const input = (overrides.input ?? baseInput);
   return {
-    input: baseInput, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
+    input, normalized: normalize(input), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd: null, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,

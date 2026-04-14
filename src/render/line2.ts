@@ -1,9 +1,8 @@
-import { padLine, displayWidth } from './text.js';
+import { padLine } from './text.js';
 import { getQuotaColor, type Colors } from './colors.js';
 import { buildContextBar, SEP } from './shared.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
 import type { RenderContext } from '../types.js';
-import { isQwenInput } from '../types.js';
 
 export function formatCountdown(resetsAt: number): string {
   const resetsAtMs = resetsAt < 1e12 ? resetsAt * 1000 : resetsAt;
@@ -88,27 +87,19 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
 
-  // Qwen Code: API metrics (requests, cached tokens, thoughts)
-  if (isQwenInput(input) && input.metrics?.models) {
-    const entries = Object.values(input.metrics.models);
-    if (entries.length > 0) {
-      const mm = entries[0];
-      // API requests
-      if (mm.api?.total_requests > 0) {
-        let reqStr = `${mm.api.total_requests} req`;
-        if (mm.api.total_errors > 0) reqStr += c.red(` (${mm.api.total_errors} err)`);
-        leftParts.push(c.dim(`${icons.bolt} ${reqStr}`));
-      }
-      // Cached tokens
-      if (mm.tokens?.cached > 0) {
-        leftParts.push(c.dim(`${icons.comment} ${formatTokens(mm.tokens.cached)} cached`));
-      }
-      // Thoughts (reasoning tokens)
-      if (mm.tokens?.thoughts > 0) {
-        const label = mm.tokens.thoughts === 1 ? 'thought' : 'thoughts';
-        leftParts.push(c.dim(`^${formatTokens(mm.tokens.thoughts)} ${label}`));
-      }
-    }
+  // API metrics (from normalized — Qwen only, guarded by platform)
+  const { normalized: n } = ctx;
+  if (n.performance && n.performance.requests > 0) {
+    let reqStr = `${n.performance.requests} req`;
+    if (n.performance.errors > 0) reqStr += c.red(` (${n.performance.errors} err)`);
+    leftParts.push(c.dim(`${icons.bolt} ${reqStr}`));
+  }
+  if (n.platform === 'qwen-code' && n.tokens.cached != null && n.tokens.cached > 0) {
+    leftParts.push(c.dim(`${icons.comment} ${formatTokens(n.tokens.cached)} cached`));
+  }
+  if (n.platform === 'qwen-code' && n.tokens.thoughts != null && n.tokens.thoughts > 0) {
+    const label = n.tokens.thoughts === 1 ? 'thought' : 'thoughts';
+    leftParts.push(c.dim(`^${formatTokens(n.tokens.thoughts)} ${label}`));
   }
 
   // Token speed
@@ -134,9 +125,9 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
 
-  // Right side: vim mode
-  if (display.vim && input.vim?.mode) {
-    rightParts.push(c.dim(`[${input.vim.mode}]`));
+  // Right side: vim mode (sanitized via normalize)
+  if (display.vim && n.vimMode) {
+    rightParts.push(c.dim(`[${n.vimMode}]`));
   }
 
   // Right side: effort (hidden if medium)

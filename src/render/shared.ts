@@ -1,15 +1,9 @@
 import { NERD_ICONS, type IconSet } from './icons.js';
 import { getContextColor, type Colors } from './colors.js';
-import type { ClaudeCodeInput, GitStatus } from '../types.js';
+import type { GitStatus } from '../types.js';
 
 export const SEP = ` \x1b[90m\u2502\x1b[0m `;
 export const SEP_MINIMAL = ` \x1b[90m|\x1b[0m `;
-
-export function getModelName(model: ClaudeCodeInput['model']): string {
-  if (typeof model === 'string') return model;
-  if (model && typeof model === 'object' && 'display_name' in model) return model.display_name;
-  return '';
-}
 
 export interface ContextBarOpts {
   segments?: number;

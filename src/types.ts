@@ -131,6 +131,7 @@ export interface McpInfo {
 
 export interface RenderContext {
   input: RawInput;
+  normalized: import('./normalize.js').NormalizedInput;
   git: GitStatus;
   transcript: TranscriptData;
   tokenSpeed: number | null;

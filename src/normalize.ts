@@ -9,14 +9,19 @@ import { isQwenInput } from './types.js';
 
 export type Platform = 'claude-code' | 'qwen-code';
 
+/** Strip terminal control characters (C0 + C1 + DEL) from untrusted strings */
+export function sanitizeTermString(s: string): string {
+  return s.replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+}
+
 export interface NormalizedInput {
   /** Which platform sent the data */
   platform: Platform;
-  /** Model display name */
+  /** Model display name (sanitized) */
   model: string;
   /** Session identifier */
   sessionId: string;
-  /** App version */
+  /** App version (sanitized) */
   version?: string;
   /** Current working directory */
   cwd: string;
@@ -48,15 +53,24 @@ export interface NormalizedInput {
     latencyMs: number;
   };
 
-  /** Git branch (Qwen native, Claude via git status) */
+  /** Git branch — sanitized (Qwen native, Claude via git status) */
   gitBranch?: string;
 
   /** File change stats */
   linesAdded: number;
   linesRemoved: number;
 
-  /** Vim mode if active */
+  /** Vim mode if active (sanitized) */
   vimMode?: string;
+
+  /** Session name (sanitized, Claude only) */
+  sessionName?: string;
+  /** Output style name (sanitized) */
+  outputStyle?: string;
+  /** Agent name (sanitized) */
+  agentName?: string;
+  /** Worktree name (sanitized) */
+  worktreeName?: string;
 
   /** Escape hatch: access raw platform data for platform-specific widgets */
   raw: RawInput;
@@ -79,28 +93,24 @@ export function normalize(input: RawInput): NormalizedInput {
 
   let cached: number | undefined;
   let thoughts: number | undefined;
+  let performance: NormalizedInput['performance'];
 
   if (qwen) {
-    const entries = Object.values(qwen.metrics.models);
-    if (entries.length > 0) {
-      cached = entries[0].tokens?.cached;
-      thoughts = entries[0].tokens?.thoughts;
+    const modelEntries = Object.values(qwen.metrics.models);
+    const first = modelEntries[0];
+    if (first) {
+      cached = first.tokens?.cached;
+      thoughts = first.tokens?.thoughts;
+      if (first.api) {
+        performance = {
+          requests: first.api.total_requests,
+          errors: first.api.total_errors,
+          latencyMs: first.api.total_latency_ms,
+        };
+      }
     }
   } else if (claude) {
     cached = claude.context_window?.cache_read_input_tokens;
-  }
-
-  // Performance (Qwen only)
-  let performance: NormalizedInput['performance'];
-  if (qwen) {
-    const entries = Object.values(qwen.metrics.models);
-    if (entries.length > 0 && entries[0]?.api) {
-      performance = {
-        requests: entries[0].api.total_requests,
-        errors: entries[0].api.total_errors,
-        latencyMs: entries[0].api.total_latency_ms,
-      };
-    }
   }
 
   // Lines changed
@@ -116,9 +126,9 @@ export function normalize(input: RawInput): NormalizedInput {
 
   return {
     platform,
-    model: modelName,
+    model: sanitizeTermString(modelName),
     sessionId: input.session_id,
-    version: input.version,
+    version: input.version ? sanitizeTermString(input.version) : undefined,
     cwd,
     tokens: {
       input: inputTokens,
@@ -133,10 +143,14 @@ export function normalize(input: RawInput): NormalizedInput {
     cost: claude ? claude.cost?.total_cost_usd : undefined,
     durationMs: claude ? claude.cost?.total_duration_ms : undefined,
     performance,
-    gitBranch: qwen ? qwen.git?.branch : undefined,
+    gitBranch: qwen?.git?.branch ? sanitizeTermString(qwen.git.branch) : undefined,
     linesAdded,
     linesRemoved,
-    vimMode: input.vim?.mode,
+    vimMode: input.vim?.mode ? sanitizeTermString(input.vim.mode) : undefined,
+    sessionName: input.session_name ? sanitizeTermString(input.session_name) : undefined,
+    outputStyle: input.output_style?.name ? sanitizeTermString(input.output_style.name) : undefined,
+    agentName: input.agent?.name ? sanitizeTermString(input.agent.name) : undefined,
+    worktreeName: input.worktree?.name ? sanitizeTermString(input.worktree.name) : undefined,
     raw: input,
   };
 }

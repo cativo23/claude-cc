@@ -1,23 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { getModelName, buildContextBar, formatGitChanges, SEP, SEP_MINIMAL } from '../../src/render/shared.js';
+import { buildContextBar, formatGitChanges, SEP, SEP_MINIMAL } from '../../src/render/shared.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
 import type { GitStatus } from '../../src/types.js';
 
 const c = createColors('named');
-
-describe('getModelName', () => {
-  it('returns string model as-is', () => {
-    expect(getModelName('Claude Opus 4')).toBe('Claude Opus 4');
-  });
-
-  it('extracts display_name from object model', () => {
-    expect(getModelName({ display_name: 'Sonnet 3.7' })).toBe('Sonnet 3.7');
-  });
-
-  it('returns empty string for unknown shape', () => {
-    expect(getModelName('' as never)).toBe('');
-  });
-});
 
 describe('buildContextBar', () => {
   it('uses 20 segments by default', () => {
