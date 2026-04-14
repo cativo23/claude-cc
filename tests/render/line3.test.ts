@@ -31,7 +31,7 @@ const todo = (id: string, content: string, status: 'pending' | 'in_progress' | '
 function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
   const input = (overrides.input ?? baseInput);
   return {
-    input, normalized: normalize(input as never), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
+    input, normalized: normalize(input as import('../../src/types.js').RawInput), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd: null, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,

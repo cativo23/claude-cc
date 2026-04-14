@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { truncField } from './text.js';
-import { buildContextBar, formatGitChanges, SEP_MINIMAL } from './shared.js';
+import { buildContextBar, formatGitChanges, formatQwenMetrics, SEP_MINIMAL } from './shared.js';
 import type { Colors } from './colors.js';
 import { formatTokens, formatDuration, formatCost } from '../utils/format.js';
 import { renderLine3 } from './line3.js';
@@ -71,19 +71,8 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
       }
     }
 
-    // API metrics (from normalized — Qwen only, guarded by platform)
-    if (n.performance && n.performance.requests > 0) {
-      let reqStr = `${n.performance.requests} req`;
-      if (n.performance.errors > 0) reqStr += `(${n.performance.errors} err)`;
-      parts.push(c.dim(`${icons.bolt} ${reqStr}`));
-    }
-    if (n.platform === 'qwen-code' && n.tokens.cached != null && n.tokens.cached > 0) {
-      parts.push(c.dim(`${icons.comment} ${formatTokens(n.tokens.cached)} cached`));
-    }
-    if (n.platform === 'qwen-code' && n.tokens.thoughts != null && n.tokens.thoughts > 0) {
-      const label = n.tokens.thoughts === 1 ? 'thought' : 'thoughts';
-      parts.push(c.dim(`^${formatTokens(n.tokens.thoughts)} ${label}`));
-    }
+    // Qwen metrics (shared helper)
+    parts.push(...formatQwenMetrics(n, c, icons));
 
     // Style (sanitized via normalize)
     if (display.style && n.outputStyle) {

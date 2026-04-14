@@ -1,6 +1,6 @@
 import { padLine } from './text.js';
 import { getQuotaColor, type Colors } from './colors.js';
-import { buildContextBar, SEP } from './shared.js';
+import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
 import type { RenderContext } from '../types.js';
 
@@ -18,57 +18,47 @@ export function formatCountdown(resetsAt: number): string {
 }
 
 export function renderLine2(ctx: RenderContext, c: Colors): string {
-  const { input, tokenSpeed, transcript: { thinkingEffort }, config: { display }, cols, memory, mcp, icons } = ctx;
+  const { normalized: n, tokenSpeed, transcript: { thinkingEffort }, config: { display }, cols, memory, mcp, icons } = ctx;
   const leftParts: string[] = [];
   const rightParts: string[] = [];
 
   // Context bar
   if (display.contextBar) {
-    const pct = input.context_window.used_percentage;
-    leftParts.push(buildContextBar(pct, c, { iconSet: icons }));
+    leftParts.push(buildContextBar(n.context.usedPercentage, c, { iconSet: icons }));
   }
 
   // Context tokens (estimated used/capacity from percentage)
-  if (display.contextTokens && input.context_window.total_input_tokens != null && input.context_window.used_percentage > 0) {
-    const used = input.context_window.total_input_tokens;
-    const capacity = Math.round(used / (input.context_window.used_percentage / 100));
-    leftParts.push(c.dim(`${formatTokens(used)}/${formatTokens(capacity)}`));
+  if (display.contextTokens && n.tokens.input > 0 && n.context.usedPercentage > 0) {
+    const capacity = Math.round(n.tokens.input / (n.context.usedPercentage / 100));
+    leftParts.push(c.dim(`${formatTokens(n.tokens.input)}/${formatTokens(capacity)}`));
   }
 
   // Tokens
   if (display.tokens) {
-    const inTokens = input.context_window.total_input_tokens;
-    const outTokens = input.context_window.total_output_tokens;
     const parts: string[] = [];
-    if (inTokens != null) parts.push(`${formatTokens(inTokens)}↑`);
-    if (outTokens != null) parts.push(`${formatTokens(outTokens)}↓`);
+    if (n.tokens.input > 0) parts.push(`${formatTokens(n.tokens.input)}↑`);
+    if (n.tokens.output > 0) parts.push(`${formatTokens(n.tokens.output)}↓`);
     if (parts.length > 0) leftParts.push(`${icons.comment} ${parts.join(' ')}`);
   }
 
-  // Cache metrics (hit rate)
-  if (display.cacheMetrics) {
-    const cacheRead = input.context_window.cache_read_input_tokens;
-    const totalIn = input.context_window.total_input_tokens;
-    if (cacheRead != null && totalIn != null && totalIn > 0) {
-      const hitRate = Math.round((cacheRead / totalIn) * 100);
-      leftParts.push(c.dim(`cache ${hitRate}%`));
-    }
+  // Cache metrics (hit rate — Claude only)
+  if (display.cacheMetrics && n.cacheHitRate != null) {
+    leftParts.push(c.dim(`cache ${n.cacheHitRate}%`));
   }
 
-  // Cost + burn rate (Claude only — Qwen doesn't send cost data)
-  if (display.cost && input.cost) {
-    const costStr = formatCost(input.cost.total_cost_usd);
-    let costPart = costStr;
-    if (display.burnRate) {
-      const burn = formatBurnRate(input.cost.total_cost_usd, input.cost.total_duration_ms);
+  // Cost + burn rate (Claude only)
+  if (display.cost && n.cost != null) {
+    let costPart = formatCost(n.cost);
+    if (display.burnRate && n.durationMs != null) {
+      const burn = formatBurnRate(n.cost, n.durationMs);
       if (burn) costPart += ` ${c.dim(burn)}`;
     }
     leftParts.push(costPart);
   }
 
   // Duration (Claude only)
-  if (display.duration && input.cost) {
-    leftParts.push(`${icons.clock} ${formatDuration(input.cost.total_duration_ms)}`);
+  if (display.duration && n.durationMs != null) {
+    leftParts.push(`${icons.clock} ${formatDuration(n.durationMs)}`);
   }
 
   // Memory
@@ -87,20 +77,8 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
 
-  // API metrics (from normalized — Qwen only, guarded by platform)
-  const { normalized: n } = ctx;
-  if (n.performance && n.performance.requests > 0) {
-    let reqStr = `${n.performance.requests} req`;
-    if (n.performance.errors > 0) reqStr += c.red(` (${n.performance.errors} err)`);
-    leftParts.push(c.dim(`${icons.bolt} ${reqStr}`));
-  }
-  if (n.platform === 'qwen-code' && n.tokens.cached != null && n.tokens.cached > 0) {
-    leftParts.push(c.dim(`${icons.comment} ${formatTokens(n.tokens.cached)} cached`));
-  }
-  if (n.platform === 'qwen-code' && n.tokens.thoughts != null && n.tokens.thoughts > 0) {
-    const label = n.tokens.thoughts === 1 ? 'thought' : 'thoughts';
-    leftParts.push(c.dim(`^${formatTokens(n.tokens.thoughts)} ${label}`));
-  }
+  // Qwen metrics (shared helper)
+  leftParts.push(...formatQwenMetrics(n, c, icons));
 
   // Token speed
   if (display.tokenSpeed && tokenSpeed != null) {
@@ -108,17 +86,17 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   }
 
   // Rate limits (only show if >=50%)
-  if (display.rateLimits && input.rate_limits) {
-    const limits: [string, typeof input.rate_limits.five_hour][] = [
-      ['5h', input.rate_limits.five_hour],
-      ['7d', input.rate_limits.seven_day],
+  if (display.rateLimits && n.rateLimits) {
+    const limits: [string, typeof n.rateLimits.fiveHour][] = [
+      ['5h', n.rateLimits.fiveHour],
+      ['7d', n.rateLimits.sevenDay],
     ];
     for (const [label, win] of limits) {
-      if (!win || win.used_percentage < 50) continue;
-      const colorFn = c[getQuotaColor(win.used_percentage)];
-      let limitStr = colorFn(`${icons.bolt} ${win.used_percentage.toFixed(0)}%(${label})`);
-      if (win.used_percentage >= 70 && win.resets_at) {
-        const countdown = formatCountdown(win.resets_at);
+      if (!win || win.usedPercentage < 50) continue;
+      const colorFn = c[getQuotaColor(win.usedPercentage)];
+      let limitStr = colorFn(`${icons.bolt} ${win.usedPercentage.toFixed(0)}%(${label})`);
+      if (win.usedPercentage >= 70 && win.resetsAt) {
+        const countdown = formatCountdown(win.resetsAt);
         if (countdown) limitStr += c.dim(` ${countdown}`);
       }
       leftParts.push(limitStr);

@@ -18,7 +18,7 @@ const baseInput = {
 
 function makeCtx(gsd: GsdInfo | null): RenderContext {
   return {
-    input: baseInput, normalized: normalize(baseInput as never), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
+    input: baseInput, normalized: normalize(baseInput as import('../../src/types.js').RawInput), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,

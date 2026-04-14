@@ -19,11 +19,11 @@ export interface NormalizedInput {
   platform: Platform;
   /** Model display name (sanitized) */
   model: string;
-  /** Session identifier */
+  /** Session identifier (sanitized) */
   sessionId: string;
   /** App version (sanitized) */
   version?: string;
-  /** Current working directory */
+  /** Current working directory (sanitized) */
   cwd: string;
 
   /** Unified token counts */
@@ -72,6 +72,15 @@ export interface NormalizedInput {
   /** Worktree name (sanitized) */
   worktreeName?: string;
 
+  /** Rate limits (Claude only) */
+  rateLimits?: {
+    fiveHour?: { usedPercentage: number; resetsAt?: number };
+    sevenDay?: { usedPercentage: number; resetsAt?: number };
+  };
+
+  /** Cache hit rate as percentage (Claude only, from cache_read/total_input) */
+  cacheHitRate?: number;
+
   /** Escape hatch: access raw platform data for platform-specific widgets */
   raw: RawInput;
 }
@@ -84,7 +93,7 @@ export function normalize(input: RawInput): NormalizedInput {
   // Model name with null guard for malformed input
   const modelName = typeof input.model === 'string'
     ? input.model
-    : (input.model?.display_name ?? 'unknown');
+    : (input.model?.display_name ?? '');
   const cwd = (input as { cwd?: string }).cwd || input.workspace?.current_dir || process.cwd();
 
   // Token unification
@@ -127,9 +136,9 @@ export function normalize(input: RawInput): NormalizedInput {
   return {
     platform,
     model: sanitizeTermString(modelName),
-    sessionId: input.session_id,
+    sessionId: sanitizeTermString(input.session_id),
     version: input.version ? sanitizeTermString(input.version) : undefined,
-    cwd,
+    cwd: sanitizeTermString(cwd),
     tokens: {
       input: inputTokens,
       output: outputTokens,
@@ -151,6 +160,11 @@ export function normalize(input: RawInput): NormalizedInput {
     outputStyle: input.output_style?.name ? sanitizeTermString(input.output_style.name) : undefined,
     agentName: input.agent?.name ? sanitizeTermString(input.agent.name) : undefined,
     worktreeName: input.worktree?.name ? sanitizeTermString(input.worktree.name) : undefined,
+    rateLimits: claude?.rate_limits ? {
+      fiveHour: claude.rate_limits.five_hour ? { usedPercentage: claude.rate_limits.five_hour.used_percentage, resetsAt: claude.rate_limits.five_hour.resets_at } : undefined,
+      sevenDay: claude.rate_limits.seven_day ? { usedPercentage: claude.rate_limits.seven_day.used_percentage, resetsAt: claude.rate_limits.seven_day.resets_at } : undefined,
+    } : undefined,
+    cacheHitRate: (cached != null && inputTokens > 0 && platform === 'claude-code') ? Math.round((cached / inputTokens) * 100) : undefined,
     raw: input,
   };
 }
