@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalize, sanitizeTermString } from '../src/normalize.js';
+import { isQwenInput } from '../src/types.js';
 import type { ClaudeCodeInput, QwenInput } from '../src/types.js';
 
 const FIXTURES = join(import.meta.dirname, 'fixtures');
@@ -289,5 +290,83 @@ describe('normalize sanitizes string fields', () => {
     const malicious = { ...claudeInput, worktree: { name: 'tree\x7f' } };
     const result = normalize(malicious);
     expect(result.worktreeName).toBe('tree');
+  });
+});
+
+describe('rateLimits normalization', () => {
+  it('extracts rate limits from Claude input', () => {
+    const result = normalize(claudeInput);
+    expect(result.rateLimits).toEqual({
+      fiveHour: { usedPercentage: 12.5, resetsAt: undefined },
+      sevenDay: { usedPercentage: 3.2, resetsAt: undefined },
+    });
+  });
+
+  it('includes resetsAt when present', () => {
+    const input = { ...claudeInput, rate_limits: { five_hour: { used_percentage: 80, resets_at: 1700000000 } } };
+    const result = normalize(input);
+    expect(result.rateLimits!.fiveHour).toEqual({ usedPercentage: 80, resetsAt: 1700000000 });
+    expect(result.rateLimits!.sevenDay).toBeUndefined();
+  });
+
+  it('rateLimits is undefined for Qwen', () => {
+    const result = normalize(qwenInput);
+    expect(result.rateLimits).toBeUndefined();
+  });
+
+  it('rateLimits is undefined when Claude has no rate_limits', () => {
+    const noLimits = { ...claudeInput };
+    delete (noLimits as Record<string, unknown>).rate_limits;
+    const result = normalize(noLimits);
+    expect(result.rateLimits).toBeUndefined();
+  });
+});
+
+describe('cacheHitRate normalization', () => {
+  it('computes hit rate for Claude with cache_read_input_tokens', () => {
+    const input = { ...claudeInput, context_window: { ...claudeInput.context_window, cache_read_input_tokens: 100000, total_input_tokens: 131000 } };
+    const result = normalize(input);
+    expect(result.cacheHitRate).toBe(76);
+  });
+
+  it('cacheHitRate is undefined when no cache_read_input_tokens', () => {
+    const result = normalize(claudeInput);
+    expect(result.cacheHitRate).toBeUndefined();
+  });
+
+  it('cacheHitRate is undefined when total_input_tokens is 0', () => {
+    const input = { ...claudeInput, context_window: { ...claudeInput.context_window, cache_read_input_tokens: 100, total_input_tokens: 0 } };
+    const result = normalize(input);
+    expect(result.cacheHitRate).toBeUndefined();
+  });
+
+  it('cacheHitRate is undefined for Qwen even with cached tokens', () => {
+    const result = normalize(qwenInput);
+    expect(result.cacheHitRate).toBeUndefined();
+  });
+});
+
+describe('isQwenInput discriminant', () => {
+  it('returns true for valid Qwen input', () => {
+    expect(isQwenInput(qwenInput)).toBe(true);
+  });
+
+  it('returns false for Claude input without metrics', () => {
+    expect(isQwenInput(claudeInput)).toBe(false);
+  });
+
+  it('returns false for Claude input with metrics.models lacking api sub-object', () => {
+    const claude = { ...claudeInput, metrics: { models: { 'some-model': { tokens: 100 } } } };
+    expect(isQwenInput(claude as never)).toBe(false);
+  });
+
+  it('returns false when metrics.models is empty object', () => {
+    const claude = { ...claudeInput, metrics: { models: {} } };
+    expect(isQwenInput(claude as never)).toBe(false);
+  });
+
+  it('returns false when metrics exists but has no models key', () => {
+    const claude = { ...claudeInput, metrics: { files: {} } };
+    expect(isQwenInput(claude as never)).toBe(false);
   });
 });
