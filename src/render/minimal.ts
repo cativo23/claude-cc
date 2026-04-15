@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { truncField } from './text.js';
-import { getModelName, buildContextBar, formatGitChanges, SEP_MINIMAL } from './shared.js';
+import { getModelName, buildContextBar, formatGitChanges, formatQwenMetrics, SEP_MINIMAL } from './shared.js';
 import type { Colors } from './colors.js';
 import { formatTokens, formatDuration, formatCost } from '../utils/format.js';
 import { renderLine3 } from './line3.js';
@@ -38,7 +38,7 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
   // Context bar
   if (display.contextBar) {
-    parts.push(buildContextBar(input.context.usedPercentage, c, { segments: 10, pctInsideBar: true, iconSet: icons }));
+    parts.push(buildContextBar(input.context.usedPercentage, c, { segments: 10, iconSet: icons }));
   }
 
   // Only add these if cols >= 60
@@ -77,26 +77,12 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
       }
     }
 
-    // Qwen Code: API metrics (requests, cached tokens, thoughts)
-    if (input.platform === 'qwen-code' && input.performance) {
-      const perf = input.performance;
-      if (perf.requests > 0) {
-        let reqStr = `${perf.requests} req`;
-        if (perf.errors > 0) reqStr += `(${perf.errors} err)`;
-        parts.push(c.dim(`${icons.bolt} ${reqStr}`));
-      }
-      if (input.tokens.cached != null && input.tokens.cached > 0) {
-        parts.push(c.dim(`${icons.comment} ${formatTokens(input.tokens.cached)} cached`));
-      }
-      if (input.tokens.thoughts != null && input.tokens.thoughts > 0) {
-        const label = input.tokens.thoughts === 1 ? 'thought' : 'thoughts';
-        parts.push(c.dim(`^${formatTokens(input.tokens.thoughts)} ${label}`));
-      }
-    }
+    // Qwen metrics (shared helper)
+    parts.push(...formatQwenMetrics(input, c, icons));
 
     // Style
-    if (display.style && input.raw.output_style?.name) {
-      parts.push(c.dim(input.raw.output_style.name));
+    if (display.style && input.outputStyle) {
+      parts.push(c.dim(input.outputStyle));
     }
 
     // Version
@@ -110,13 +96,13 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
     }
 
     // Worktree
-    if (display.worktree && input.raw.worktree?.name) {
-      parts.push(c.dim(`${icons.tree} ${truncField(input.raw.worktree.name, 12)}`));
+    if (display.worktree && input.worktreeName) {
+      parts.push(c.dim(`${icons.tree} ${truncField(input.worktreeName, 12)}`));
     }
 
     // Agent
-    if (display.agent && input.raw.agent?.name) {
-      parts.push(c.dim(`${icons.cubes} ${truncField(input.raw.agent.name, 12)}`));
+    if (display.agent && input.agentName) {
+      parts.push(c.dim(`${icons.cubes} ${truncField(input.agentName, 12)}`));
     }
   }
 

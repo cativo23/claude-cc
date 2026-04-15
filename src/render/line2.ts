@@ -1,6 +1,6 @@
-import { padLine, displayWidth } from './text.js';
+import { padLine } from './text.js';
 import { getQuotaColor, type Colors } from './colors.js';
-import { buildContextBar, SEP } from './shared.js';
+import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
 import type { RenderContext } from '../types.js';
 
@@ -87,25 +87,8 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
 
-  // Qwen Code: API metrics (requests, cached tokens, thoughts)
-  if (input.platform === 'qwen-code' && input.performance) {
-    const perf = input.performance;
-    // API requests
-    if (perf.requests > 0) {
-      let reqStr = `${perf.requests} req`;
-      if (perf.errors > 0) reqStr += c.red(` (${perf.errors} err)`);
-      leftParts.push(c.dim(`${icons.bolt} ${reqStr}`));
-    }
-    // Cached tokens (from qwen metrics format vs claude format)
-    if (input.tokens.cached != null && input.tokens.cached > 0) {
-      leftParts.push(c.dim(`${icons.comment} ${formatTokens(input.tokens.cached)} cached`));
-    }
-    // Thoughts (reasoning tokens)
-    if (input.tokens.thoughts != null && input.tokens.thoughts > 0) {
-      const label = input.tokens.thoughts === 1 ? 'thought' : 'thoughts';
-      leftParts.push(c.dim(`^${formatTokens(input.tokens.thoughts)} ${label}`));
-    }
-  }
+  // Qwen metrics (shared helper)
+  leftParts.push(...formatQwenMetrics(input, c, icons));
 
   // Token speed
   if (display.tokenSpeed && tokenSpeed != null) {
@@ -113,17 +96,17 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   }
 
   // Rate limits (only show if >=50%)
-  if (display.rateLimits && input.raw.rate_limits) {
-    const limits: [string, typeof input.raw.rate_limits.five_hour][] = [
-      ['5h', input.raw.rate_limits.five_hour],
-      ['7d', input.raw.rate_limits.seven_day],
+  if (display.rateLimits && input.rateLimits) {
+    const limits: [string, typeof input.rateLimits.fiveHour][] = [
+      ['5h', input.rateLimits.fiveHour],
+      ['7d', input.rateLimits.sevenDay],
     ];
     for (const [label, win] of limits) {
-      if (!win || win.used_percentage < 50) continue;
-      const colorFn = c[getQuotaColor(win.used_percentage)];
-      let limitStr = colorFn(`${icons.bolt} ${win.used_percentage.toFixed(0)}%(${label})`);
-      if (win.used_percentage >= 70 && win.resets_at) {
-        const countdown = formatCountdown(win.resets_at);
+      if (!win || win.usedPercentage < 50) continue;
+      const colorFn = c[getQuotaColor(win.usedPercentage)];
+      let limitStr = colorFn(`${icons.bolt} ${win.usedPercentage.toFixed(0)}%(${label})`);
+      if (win.usedPercentage >= 70 && win.resetsAt) {
+        const countdown = formatCountdown(win.resetsAt);
         if (countdown) limitStr += c.dim(` ${countdown}`);
       }
       leftParts.push(limitStr);

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { normalize } from '../src/normalize.js';
+import { normalize, sanitizeTermString, isQwenInput } from '../src/normalize.js';
 import type { ClaudeCodeInput, QwenInput } from '../src/types.js';
 
 const FIXTURES = join(import.meta.dirname, 'fixtures');
@@ -216,5 +216,122 @@ describe('empty model metrics', () => {
     expect(result.performance).toBeUndefined();
     expect(result.tokens.cached).toBeUndefined();
     expect(result.tokens.thoughts).toBeUndefined();
+  });
+});
+
+describe('sanitizeTermString', () => {
+  it('strips C0 control codes (ESC, BEL, etc.)', () => {
+    expect(sanitizeTermString('main\x1b[31m-red')).toBe('main[31m-red');
+    expect(sanitizeTermString('branch\x07beep')).toBe('branchbeep');
+  });
+  it('strips C1 control codes (CSI at 0x9b)', () => {
+    expect(sanitizeTermString('branch\x9b31mred')).toBe('branch31mred');
+  });
+  it('strips DEL (0x7f)', () => {
+    expect(sanitizeTermString('test\x7fvalue')).toBe('testvalue');
+  });
+  it('preserves normal text and unicode', () => {
+    expect(sanitizeTermString('feat/add-日本語')).toBe('feat/add-日本語');
+  });
+  it('returns empty string for all-control input', () => {
+    expect(sanitizeTermString('\x1b\x9b\x00')).toBe('');
+  });
+});
+
+describe('normalize sanitizes string fields', () => {
+  it('sanitizes gitBranch from Qwen input', () => {
+    const malicious = { ...qwenInput, git: { branch: 'main\x1b[?1049h\x1b[31mhacked' } };
+    const result = normalize(malicious);
+    expect(result.gitBranch).toBe('main[?1049h[31mhacked');
+  });
+  it('sanitizes model name', () => {
+    const malicious = { ...qwenInput, model: { display_name: 'model\x1b[31m' } };
+    const result = normalize(malicious);
+    expect(result.model).toBe('model[31m');
+  });
+  it('sanitizes version', () => {
+    const malicious = { ...claudeInput, version: '1.0\x1b[31m' };
+    const result = normalize(malicious);
+    expect(result.version).toBe('1.0[31m');
+  });
+  it('sanitizes vimMode', () => {
+    const malicious = { ...claudeInput, vim: { mode: 'NORMAL\x9b31m' } };
+    const result = normalize(malicious);
+    expect(result.vimMode).toBe('NORMAL31m');
+  });
+  it('sanitizes sessionName', () => {
+    const malicious = { ...claudeInput, session_name: 'sess\x07beep' };
+    const result = normalize(malicious);
+    expect(result.sessionName).toBe('sessbeep');
+  });
+  it('sanitizes outputStyle', () => {
+    const malicious = { ...claudeInput, output_style: { name: 'style\x1b[0m' } };
+    const result = normalize(malicious);
+    expect(result.outputStyle).toBe('style[0m');
+  });
+  it('sanitizes agentName', () => {
+    const malicious = { ...claudeInput, agent: { name: 'agent\x00null' } };
+    const result = normalize(malicious);
+    expect(result.agentName).toBe('agentnull');
+  });
+  it('sanitizes worktreeName', () => {
+    const malicious = { ...claudeInput, worktree: { name: 'tree\x7f' } };
+    const result = normalize(malicious);
+    expect(result.worktreeName).toBe('tree');
+  });
+  it('sanitizes cwd', () => {
+    const malicious = { ...claudeInput, cwd: '/tmp/\x1b[31mhacked' };
+    const result = normalize(malicious);
+    expect(result.cwd).toBe('/tmp/[31mhacked');
+  });
+  it('sanitizes sessionId', () => {
+    const malicious = { ...claudeInput, session_id: 'sess\x07id' };
+    const result = normalize(malicious);
+    expect(result.sessionId).toBe('sessid');
+  });
+});
+
+describe('rateLimits normalization', () => {
+  it('extracts rate limits from Claude input', () => {
+    const result = normalize(claudeInput);
+    expect(result.rateLimits).toEqual({
+      fiveHour: { usedPercentage: 12.5, resetsAt: undefined },
+      sevenDay: { usedPercentage: 3.2, resetsAt: undefined },
+    });
+  });
+  it('rateLimits is undefined for Qwen', () => {
+    const result = normalize(qwenInput);
+    expect(result.rateLimits).toBeUndefined();
+  });
+});
+
+describe('cacheHitRate normalization', () => {
+  it('computes hit rate for Claude with cache_read_input_tokens', () => {
+    const input = { ...claudeInput, context_window: { ...claudeInput.context_window, cache_read_input_tokens: 100000, total_input_tokens: 131000 } };
+    const result = normalize(input);
+    expect(result.cacheHitRate).toBe(76);
+  });
+  it('cacheHitRate is undefined when no cache_read_input_tokens', () => {
+    expect(normalize(claudeInput).cacheHitRate).toBeUndefined();
+  });
+  it('cacheHitRate is undefined for Qwen', () => {
+    expect(normalize(qwenInput).cacheHitRate).toBeUndefined();
+  });
+});
+
+describe('isQwenInput discriminant', () => {
+  it('returns true for valid Qwen input', () => {
+    expect(isQwenInput(qwenInput)).toBe(true);
+  });
+  it('returns false for Claude input without metrics', () => {
+    expect(isQwenInput(claudeInput)).toBe(false);
+  });
+  it('returns false for Claude input with metrics.models lacking api', () => {
+    const claude = { ...claudeInput, metrics: { models: { 'x': { tokens: 1 } } } };
+    expect(isQwenInput(claude as any)).toBe(false);
+  });
+  it('returns false when metrics.models is empty', () => {
+    const claude = { ...claudeInput, metrics: { models: {} } };
+    expect(isQwenInput(claude as any)).toBe(false);
   });
 });

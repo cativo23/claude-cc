@@ -34,12 +34,6 @@ describe('buildContextBar', () => {
     expect(bar10.length).toBeLessThan(barDefault.length);
   });
 
-  it('puts pct inside bar when pctInsideBar is true', () => {
-    const bar = stripAnsi(buildContextBar(50, c, { pctInsideBar: true }));
-    // Format: bar pct (no brackets)
-    expect(bar).toMatch(/50%$/);
-  });
-
   it('shows decimal for pct < 10', () => {
     const bar = stripAnsi(buildContextBar(5, c));
     expect(bar).toContain('5.0%');

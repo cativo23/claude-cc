@@ -17,8 +17,9 @@ export async function parseGitStatus(cwd: string, exec: ExecFn = safeExec): Prom
   const cached = readTtlCache<GitStatus>(key, tmpdir(), GIT_CACHE_TTL);
   if (cached) return cached;
 
-  const branch = await exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeoutMs: 2000 });
-  if (!branch) return EMPTY_GIT;
+  const rawBranch = await exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeoutMs: 2000 });
+  if (!rawBranch) return EMPTY_GIT;
+  const branch = rawBranch.replace(/[\x00-\x1f\x7f-\x9f]/g, '');
 
   const result: GitStatus = { branch, staged: 0, modified: 0, untracked: 0 };
   const status = await exec('git', ['status', '--porcelain'], { cwd, timeoutMs: 2000 });
