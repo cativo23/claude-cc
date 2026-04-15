@@ -7,8 +7,9 @@
 import type { ClaudeCodeInput, QwenInput, RawInput } from './types.js';
 
 export function isQwenInput(input: RawInput): input is QwenInput {
-  if (!input.metrics || typeof input.metrics !== 'object' || !('models' in input.metrics)) return false;
-  const models = (input.metrics as { models?: Record<string, unknown> }).models;
+  const raw = input as unknown as Record<string, unknown>;
+  if (!raw.metrics || typeof raw.metrics !== 'object' || !('models' in raw.metrics)) return false;
+  const models = (raw.metrics as { models?: Record<string, unknown> }).models;
   if (!models || typeof models !== 'object') return false;
   const first = Object.values(models)[0];
   return first != null && typeof first === 'object' && 'api' in first;
