@@ -299,9 +299,13 @@ export interface QwenInput {
 }
 
 /** Detect if the input came from Qwen Code vs Claude Code.
- *  Qwen sends metrics.models; Claude sends cost.total_cost_usd. */
+ *  Qwen sends metrics.models with api sub-objects; Claude may send metrics.models as Record<string, unknown>. */
 export function isQwenInput(input: ClaudeCodeInput & { metrics?: unknown }): input is QwenInput {
-  return !!(input.metrics && typeof input.metrics === 'object' && 'models' in input.metrics);
+  if (!input.metrics || typeof input.metrics !== 'object' || !('models' in input.metrics)) return false;
+  const models = (input.metrics as { models?: Record<string, unknown> }).models;
+  if (!models || typeof models !== 'object') return false;
+  const first = Object.values(models)[0];
+  return first != null && typeof first === 'object' && 'api' in first;
 }
 
 /** Union of all supported platform input types */

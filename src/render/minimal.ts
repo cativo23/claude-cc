@@ -36,7 +36,7 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
   // Context bar
   if (display.contextBar) {
-    parts.push(buildContextBar(n.context.usedPercentage, c, { segments: 10, pctInsideBar: true, iconSet: icons }));
+    parts.push(buildContextBar(n.context.usedPercentage, c, { segments: 10, iconSet: icons }));
   }
 
   // Only add these if cols >= 60

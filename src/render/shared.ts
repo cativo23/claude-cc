@@ -10,14 +10,12 @@ export const SEP_MINIMAL = ` \x1b[90m|\x1b[0m `;
 export interface ContextBarOpts {
   segments?: number;
   showIcons?: boolean;
-  pctInsideBar?: boolean;
   iconSet?: IconSet;
 }
 
 export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): string {
   const segments = opts?.segments ?? 20;
   const showIcons = opts?.showIcons ?? true;
-  const pctInsideBar = opts?.pctInsideBar ?? false;
   const ic = opts?.iconSet ?? NERD_ICONS;
 
   const filled = Math.round((pct / 100) * segments);
