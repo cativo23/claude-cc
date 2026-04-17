@@ -20,11 +20,12 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     if (modelName) left.push(c.cyan(`${icons.model} ${modelName}`));
   }
 
-  // Branch + git changes
-  if (display.branch && git.branch) {
+  // Branch + git changes (use Qwen's native git.branch if available, fallback to external git)
+  const branchName = input.git?.branch || git.branch;
+  if (display.branch && branchName) {
     const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : cols < 100 ? 30 : cols < 120 ? 40 : 60;
-    const branchName = truncField(git.branch, branchLen);
-    let branchStr = c.magenta(`${icons.branch} ${branchName}`);
+    const bName = truncField(branchName, branchLen);
+    let branchStr = c.magenta(`${icons.branch} ${bName}`);
 
     if (display.gitChanges) {
       const parts = formatGitChanges(git, c);

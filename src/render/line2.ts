@@ -92,6 +92,32 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     leftParts.push(c.dim(`${icons.bolt}${tokenSpeed} tok/s`));
   }
 
+  // Model metrics: API requests, cached tokens, thoughts (from Qwen)
+  if (display.tokenSpeed) {
+    const modelEntries = Object.values(input.metrics?.models ?? {});
+    if (modelEntries.length > 0) {
+      const first = modelEntries[0];
+      // API requests
+      const totalReqs = first.api?.total_requests;
+      const errors = first.api?.total_errors;
+      if (totalReqs != null && totalReqs > 0) {
+        let reqStr = `${totalReqs} req`;
+        if (errors && errors > 0) reqStr += c.red(` (${errors} err)`);
+        leftParts.push(c.dim(`${icons.bolt} ${reqStr}`));
+      }
+      // Cached tokens
+      const cached = first.tokens?.cached;
+      if (cached != null && cached > 0) {
+        leftParts.push(c.dim(`${icons.comment} ${formatTokens(cached)} cached`));
+      }
+      // Thoughts (reasoning tokens)
+      const thoughts = first.tokens?.thoughts;
+      if (thoughts != null && thoughts > 0) {
+        leftParts.push(c.dim(`^${formatTokens(thoughts)} thought`));
+      }
+    }
+  }
+
   // Rate limits (only show if >=50%)
   if (display.rateLimits && input.rate_limits) {
     const limits: [string, typeof input.rate_limits.five_hour][] = [

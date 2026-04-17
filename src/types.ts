@@ -23,9 +23,23 @@ export interface ClaudeCodeInput {
     total_lines_removed?: number;
   };
   metrics?: {
-    models?: Record<string, unknown>;
+    models?: Record<string, {
+      api?: {
+        total_requests?: number;
+        total_errors?: number;
+        total_latency_ms?: number;
+      };
+      tokens?: {
+        prompt?: number;
+        completion?: number;
+        total?: number;
+        cached?: number;
+        thoughts?: number;
+      };
+    }>;
     files?: { total_lines_added?: number; total_lines_removed?: number };
   };
+  git?: { branch?: string };
   transcript_path?: string;
   output_style?: { name: string };
   version?: string;

@@ -35,7 +35,10 @@ export async function main(overrides: Partial<Dependencies> = {}): Promise<strin
   const cwd = input.cwd || input.workspace?.current_dir || process.cwd();
 
   const [git, transcript] = await Promise.all([
-    deps.parseGit(cwd),
+    // If Qwen sends native git.branch, use it; fallback to external git status
+    input.git?.branch
+      ? Promise.resolve({ branch: input.git.branch, staged: 0, modified: 0, untracked: 0 })
+      : deps.parseGit(cwd),
     input.transcript_path ? deps.parseTranscript(input.transcript_path) : Promise.resolve(EMPTY_TRANSCRIPT),
   ]);
 
