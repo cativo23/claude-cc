@@ -12,6 +12,8 @@ export interface WizardCurrent {
 
 export interface RunWizardOpts {
   current: WizardCurrent;
+  /** Optional string rendered above each step's title (e.g. an ASCII banner). */
+  prelude?: string;
   stdin?: NodeJS.ReadStream | (Readable & {
     isTTY?: boolean;
     isRaw?: boolean;
@@ -56,6 +58,7 @@ export async function runWizard(opts: RunWizardOpts): Promise<WizardResult | nul
     options: PRESET_OPTIONS,
     initial: current.preset ?? 'balanced',
     preview: (v) => buildPreview({ preset: v, theme: current.theme, icons: current.icons ?? 'nerd' }),
+    prelude: opts.prelude,
     ...streams,
   });
   if (preset === null) return null;
@@ -70,6 +73,7 @@ export async function runWizard(opts: RunWizardOpts): Promise<WizardResult | nul
       theme: v === NONE_THEME ? undefined : v,
       icons: current.icons ?? 'nerd',
     }),
+    prelude: opts.prelude,
     ...streams,
   });
   if (themeValue === null) return null;
@@ -81,6 +85,7 @@ export async function runWizard(opts: RunWizardOpts): Promise<WizardResult | nul
     options: ICON_OPTIONS,
     initial: current.icons ?? 'nerd',
     preview: (v) => buildPreview({ preset, theme, icons: v }),
+    prelude: opts.prelude,
     ...streams,
   });
   if (icons === null) return null;

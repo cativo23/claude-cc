@@ -115,12 +115,13 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     const stdin = opts.stdin ?? process.stdin;
     const stdout = opts.stdout ?? process.stdout;
 
-    // Print banner on TTY
+    // Build banner prelude (shown on each wizard frame so it survives screen clears)
+    let prelude = '';
     if (stdin?.isTTY) {
       const banner = getBanner({ width: (stdout as { columns?: number } | undefined)?.columns });
       if (banner) {
         const subtitle = getSubtitle();
-        (stdout as { write?: (s: string) => void } | undefined)?.write?.(banner + '\n ' + subtitle + '\n');
+        prelude = banner + '\n ' + subtitle + '\n\n';
       }
     }
 
@@ -135,7 +136,7 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     // Determine wizard result
     let wizard: WizardResult;
     if (stdin?.isTTY) {
-      const result = await runWizard({ current, stdin, stdout });
+      const result = await runWizard({ current, prelude, stdin, stdout });
       if (result === null) {
         lines.push(`\n  Installation cancelled.\n`);
         return lines.join('\n') + '\n';

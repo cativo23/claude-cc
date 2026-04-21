@@ -25,6 +25,8 @@ export interface SelectOpts<T> {
   options: SelectOption<T>[];
   initial?: T;
   preview: (focused: T) => string;
+  /** Optional string rendered above the title on each frame (e.g. an ASCII banner). */
+  prelude?: string;
   stdin?: SelectStdin;
   stdout?: SelectStdout;
 }
@@ -80,6 +82,7 @@ export async function interactiveSelect<T>(opts: SelectOpts<T>): Promise<T | nul
 
   const render = () => {
     stdout.write?.(CLEAR_SCREEN);
+    if (opts.prelude) stdout.write?.(opts.prelude);
     stdout.write?.(` ${opts.title}\n\n`);
     for (let i = 0; i < options.length; i++) {
       const o = options[i];
