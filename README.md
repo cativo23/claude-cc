@@ -26,11 +26,13 @@ Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen 
 
 ## Install
 
-Quick setup (auto-configures Claude Code):
+Quick setup with interactive wizard (arrow-key navigation + live preview):
 
 ```bash
 npx lumira install
 ```
+
+The installer walks you through three choices — **preset** (`full` / `balanced` / `minimal`), **theme**, and **icons** — showing a live preview of how your statusline will render at each step. Press `Esc` at any time to abort without writing anything. In non-interactive shells (piped stdin, CI), the installer skips the wizard and writes sensible defaults (`preset: balanced`, `icons: nerd`). If Qwen Code is detected (`~/.qwen/` exists), the `/lumira` skill is installed for both CLIs.
 
 Or install globally:
 
@@ -44,6 +46,8 @@ To uninstall:
 ```bash
 npx lumira uninstall
 ```
+
+Your preferences are saved to `~/.config/lumira/config.json` — hand-edited keys (e.g. custom `display` toggles) are preserved on re-install.
 
 ### Manual setup
 
@@ -130,24 +134,15 @@ All fields are optional — defaults are shown above.
 ### CLI Flags
 
 ```bash
-lumira --minimal    # Force minimal mode
+lumira --minimal    # Force single-line mode
+lumira --balanced   # Force balanced preset
+lumira --full       # Force full multi-line preset
 lumira --gsd        # Enable GSD integration
-lumira --qwen       # Force Qwen Code single-line output
 ```
 
 ### Qwen Code
 
-Lumira auto-detects the platform. For Qwen Code, use the `--qwen` preset for a single-line output with model, context bar, requests, cached tokens, and thoughts:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "npx lumira@latest --qwen",
-    "padding": 0
-  }
-}
-```
+Lumira auto-detects the platform. In Qwen Code sessions, the renderer automatically switches to single-line output regardless of your configured layout — Qwen only displays the first statusline row, so lumira fits everything (model, branch, context bar, cost, cached tokens, thoughts) into one line. **No configuration needed:** the same `config.json` serves both Claude Code and Qwen Code.
 
 ## Architecture
 
