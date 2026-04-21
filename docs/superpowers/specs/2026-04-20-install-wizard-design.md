@@ -30,7 +30,7 @@ Today, `lumira install` silently writes a `statusLine` entry to `~/.claude/setti
 
 - `src/tui/select.ts` — generic `interactiveSelect<T>()` helper. Owns raw-mode setup, keypress handling, render loop, cleanup, and resize handling. ~200 LOC. Knows nothing about lumira.
 - `src/tui/preview.ts` — builds a mock `RenderContext` with realistic sample data and calls `render()` to produce a string preview. Used by the wizard to paint the preview pane.
-- `src/installer-wizard.ts` — orchestrates the three-step flow (preset → theme → icons). Calls `interactiveSelect` three times, passing a `preview(choice)` function per step. Returns `{ preset, theme, icons } | null`.
+- `src/installer-wizard.ts` — orchestrates the three-step flow (preset → theme → icons). Calls `interactiveSelect` three times, passing a `preview(choice)` function per step. Returns `WizardResult | null`, where `WizardResult = { preset: string; theme?: string; icons: string }` — `theme` is omitted entirely when user picks `(none)`.
 - `src/tui/banner.ts` — exports the ASCII banner string and a `printBanner()` helper that reads version from `package.json` and omits the banner on terminals under 50 columns.
 - `tests/tui/select.test.ts` — TUI helper tests with a mock stdin that supports synthetic `keypress` events.
 - `tests/tui/preview.test.ts` — preview generator tests.
@@ -296,7 +296,7 @@ A once-only handler that unconditionally calls `setRawMode(false)` and writes th
 
 ### `tests/installer-wizard.test.ts`
 
-- Happy path: three Enters accept defaults, returns `{ preset: 'balanced', theme: null, icons: 'nerd' }`.
+- Happy path: three Enters accept defaults, returns `{ preset: 'balanced', icons: 'nerd' }` (theme omitted since `(none)` is the initial focus).
 - Down+Enter on step 1 selects `minimal`.
 - `[ Back ]` from step 2 returns to step 1 with prior choice focused.
 - Esc at any step resolves with `null`; no disk writes observed.
