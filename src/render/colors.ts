@@ -31,8 +31,12 @@ export function createColors(mode: ColorMode, theme?: import('../themes.js').The
     brightBlue: wrap('\x1b[94m'), dim: wrap('\x1b[2m'), bold: wrap('\x1b[1m'),
   };
 
-  // Theme overrides (truecolor only — resolveTheme returns null otherwise)
-  if (theme && mode === 'truecolor') {
+  // Theme overrides: applied for both truecolor and 256-color modes.
+  // `resolveTheme` projects the palette's RGB values to 256-color indices when
+  // mode is '256', and returns null for 'named' mode (named ANSI has only 8
+  // base hues — not enough fidelity to honour a theme accurately, so we fall
+  // back to built-in defaults instead of approximating with wrong colors).
+  if (theme && (mode === 'truecolor' || mode === '256')) {
     return {
       ...named,
       cyan: wrap(theme.cyan), magenta: wrap(theme.magenta),

@@ -17,11 +17,14 @@ export interface ContextBarOpts {
   segments?: number;
   showIcons?: boolean;
   iconSet?: IconSet;
+  /** When true (default), append an actionable hint like `/compact?` at high fill. */
+  showHint?: boolean;
 }
 
 export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): string {
   const segments = opts?.segments ?? 20;
   const showIcons = opts?.showIcons ?? true;
+  const showHint = opts?.showHint ?? true;
   const ic = opts?.iconSet ?? NERD_ICONS;
 
   const filled = Math.round((pct / 100) * segments);
@@ -34,9 +37,17 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
     else if (pct >= 65) icon = c.orange(ic.fire);
   }
 
+  // Actionable hint at high fill — nudges the user to reclaim context before
+  // the session stalls. Thresholds align with the color/icon tiers above.
+  let hint = '';
+  if (showHint) {
+    if (pct >= 90) hint = ' ' + c.red('/compact!');
+    else if (pct >= 80) hint = ' ' + c.dim('/compact?');
+  }
+
   const pctStr = colorFn(`${pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%`);
 
-  return `${bar} ${pctStr}${icon ? ' ' + icon : ''}`;
+  return `${bar} ${pctStr}${icon ? ' ' + icon : ''}${hint}`;
 }
 
 export function formatGitChanges(git: GitStatus, c: Colors): string[] {

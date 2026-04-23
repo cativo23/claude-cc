@@ -94,6 +94,40 @@ describe('formatGitChanges', () => {
   });
 });
 
+describe('buildContextBar — compact hint', () => {
+  it('shows /compact? hint at 80-89%', () => {
+    const bar = stripAnsi(buildContextBar(85, c));
+    expect(bar).toContain('/compact?');
+    expect(bar).not.toContain('/compact!');
+  });
+
+  it('shows /compact! hint at 90%+', () => {
+    const bar = stripAnsi(buildContextBar(95, c));
+    expect(bar).toContain('/compact!');
+  });
+
+  it('does not show compact hint below 80%', () => {
+    const bar = stripAnsi(buildContextBar(70, c));
+    expect(bar).not.toContain('/compact');
+  });
+
+  it('shows /compact? at exactly 80% (boundary inclusive)', () => {
+    const bar = stripAnsi(buildContextBar(80, c));
+    expect(bar).toContain('/compact?');
+    expect(bar).not.toContain('/compact!');
+  });
+
+  it('shows /compact! at exactly 90% (boundary inclusive)', () => {
+    const bar = stripAnsi(buildContextBar(90, c));
+    expect(bar).toContain('/compact!');
+  });
+
+  it('hides compact hint when showHint=false', () => {
+    const bar = stripAnsi(buildContextBar(95, c, { showHint: false }));
+    expect(bar).not.toContain('/compact');
+  });
+});
+
 describe('SEP constants', () => {
   it('SEP uses Unicode pipe', () => {
     expect(SEP).toContain('\u2502');
