@@ -81,8 +81,88 @@ export function downgradePaletteTo256(p: ThemePalette): ThemePalette {
     red: rgbEscapeTo256(p.red),
     brightBlue: rgbEscapeTo256(p.brightBlue),
     gray: rgbEscapeTo256(p.gray),
+    // powerline stores raw RGB triples (projected to 256 at render time by
+    // rgbTo256Index), so pass it through as-is — no escape conversion needed.
+    ...(p.powerline ? { powerline: p.powerline } : {}),
   };
 }
+
+// Hand-curated powerline palettes per theme. Auto-derivation (darken fg by
+// ~55%) produced muddy/indistinguishable bgs for low-saturation themes like
+// Nord and Solarized. These swatches are picked from each theme's official
+// palette — darker enough so white text stays legible, distinct hues so
+// segments are visually separable.
+const WHITE: RGB = { r: 255, g: 255, b: 255 };
+
+const DRACULA_POWERLINE: PowerlinePalette = {
+  modelBg:       { r: 62,  g: 90,  b: 106 },  // dark cyan
+  dirBg:         { r: 68,  g: 71,  b: 90  },  // currentLine #44475a
+  branchCleanBg: { r: 126, g: 61,  b: 124 },  // dark pink
+  branchDirtyBg: { r: 139, g: 50,  b: 50  },  // dark red
+  taskBg:        { r: 138, g: 108, b: 42  },  // dark yellow
+  versionBg:     { r: 58,  g: 61,  b: 74  },
+  fg: WHITE,
+};
+
+const NORD_POWERLINE: PowerlinePalette = {
+  modelBg:       { r: 94,  g: 127, b: 150 },  // frost muted
+  dirBg:         { r: 76,  g: 86,  b: 106 },  // nord3
+  branchCleanBg: { r: 109, g: 90,  b: 130 },  // aurora purple dimmed
+  branchDirtyBg: { r: 142, g: 72,  b: 80  },  // aurora red dimmed
+  taskBg:        { r: 160, g: 101, b: 58  },  // aurora orange dimmed
+  versionBg:     { r: 59,  g: 66,  b: 82  },  // nord1
+  fg: WHITE,
+};
+
+const TOKYO_NIGHT_POWERLINE: PowerlinePalette = {
+  modelBg:       { r: 42,  g: 58,  b: 96  },
+  dirBg:         { r: 61,  g: 78,  b: 138 },
+  branchCleanBg: { r: 90,  g: 63,  b: 140 },
+  branchDirtyBg: { r: 166, g: 58,  b: 75  },
+  taskBg:        { r: 138, g: 106, b: 46  },
+  versionBg:     { r: 39,  g: 43,  b: 58  },
+  fg: WHITE,
+};
+
+const CATPPUCCIN_POWERLINE: PowerlinePalette = {
+  modelBg:       { r: 58,  g: 98,  b: 116 },  // dark teal
+  dirBg:         { r: 74,  g: 90,  b: 154 },  // dark blue
+  branchCleanBg: { r: 122, g: 90,  b: 168 },  // dark mauve
+  branchDirtyBg: { r: 160, g: 72,  b: 86  },  // dark red
+  taskBg:        { r: 160, g: 102, b: 58  },  // dark peach
+  versionBg:     { r: 49,  g: 50,  b: 68  },  // surface0
+  fg: WHITE,
+};
+
+const MONOKAI_POWERLINE: PowerlinePalette = {
+  modelBg:       { r: 42,  g: 93,  b: 110 },  // dark cyan
+  dirBg:         { r: 73,  g: 72,  b: 62  },  // bg variant
+  branchCleanBg: { r: 140, g: 30,  b: 73  },  // dark pink
+  branchDirtyBg: { r: 166, g: 56,  b: 37  },  // dark orange-red
+  taskBg:        { r: 133, g: 107, b: 42  },  // dark yellow
+  versionBg:     { r: 39,  g: 40,  b: 34  },  // bg
+  fg: WHITE,
+};
+
+const GRUVBOX_POWERLINE: PowerlinePalette = {
+  modelBg:       { r: 60,  g: 91,  b: 95  },  // dark aqua
+  dirBg:         { r: 80,  g: 73,  b: 69  },  // bg2
+  branchCleanBg: { r: 131, g: 61,  b: 106 },  // dark purple
+  branchDirtyBg: { r: 157, g: 43,  b: 34  },  // dark red
+  taskBg:        { r: 160, g: 104, b: 21  },  // dark yellow
+  versionBg:     { r: 60,  g: 56,  b: 54  },  // bg1
+  fg: WHITE,
+};
+
+const SOLARIZED_POWERLINE: PowerlinePalette = {
+  modelBg:       { r: 31,  g: 109, b: 103 },  // dark cyan
+  dirBg:         { r: 30,  g: 88,  b: 126 },  // dark blue
+  branchCleanBg: { r: 141, g: 40,  b: 87  },  // dark magenta
+  branchDirtyBg: { r: 168, g: 32,  b: 31  },  // dark red
+  taskBg:        { r: 138, g: 79,  b: 17  },  // dark orange
+  versionBg:     { r: 7,   g: 54,  b: 66  },  // base02
+  fg: WHITE,
+};
 
 export const THEMES: Record<string, ThemePalette> = {
   dracula: {
@@ -94,6 +174,7 @@ export const THEMES: Record<string, ThemePalette> = {
     red: rgb(255, 85, 85),
     brightBlue: rgb(189, 147, 249),
     gray: rgb(98, 114, 164),
+    powerline: DRACULA_POWERLINE,
   },
   nord: {
     cyan: rgb(136, 192, 208),
@@ -104,6 +185,7 @@ export const THEMES: Record<string, ThemePalette> = {
     red: rgb(191, 97, 106),
     brightBlue: rgb(129, 161, 193),
     gray: rgb(76, 86, 106),
+    powerline: NORD_POWERLINE,
   },
   'tokyo-night': {
     cyan: rgb(125, 207, 255),
@@ -114,6 +196,7 @@ export const THEMES: Record<string, ThemePalette> = {
     red: rgb(247, 118, 142),
     brightBlue: rgb(122, 162, 247),
     gray: rgb(86, 95, 137),
+    powerline: TOKYO_NIGHT_POWERLINE,
   },
   catppuccin: {
     cyan: rgb(137, 220, 235),
@@ -124,6 +207,7 @@ export const THEMES: Record<string, ThemePalette> = {
     red: rgb(243, 139, 168),
     brightBlue: rgb(137, 180, 250),
     gray: rgb(108, 112, 134),
+    powerline: CATPPUCCIN_POWERLINE,
   },
   monokai: {
     cyan: rgb(102, 217, 239),
@@ -134,6 +218,7 @@ export const THEMES: Record<string, ThemePalette> = {
     red: rgb(249, 38, 114),
     brightBlue: rgb(102, 217, 239),
     gray: rgb(117, 113, 94),
+    powerline: MONOKAI_POWERLINE,
   },
   gruvbox: {
     cyan: rgb(131, 165, 152),
@@ -144,6 +229,7 @@ export const THEMES: Record<string, ThemePalette> = {
     red: rgb(204, 36, 29),
     brightBlue: rgb(69, 133, 136),
     gray: rgb(146, 131, 116),
+    powerline: GRUVBOX_POWERLINE,
   },
   solarized: {
     cyan: rgb(42, 161, 152),
@@ -154,6 +240,7 @@ export const THEMES: Record<string, ThemePalette> = {
     red: rgb(220, 50, 47),
     brightBlue: rgb(38, 139, 210),
     gray: rgb(101, 123, 131),
+    powerline: SOLARIZED_POWERLINE,
   },
 };
 
