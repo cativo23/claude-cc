@@ -3,6 +3,9 @@ import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import type { GsdInfo } from '../types.js';
 import { sanitizeTermString } from '../normalize.js';
+import { debug } from '../utils/debug.js';
+
+const log = debug('gsd');
 
 // Max directory levels to walk upward looking for .planning/STATE.md
 const STATE_WALK_MAX = 10;
@@ -93,11 +96,18 @@ function formatState(s: GsdState): string {
  * per-runtime location (`~/.claude/cache/`) for older GSD installs.
  */
 function readUpdateCache(sharedCacheFile: string, legacyCacheFile: string): boolean {
-  for (const file of [sharedCacheFile, legacyCacheFile]) {
+  const candidates: Array<[string, string]> = [
+    ['shared', sharedCacheFile],
+    ['legacy', legacyCacheFile],
+  ];
+  for (const [source, file] of candidates) {
     if (!existsSync(file)) continue;
     try {
       const parsed = JSON.parse(readFileSync(file, 'utf8')) as { update_available?: boolean };
-      if (parsed.update_available) return true;
+      if (parsed.update_available) {
+        log('update cache:', source, file);
+        return true;
+      }
     } catch { /* ignore malformed */ }
   }
   return false;
@@ -119,11 +129,19 @@ export function getGsdInfo(cwd: string, opts: GsdInfoOptions = {}): GsdInfo | nu
   let currentTask: string | undefined;
   const stateFile = findStateMd(cwd || process.cwd());
   if (stateFile) {
+    log('STATE.md found:', stateFile);
     try {
       const state = parseStateMd(readFileSync(stateFile, 'utf8'));
       const formatted = formatState(state);
-      if (formatted) currentTask = sanitizeTermString(formatted);
-    } catch { /* ignore */ }
+      if (formatted) {
+        currentTask = sanitizeTermString(formatted);
+        log('state parsed:', state);
+      }
+    } catch (err) {
+      log('STATE.md parse error:', (err as Error).message);
+    }
+  } else {
+    log('no STATE.md found walking up from:', cwd || process.cwd());
   }
 
   if (!updateAvailable && !currentTask) return null;
