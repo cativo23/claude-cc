@@ -38,4 +38,13 @@ describe('getGsdInfo', () => {
     writeFileSync(join(dir, 'todos', 's-agent-1.json'), 'broken json');
     expect(getGsdInfo('s', dir)).toBeNull();
   });
+
+  it('sanitizes control characters from currentTask', () => {
+    const malicious = 'Safe\x1b[31mPart\x00\x07\x7fend';
+    writeFileSync(join(dir, 'todos', 's-agent-1.json'), JSON.stringify([{ status: 'in_progress', activeForm: malicious }]));
+    const task = getGsdInfo('s', dir)?.currentTask ?? '';
+    expect(task).not.toMatch(/[\x00-\x1f\x7f-\x9f]/);
+    expect(task).toContain('Safe');
+    expect(task).toContain('end');
+  });
 });
