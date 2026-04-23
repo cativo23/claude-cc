@@ -62,6 +62,15 @@ describe('extractToolTarget', () => {
   it('extracts pattern for Glob/Grep', () => { expect(extractToolTarget('Glob', { pattern: '**/*.ts' })).toBe('**/*.ts'); });
   it('truncates Bash command at 30 chars', () => { expect(extractToolTarget('Bash', { command: 'a'.repeat(50) })).toBe('a'.repeat(30) + '...'); });
   it('returns undefined for unknown tools', () => { expect(extractToolTarget('Unknown', {})).toBeUndefined(); });
+  it('strips control characters from file_path targets', () => {
+    const result = extractToolTarget('Read', { file_path: '/safe\x1b[31m/evil\x00.ts' });
+    expect(result).not.toMatch(/[\x00-\x1f\x7f-\x9f]/);
+    expect(result).toContain('/safe');
+  });
+  it('strips control characters from Bash commands', () => {
+    const result = extractToolTarget('Bash', { command: 'ls\x1b[31m -la\x07' });
+    expect(result).not.toMatch(/[\x00-\x1f\x7f-\x9f]/);
+  });
 });
 
 describe('normalizeTodoStatus', () => {

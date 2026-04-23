@@ -42,6 +42,9 @@ const SHOW_CURSOR = '\x1b[?25h';
 const HIDE_CURSOR = '\x1b[?25l';
 const CLEAR_SCREEN = '\x1b[2J\x1b[H';
 
+// Module-level flag: guarantees the raw-mode cleanup exit handler is
+// registered once per Node process. Process-scoped by design — tests must
+// run in forked workers (see vitest.config.ts `pool: 'forks'`). Issue #20.
 let exitHandlerInstalled = false;
 function installExitHandler(stdin: SelectStdin, stdout: SelectStdout): void {
   if (exitHandlerInstalled) return;

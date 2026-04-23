@@ -59,10 +59,11 @@ export function fitSegments(left: string[], right: string[], sep: string, cols: 
         return leftStr + ' '.repeat(gap) + rightStr;
       }
     }
-    return leftStr;
   }
 
   // Last resort: even the first left segment alone exceeds safeCols.
+  // Safe because left[0] is the model name (~20 chars) — callers must ensure
+  // the first segment is short enough to truncate gracefully.
   // Strip ANSI before hard-truncating to avoid cutting mid-escape-sequence.
   return truncField(stripAnsi(left[0] ?? ''), safeCols);
 }

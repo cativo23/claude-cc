@@ -98,120 +98,43 @@ function installSkill(opts: { homeOverride?: string } = {}): string[] {
   return lines;
 }
 
+// Shared footer emitted at the end of every successful install path:
+// skill install + Qwen-detected notice + restart message. Keeps the two
+// success branches (already-configured vs fresh-install) from drifting.
+function emitFooter(lines: string[], homeOverride?: string): void {
+  lines.push(...installSkill({ homeOverride }));
+  if (existsSync(join(homeOverride ?? homedir(), '.qwen'))) {
+    lines.push('');
+    lines.push('  ℹ Qwen Code detected — in Qwen sessions, lumira renders');
+    lines.push('    single-line automatically. Your preset above applies to Claude Code.');
+  }
+  lines.push(`\n  Restart Claude Code to see your statusline.\n`);
+}
+
 // ── Install ─────────────────────────────────────────────────────────
 export async function install(opts: InstallerOptions = {}): Promise<string> {
   const settingsPath = opts.settingsPath ?? defaultSettingsPath();
+  const configPath = opts.configPath ?? defaultConfigPath();
   const backupPath = settingsPath + '.lumira.bak';
   const confirm = opts.confirm ?? promptYN;
+  const stdin = opts.stdin ?? process.stdin;
+  const stdout = opts.stdout ?? process.stdout;
   const lines: string[] = [];
 
-  // ── Wizard / config path ─────────────────────────────────────────
-  // When configPath is not provided, skip the wizard and config write
-  // entirely (legacy path — preserves existing test behaviour).
-  const runInteractive = opts.configPath !== undefined;
-
-  if (runInteractive) {
-    const configPath = opts.configPath as string;
-    const stdin = opts.stdin ?? process.stdin;
-    const stdout = opts.stdout ?? process.stdout;
-
-    // Build banner prelude (shown on each wizard frame so it survives screen clears)
-    let prelude = '';
-    if (stdin?.isTTY) {
-      const banner = getBanner({ width: (stdout as { columns?: number } | undefined)?.columns });
-      if (banner) {
-        const subtitle = getSubtitle();
-        prelude = banner + '\n ' + subtitle + '\n\n';
-      }
+  // Build banner prelude (shown on each wizard frame so it survives screen clears)
+  let prelude = '';
+  if (stdin?.isTTY) {
+    const banner = getBanner({ width: (stdout as { columns?: number } | undefined)?.columns });
+    if (banner) {
+      const subtitle = getSubtitle();
+      prelude = banner + '\n ' + subtitle + '\n\n';
     }
-
-    // Load existing config to pre-populate wizard selections
-    const existingConfig = loadConfig(dirname(configPath));
-    const current = {
-      preset: existingConfig.preset,
-      theme: existingConfig.theme,
-      icons: existingConfig.icons,
-    };
-
-    // Determine wizard result
-    let wizard: WizardResult;
-    if (stdin?.isTTY) {
-      const result = await runWizard({ current, prelude, stdin, stdout });
-      if (result === null) {
-        lines.push(`\n  Installation cancelled.\n`);
-        return lines.join('\n') + '\n';
-      }
-      wizard = result;
-    } else {
-      // Non-TTY: use defaults
-      wizard = { preset: 'balanced', icons: 'nerd' };
-      lines.push(ok('Non-interactive mode — using defaults (preset: balanced, icons: nerd)'));
-    }
-
-    // ── settings.json read/replace/backup ──────────────────────────
-    let settings: Record<string, unknown> = {};
-
-    if (existsSync(settingsPath)) {
-      try {
-        settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-      } catch {
-        lines.push(warn('Could not parse existing settings.json, creating fresh'));
-        settings = {};
-      }
-    }
-
-    if (settings.statusLine) {
-      if (isLumira(settings.statusLine)) {
-        lines.push(ok('lumira is already configured as your statusline'));
-        saveConfig(wizard, configPath);
-        lines.push(ok(`Saved config → ${DIM}${configPath}${RST}`));
-        lines.push(...installSkill({ homeOverride: opts.homeOverride }));
-
-        if (existsSync(join(opts.homeOverride ?? homedir(), '.qwen'))) {
-          lines.push('');
-          lines.push('  \u2139 Qwen Code detected — in Qwen sessions, lumira renders');
-          lines.push('    single-line automatically. Your preset above applies to Claude Code.');
-        }
-
-        lines.push(`\n  Restart Claude Code to see your statusline.\n`);
-        return lines.join('\n') + '\n';
-      }
-
-      const currentCmd = (settings.statusLine as Record<string, unknown>).command ?? 'unknown';
-      lines.push(warn(`Current statusline: ${YELLOW}${currentCmd}${RST}`));
-      const accepted = await confirm('Replace with lumira?');
-      if (!accepted) {
-        lines.push(`\n  Aborted. No changes made.\n`);
-        return lines.join('\n') + '\n';
-      }
-
-      copyFileSync(settingsPath, backupPath);
-      lines.push(ok(`Backed up existing settings → ${DIM}settings.json.lumira.bak${RST}`));
-    }
-
-    settings.statusLine = { ...LUMIRA_STATUSLINE };
-    mkdirSync(dirname(settingsPath), { recursive: true });
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
-    lines.push(ok('Configured lumira as statusline'));
-
-    saveConfig(wizard, configPath);
-    lines.push(ok(`Saved config → ${DIM}${configPath}${RST}`));
-
-    lines.push(...installSkill({ homeOverride: opts.homeOverride }));
-
-    if (existsSync(join(opts.homeOverride ?? homedir(), '.qwen'))) {
-      lines.push('');
-      lines.push('  \u2139 Qwen Code detected — in Qwen sessions, lumira renders');
-      lines.push('    single-line automatically. Your preset above applies to Claude Code.');
-    }
-
-    lines.push(`\n  Restart Claude Code to see your statusline.\n`);
-    return lines.join('\n') + '\n';
   }
 
-  // ── Legacy path (no configPath) — original behaviour ─────────────
-  lines.push(header());
-
+  // ── settings.json read + early replacement confirmation ───────
+  // Read settings and confirm before running the wizard, so the user
+  // doesn't waste time configuring preset/theme/icons only to decline
+  // the replacement at the end.
   let settings: Record<string, unknown> = {};
 
   if (existsSync(settingsPath)) {
@@ -223,21 +146,51 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     }
   }
 
-  if (settings.statusLine) {
-    if (isLumira(settings.statusLine)) {
-      lines.push(ok('lumira is already configured as your statusline'));
-      lines.push(...installSkill({ homeOverride: opts.homeOverride }));
-      return lines.join('\n') + '\n';
-    }
-
-    const current = (settings.statusLine as Record<string, unknown>).command ?? 'unknown';
-    lines.push(warn(`Current statusline: ${YELLOW}${current}${RST}`));
+  const hasForeignStatusLine = settings.statusLine && !isLumira(settings.statusLine);
+  if (hasForeignStatusLine) {
+    const currentCmd = (settings.statusLine as Record<string, unknown>).command ?? 'unknown';
+    lines.push(warn(`Current statusline: ${YELLOW}${currentCmd}${RST}`));
     const accepted = await confirm('Replace with lumira?');
     if (!accepted) {
       lines.push(`\n  Aborted. No changes made.\n`);
       return lines.join('\n') + '\n';
     }
+  }
 
+  // Load existing config to pre-populate wizard selections
+  const existingConfig = loadConfig(dirname(configPath));
+  const current = {
+    preset: existingConfig.preset,
+    theme: existingConfig.theme,
+    icons: existingConfig.icons,
+  };
+
+  // Determine wizard result
+  let wizard: WizardResult;
+  if (stdin?.isTTY) {
+    const result = await runWizard({ current, prelude, stdin, stdout });
+    if (result === null) {
+      lines.push(`\n  Installation cancelled.\n`);
+      return lines.join('\n') + '\n';
+    }
+    wizard = result;
+  } else {
+    // Non-TTY: use defaults
+    wizard = { preset: 'balanced', icons: 'nerd' };
+    lines.push(ok('Non-interactive mode — using defaults (preset: balanced, icons: nerd)'));
+  }
+
+  // ── settings.json replace/backup ───────────────────────────────
+  if (settings.statusLine) {
+    if (isLumira(settings.statusLine)) {
+      lines.push(ok('lumira is already configured as your statusline'));
+      saveConfig(wizard, configPath);
+      lines.push(ok(`Saved config → ${DIM}${configPath}${RST}`));
+      emitFooter(lines, opts.homeOverride);
+      return lines.join('\n') + '\n';
+    }
+
+    // Foreign statusLine already confirmed above — back it up and replace.
     copyFileSync(settingsPath, backupPath);
     lines.push(ok(`Backed up existing settings → ${DIM}settings.json.lumira.bak${RST}`));
   }
@@ -247,8 +200,10 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
   lines.push(ok('Configured lumira as statusline'));
 
-  lines.push(...installSkill({ homeOverride: opts.homeOverride }));
-  lines.push(`\n  Restart Claude Code to see your statusline.\n`);
+  saveConfig(wizard, configPath);
+  lines.push(ok(`Saved config → ${DIM}${configPath}${RST}`));
+
+  emitFooter(lines, opts.homeOverride);
   return lines.join('\n') + '\n';
 }
 

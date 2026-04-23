@@ -3,7 +3,11 @@ import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { DEFAULT_CONFIG, DEFAULT_DISPLAY, type HudConfig, type DisplayToggles, type ColorConfig } from './types.js';
 
+// Module-level flag: fires the qwen→minimal deprecation warning once per
+// Node process. Process-scoped by design — tests must run in forked workers
+// (see vitest.config.ts `pool: 'forks'`). Issue #20.
 let qwenWarningShown = false;
+/** Test-only — resets the process-scoped qwenWarningShown flag. Do not call in production. */
 export function _resetMigrationFlags(): void { qwenWarningShown = false; }
 
 export function loadConfig(configDir: string = join(homedir(), '.config', 'lumira')): HudConfig {

@@ -43,7 +43,9 @@ describe('fitSegments', () => {
     const dir = 'C'.repeat(25);
     const result = fitSegments([model, branch, dir], [], ' | ', 120);
     expect(displayWidth(result)).toBeLessThanOrEqual(116);
-    expect(result).not.toContain('C'.repeat(25));
+    expect(result).toContain('A'.repeat(20));     // model kept
+    expect(result).toContain('B'.repeat(85));     // branch kept
+    expect(result).not.toContain('C'.repeat(25)); // dir dropped
   });
 
   it('last-resort: truncates single oversized segment without ANSI bleed', () => {

@@ -9,16 +9,28 @@ describe('install', () => {
   let dir: string;
   let settingsPath: string;
   let backupPath: string;
+  let configPath: string;
+
+  // Helper: non-TTY stdin + isolated home + temp config path. Installs run
+  // through the single interactive path with wizard defaults.
+  const baseOpts = () => ({
+    settingsPath,
+    configPath,
+    homeOverride: dir,
+    stdin: createMockStdin(false),
+    confirm: async () => true,
+  });
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'lumira-test-'));
     settingsPath = join(dir, 'settings.json');
     backupPath = join(dir, 'settings.json.lumira.bak');
+    configPath = join(dir, 'config.json');
   });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('creates settings file when none exists', async () => {
-    const output = await install({ settingsPath, confirm: async () => true });
+    const output = await install(baseOpts());
     expect(existsSync(settingsPath)).toBe(true);
     const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(data.statusLine.command).toBe('npx lumira@latest');
@@ -27,7 +39,7 @@ describe('install', () => {
 
   it('adds statusLine when settings exists without one', async () => {
     writeFileSync(settingsPath, JSON.stringify({ hooks: {} }, null, 2));
-    const output = await install({ settingsPath, confirm: async () => true });
+    await install(baseOpts());
     const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(data.statusLine.command).toBe('npx lumira@latest');
     expect(data.hooks).toEqual({});
@@ -37,7 +49,7 @@ describe('install', () => {
   it('backs up and replaces existing statusLine after confirmation', async () => {
     const original = { statusLine: { type: 'command', command: 'other-tool', padding: 0 } };
     writeFileSync(settingsPath, JSON.stringify(original, null, 2));
-    const output = await install({ settingsPath, confirm: async () => true });
+    const output = await install(baseOpts());
     expect(existsSync(backupPath)).toBe(true);
     const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
     expect(backup.statusLine.command).toBe('other-tool');
@@ -49,7 +61,7 @@ describe('install', () => {
   it('skips when already configured with lumira', async () => {
     const existing = { statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 } };
     writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
-    const output = await install({ settingsPath, confirm: async () => true });
+    const output = await install(baseOpts());
     expect(output).toContain('already configured');
     expect(existsSync(backupPath)).toBe(false);
   });
@@ -57,7 +69,7 @@ describe('install', () => {
   it('aborts when user declines replacement', async () => {
     const original = { statusLine: { type: 'command', command: 'other-tool', padding: 0 } };
     writeFileSync(settingsPath, JSON.stringify(original, null, 2));
-    const output = await install({ settingsPath, confirm: async () => false });
+    const output = await install({ ...baseOpts(), confirm: async () => false });
     const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(data.statusLine.command).toBe('other-tool');
     expect(output).toContain('Aborted');
@@ -65,7 +77,7 @@ describe('install', () => {
 
   it('recovers from malformed settings.json and creates fresh settings', async () => {
     writeFileSync(settingsPath, 'this is { not valid JSON!!');
-    const output = await install({ settingsPath, confirm: async () => true });
+    const output = await install(baseOpts());
     expect(output).toContain('Could not parse');
     const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(data.statusLine.command).toBe('npx lumira@latest');
@@ -74,7 +86,7 @@ describe('install', () => {
 
   it('creates parent directory when it does not exist', async () => {
     const nestedSettingsPath = join(dir, 'nested', 'deep', 'settings.json');
-    const output = await install({ settingsPath: nestedSettingsPath, confirm: async () => true });
+    const output = await install({ ...baseOpts(), settingsPath: nestedSettingsPath });
     expect(existsSync(nestedSettingsPath)).toBe(true);
     const data = JSON.parse(readFileSync(nestedSettingsPath, 'utf8'));
     expect(data.statusLine.command).toBe('npx lumira@latest');

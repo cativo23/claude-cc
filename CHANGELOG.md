@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-04-23
+
+### Security
+- Sanitize `ToolEntry.name`, tool targets (file paths / patterns / Bash commands), `TodoEntry.content`, and `AgentEntry` metadata at the transcript parser boundary so a malformed JSONL file cannot inject terminal control sequences via `line1`/`line3`.
+- Sanitize `gsd.currentTask` from local todo JSON before it reaches `line4` and `minimal` renderers.
+
+### Changed
+- Collapse installer dual-path into a single linear flow; `configPath` defaults to `~/.config/lumira/config.json`. New `emitFooter()` helper emits skill install + Qwen notice + restart message from both success branches, eliminating drift risk.
+- Replacement confirmation prompt now fires before the wizard, so a user declining to replace an existing statusline no longer wastes time configuring preset/theme/icons.
+- Vitest pool explicitly pinned to `forks` with a comment explaining that `src/config.ts` and `src/tui/select.ts` carry process-scoped module flags.
+
+### Fixed
+- Remove unreachable `return leftStr` after the inner loop in `fitSegments`.
+
+### Docs
+- JSDoc and comments for test-only exports (`_resetMigrationFlags`, `buildMockContext`).
+- Document `left[0]` assumption in the `fitSegments` last-resort branch.
+
+### Tests
+- Strengthen `fitSegments` drop-segment test with positive assertions that the model and branch segments survive.
+
 ## [0.3.1] - 2026-04-21
 
 ### Added
@@ -141,7 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/cativo23/lumira/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/cativo23/lumira/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/cativo23/lumira/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/cativo23/lumira/compare/v0.2.1...v0.2.2

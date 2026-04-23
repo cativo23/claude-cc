@@ -41,6 +41,7 @@ function buildMockContext(opts: PreviewOpts): RenderContext {
 
   // Build a realistic raw Claude Code input that normalize() can consume.
   // Fill every field that renderers access via ctx.input.* or ctx.input.raw.*
+  // Placeholder values below (paths, branch names) are intentional — used only for wizard preview rendering.
   const rawInput = {
     model: 'Claude Sonnet 4.6',
     session_id: 'preview-session',
