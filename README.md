@@ -170,6 +170,14 @@ npm run lint         # Type check
 npm run build        # Compile to dist/
 ```
 
+### Debugging
+
+Set `LUMIRA_DEBUG=1` to trace parser decisions on stderr — cache hits, GSD state-file resolution, MCP server loads. Useful when investigating "why doesn't X show up?" reports. Stdout stays clean so it doesn't corrupt the statusline.
+
+```bash
+LUMIRA_DEBUG=1 claude    # or export LUMIRA_DEBUG=1
+```
+
 ## Credits
 
 Inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud). Migrated from [claude-setup](https://github.com/cativo23/claude-setup) statusline.

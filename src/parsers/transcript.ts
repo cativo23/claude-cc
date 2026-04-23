@@ -6,6 +6,9 @@ import type { TranscriptData, ToolEntry, AgentEntry, TodoEntry, TodoStatus, Thin
 import { EMPTY_TRANSCRIPT } from '../types.js';
 import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js';
 import { sanitizeTermString } from '../normalize.js';
+import { debug } from '../utils/debug.js';
+
+const log = debug('transcript');
 
 const transcriptCache = new Map<string, { result: TranscriptData; mtime: MtimeState }>();
 
@@ -39,16 +42,24 @@ export function extractToolTarget(toolName: string, input: Record<string, unknow
 
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
   const result: TranscriptData = { ...EMPTY_TRANSCRIPT, tools: [], agents: [], todos: [] };
-  if (!transcriptPath || !existsSync(transcriptPath)) return result;
+  if (!transcriptPath || !existsSync(transcriptPath)) {
+    if (log.enabled) log('skip — transcript path missing or nonexistent:', transcriptPath || '(empty)');
+    return result;
+  }
 
   const resolved = resolve(transcriptPath);
-  if (!resolved.startsWith(homedir()) && !resolved.startsWith(tmpdir())) return result;
+  if (!resolved.startsWith(homedir()) && !resolved.startsWith(tmpdir())) {
+    log('skip — path outside allowed roots:', resolved);
+    return result;
+  }
 
   const currentMtime = getMtimeState(transcriptPath);
   const cached = transcriptCache.get(resolved);
   if (currentMtime && cached && isMtimeFresh(transcriptPath, cached.mtime)) {
+    log('cache hit:', resolved);
     return cached.result;
   }
+  const parseStart = log.enabled ? Date.now() : 0;
 
   const toolMap = new Map<string, ToolEntry>();
   const agentMap = new Map<string, AgentEntry>();
@@ -143,6 +154,15 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.thinkingEffort = thinkingEffort;
   if (currentMtime) {
     transcriptCache.set(resolved, { result, mtime: currentMtime });
+  }
+  if (log.enabled) {
+    log('parsed', resolved, {
+      tools: result.tools.length,
+      agents: result.agents.length,
+      todos: result.todos.length,
+      thinkingEffort: result.thinkingEffort || null,
+      durationMs: Date.now() - parseStart,
+    });
   }
   return result;
 }
