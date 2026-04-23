@@ -5,6 +5,7 @@ import { homedir, tmpdir } from 'node:os';
 import type { TranscriptData, ToolEntry, AgentEntry, TodoEntry, TodoStatus, ThinkingEffort } from '../types.js';
 import { EMPTY_TRANSCRIPT } from '../types.js';
 import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js';
+import { sanitizeTermString } from '../normalize.js';
 
 const transcriptCache = new Map<string, { result: TranscriptData; mtime: MtimeState }>();
 
@@ -20,17 +21,20 @@ export function normalizeTodoStatus(status: string | undefined): TodoStatus {
 
 export function extractToolTarget(toolName: string, input: Record<string, unknown> | undefined): string | undefined {
   if (!input) return undefined;
-  switch (toolName) {
-    case 'Read': case 'Write': case 'Edit':
-      return (input.file_path ?? input.path) as string | undefined;
-    case 'Glob': case 'Grep':
-      return input.pattern as string | undefined;
-    case 'Bash': {
-      const cmd = (input.command as string) || '';
-      return cmd.length > 30 ? cmd.slice(0, 30) + '...' : cmd;
+  const raw = (() => {
+    switch (toolName) {
+      case 'Read': case 'Write': case 'Edit':
+        return (input.file_path ?? input.path) as string | undefined;
+      case 'Glob': case 'Grep':
+        return input.pattern as string | undefined;
+      case 'Bash': {
+        const cmd = (input.command as string) || '';
+        return cmd.length > 30 ? cmd.slice(0, 30) + '...' : cmd;
+      }
+      default: return undefined;
     }
-    default: return undefined;
-  }
+  })();
+  return typeof raw === 'string' ? sanitizeTermString(raw) : raw;
 }
 
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
@@ -75,11 +79,18 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
         for (const block of content) {
           if (block.type === 'tool_use' && block.id && block.name) {
-            toolMap.set(block.id, { id: block.id, name: block.name, target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
+            toolMap.set(block.id, { id: block.id, name: sanitizeTermString(block.name), target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
 
             if (block.name === 'Task') {
               const inp = block.input || {};
-              agentMap.set(block.id, { id: block.id, type: inp.subagent_type || 'unknown', model: inp.model, description: inp.description, status: 'running', startTime: timestamp });
+              agentMap.set(block.id, {
+                id: block.id,
+                type: sanitizeTermString(inp.subagent_type || 'unknown'),
+                model: typeof inp.model === 'string' ? sanitizeTermString(inp.model) : inp.model,
+                description: typeof inp.description === 'string' ? sanitizeTermString(inp.description) : inp.description,
+                status: 'running',
+                startTime: timestamp,
+              });
             }
 
             if (block.name === 'TodoWrite' && block.input?.todos && Array.isArray(block.input.todos)) {
@@ -88,14 +99,14 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
                 const id = t.id || t.content || '';
                 const existing = existingById.get(id);
                 if (existing && (!t.status || t.status === existing.status)) return existing;
-                return { id: t.id || '', content: t.content || '', status: normalizeTodoStatus(t.status) };
+                return { id: t.id || '', content: sanitizeTermString(t.content || ''), status: normalizeTodoStatus(t.status) };
               });
             }
 
             if (block.name === 'TaskCreate') {
               const inp = block.input || {};
               const todoContent = (typeof inp.subject === 'string' ? inp.subject : '') || (typeof inp.description === 'string' ? inp.description : '') || 'Untitled task';
-              todos.push({ id: inp.taskId || block.id, content: todoContent, status: normalizeTodoStatus(inp.status) });
+              todos.push({ id: inp.taskId || block.id, content: sanitizeTermString(todoContent), status: normalizeTodoStatus(inp.status) });
               if (inp.taskId || block.id) taskIdToIndex.set(String(inp.taskId || block.id), todos.length - 1);
             }
 
@@ -110,7 +121,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
                 if (inp.status) todos[index].status = normalizeTodoStatus(inp.status);
                 const subj = typeof inp.subject === 'string' ? inp.subject : '';
                 const desc = typeof inp.description === 'string' ? inp.description : '';
-                if (subj || desc) todos[index].content = subj || desc;
+                if (subj || desc) todos[index].content = sanitizeTermString(subj || desc);
               }
             }
           }

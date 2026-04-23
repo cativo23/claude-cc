@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import type { GsdInfo } from '../types.js';
+import { sanitizeTermString } from '../normalize.js';
 
 export function getGsdInfo(session: string, claudeDir: string = join(process.env['CLAUDE_CONFIG_DIR'] || join(homedir(), '.claude'))): GsdInfo | null {
   let updateAvailable = false;
@@ -21,7 +22,7 @@ export function getGsdInfo(session: string, claudeDir: string = join(process.env
         if (!resolve(todoPath).startsWith(resolve(todosDir))) return null;
         const todos = JSON.parse(readFileSync(resolve(todoPath), 'utf8'));
         const ip = todos.find((t: { status: string; activeForm?: string }) => t.status === 'in_progress');
-        if (ip?.activeForm) currentTask = ip.activeForm;
+        if (ip?.activeForm) currentTask = sanitizeTermString(String(ip.activeForm));
       }
     } catch {}
   }
