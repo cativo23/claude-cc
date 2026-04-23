@@ -131,6 +131,32 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     }
   }
 
+  // ── settings.json read + early replacement confirmation ───────
+  // Read settings and confirm before running the wizard, so the user
+  // doesn't waste time configuring preset/theme/icons only to decline
+  // the replacement at the end.
+  let settings: Record<string, unknown> = {};
+
+  if (existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    } catch {
+      lines.push(warn('Could not parse existing settings.json, creating fresh'));
+      settings = {};
+    }
+  }
+
+  const hasForeignStatusLine = settings.statusLine && !isLumira(settings.statusLine);
+  if (hasForeignStatusLine) {
+    const currentCmd = (settings.statusLine as Record<string, unknown>).command ?? 'unknown';
+    lines.push(warn(`Current statusline: ${YELLOW}${currentCmd}${RST}`));
+    const accepted = await confirm('Replace with lumira?');
+    if (!accepted) {
+      lines.push(`\n  Aborted. No changes made.\n`);
+      return lines.join('\n') + '\n';
+    }
+  }
+
   // Load existing config to pre-populate wizard selections
   const existingConfig = loadConfig(dirname(configPath));
   const current = {
@@ -154,18 +180,7 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     lines.push(ok('Non-interactive mode — using defaults (preset: balanced, icons: nerd)'));
   }
 
-  // ── settings.json read/replace/backup ──────────────────────────
-  let settings: Record<string, unknown> = {};
-
-  if (existsSync(settingsPath)) {
-    try {
-      settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    } catch {
-      lines.push(warn('Could not parse existing settings.json, creating fresh'));
-      settings = {};
-    }
-  }
-
+  // ── settings.json replace/backup ───────────────────────────────
   if (settings.statusLine) {
     if (isLumira(settings.statusLine)) {
       lines.push(ok('lumira is already configured as your statusline'));
@@ -175,14 +190,7 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
       return lines.join('\n') + '\n';
     }
 
-    const currentCmd = (settings.statusLine as Record<string, unknown>).command ?? 'unknown';
-    lines.push(warn(`Current statusline: ${YELLOW}${currentCmd}${RST}`));
-    const accepted = await confirm('Replace with lumira?');
-    if (!accepted) {
-      lines.push(`\n  Aborted. No changes made.\n`);
-      return lines.join('\n') + '\n';
-    }
-
+    // Foreign statusLine already confirmed above — back it up and replace.
     copyFileSync(settingsPath, backupPath);
     lines.push(ok(`Backed up existing settings → ${DIM}settings.json.lumira.bak${RST}`));
   }
