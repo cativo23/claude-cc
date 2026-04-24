@@ -1,7 +1,8 @@
 import { padLine } from './text.js';
-import { getQuotaColor, type Colors } from './colors.js';
+import { getQuotaColor, detectColorMode, type Colors } from './colors.js';
 import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
+import { getConfigHealth } from '../parsers/config-health.js';
 import type { RenderContext } from '../types.js';
 
 export function formatCountdown(resetsAt: number): string {
@@ -110,6 +111,15 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
         if (countdown) limitStr += c.dim(` ${countdown}`);
       }
       leftParts.push(limitStr);
+    }
+  }
+
+  // Config health hints (opt-in, default off)
+  if (display.health && input.cwd) {
+    const colorMode = ctx.config.colors.mode === 'auto' ? detectColorMode() : ctx.config.colors.mode;
+    const hints = getConfigHealth(ctx.config, colorMode, input.cwd);
+    for (const h of hints) {
+      leftParts.push(h.severity === 'warn' ? c.yellow(`⚠ ${h.hint}`) : c.dim(`ℹ ${h.hint}`));
     }
   }
 
