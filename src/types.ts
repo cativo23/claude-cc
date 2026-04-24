@@ -161,6 +161,12 @@ export interface HudConfig {
   preset?: 'full' | 'balanced' | 'minimal';
   theme?: string;
   icons?: 'nerd' | 'emoji' | 'none';
+  /** Visual style for line1 — 'classic' (pipe-separated) or 'powerline' (colored segments). */
+  style?: 'classic' | 'powerline';
+  powerline?: {
+    /** Separator glyph preset. Defaults to 'auto' (nerd font → arrow, else compatible). */
+    style?: 'arrow' | 'flame' | 'slant' | 'round' | 'diamond' | 'compatible' | 'plain' | 'auto';
+  };
 }
 
 export interface DisplayToggles {

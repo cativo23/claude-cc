@@ -50,6 +50,14 @@ function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
   if (typeof raw.theme === 'string' && raw.theme.length > 0) result.theme = raw.theme;
   const validIcons = ['nerd', 'emoji', 'none'] as const;
   if (validIcons.includes(raw.icons as never)) result.icons = raw.icons as HudConfig['icons'];
+  if (raw.style === 'classic' || raw.style === 'powerline') result.style = raw.style;
+  if (raw.powerline && typeof raw.powerline === 'object') {
+    const plRaw = raw.powerline as Record<string, unknown>;
+    const validPlStyles = ['arrow', 'flame', 'slant', 'round', 'diamond', 'compatible', 'plain', 'auto'] as const;
+    if (validPlStyles.includes(plRaw.style as never)) {
+      result.powerline = { style: plRaw.style as NonNullable<HudConfig['powerline']>['style'] };
+    }
+  }
   return result;
 }
 
@@ -124,11 +132,19 @@ export function mergeCliFlags(config: HudConfig, argv: string[]): HudConfig {
   if (argv.includes('--minimal')) applyPreset(r, 'minimal');
   if (argv.includes('--balanced')) applyPreset(r, 'balanced');
   if (argv.includes('--full')) applyPreset(r, 'full');
+  if (argv.includes('--powerline')) r.style = 'powerline';
+  if (argv.includes('--classic'))   r.style = 'classic';
   for (const arg of argv) {
     const presetMatch = arg.match(/^--preset[= ]?(full|balanced|minimal)$/);
     if (presetMatch) { applyPreset(r, presetMatch[1] as NonNullable<HudConfig['preset']>); continue; }
     const iconsMatch = arg.match(/^--icons[= ]?(nerd|emoji|none)$/);
     if (iconsMatch) { r.icons = iconsMatch[1] as HudConfig['icons']; continue; }
+    const plStyleMatch = arg.match(/^--powerline-style[= ](arrow|flame|slant|round|diamond|compatible|plain|auto)$/);
+    if (plStyleMatch) {
+      r.style = 'powerline';
+      r.powerline = { ...(r.powerline ?? {}), style: plStyleMatch[1] as NonNullable<HudConfig['powerline']>['style'] };
+      continue;
+    }
   }
   return r;
 }

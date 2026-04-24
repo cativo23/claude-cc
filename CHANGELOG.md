@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Powerline renderer for line 1** — opt-in via `style: "powerline"` (or `--powerline`). Seven separator presets: `arrow`, `flame`, `slant`, `round` (with caps + thin internal sep), `diamond` (per-segment pills), `compatible` (unicode `▶`, no Nerd Font needed), and `plain` (color blocks only). Pick with `powerline.style` in config or `--powerline-style=<name>` on CLI. `auto` picks `arrow` when Nerd Font is available, otherwise `compatible`. Per-theme powerline palettes can be declared on `ThemePalette.powerline`; themes without one get an auto-derived palette (darkened fg hues). Includes **git-dirty bg swap** (branch segment turns red when staged/modified/untracked > 0) and **priority-based eviction** (drops `version` → `task` → `dir` first when the terminal is narrow). Named-ANSI terminals fall back to the classic renderer — powerline needs RGB backgrounds and named-ANSI has only 8 base hues.
 - **OSC 8 hyperlinks** — the directory (line 1) is now a clickable `file://` link that opens the folder in the OS file manager, and the version tag links to the matching Claude Code npm release page. Modern terminals (iTerm2, WezTerm, Kitty, Alacritty, VS Code, tmux ≥3.4 with passthrough) render them as hyperlinks; terminals without support show plain text. Auto-disabled in Apple_Terminal (which leaks escape markers as text) and `TERM=dumb`. Opt out with `NO_HYPERLINKS=1`; force on with `FORCE_HYPERLINK=1`.
 
 ### Fixed
