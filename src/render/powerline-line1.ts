@@ -53,9 +53,12 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette): Powerline
   if (display.branch && branchName) {
     const dirty = git.staged + git.modified + git.untracked > 0;
     // Signal git state via bg swap — robbed from powerline-go's RepoCleanBg /
-    // RepoDirtyBg distinction. Cleaner than appending status chars post-branch.
+    // RepoDirtyBg distinction. Both badges and the bg swap respect
+    // `display.gitChanges` so toggling it off matches classic renderer
+    // behaviour (no signal of dirty state at all).
+    const showDirty = display.gitChanges && dirty;
     let label = truncField(branchName, 40);
-    if (display.gitChanges && dirty) {
+    if (showDirty) {
       const badges: string[] = [];
       if (git.staged > 0)    badges.push(`+${git.staged}`);
       if (git.modified > 0)  badges.push(`!${git.modified}`);
@@ -65,7 +68,7 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette): Powerline
     segments.push({
       text: label,
       icon: icons.branch,
-      bg: dirty ? palette.branchDirtyBg : palette.branchCleanBg,
+      bg: showDirty ? palette.branchDirtyBg : palette.branchCleanBg,
       fg: palette.fg,
       priority: 80,
     });
