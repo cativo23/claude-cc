@@ -1,7 +1,8 @@
-import { padLine } from './text.js';
-import { getQuotaColor, type Colors } from './colors.js';
+import { padLine, displayWidth } from './text.js';
+import { getQuotaColor, detectColorMode, type Colors } from './colors.js';
 import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
+import { getConfigHealth } from '../parsers/config-health.js';
 import type { RenderContext } from '../types.js';
 
 export function formatCountdown(resetsAt: number): string {
@@ -121,6 +122,31 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   // Right side: effort (hidden if medium)
   if (display.effort && thinkingEffort && thinkingEffort !== 'medium') {
     rightParts.push(c.dim(`^${thinkingEffort}`));
+  }
+
+  // Config health hints (opt-in, default off). Sit on the right side as
+  // auxiliary signals next to vim/effort, and are dropped silently when the
+  // projected line width would overflow `cols` — they are advisory, never
+  // critical, so quietly hiding them on narrow terminals is preferable to
+  // wrapping the statusline.
+  if (display.health && input.cwd) {
+    const colorMode = ctx.config.colors.mode === 'auto' ? detectColorMode() : ctx.config.colors.mode;
+    const hints = getConfigHealth(ctx.config, colorMode, input.cwd);
+    if (hints.length > 0) {
+      const candidates = hints.map(h =>
+        h.severity === 'warn' ? c.yellow(`⚠ ${h.hint}`) : c.dim(`ℹ ${h.hint}`),
+      );
+      const leftW = displayWidth(leftParts.join(SEP));
+      const currentRightW = rightParts.length ? displayWidth(rightParts.join(' ')) : 0;
+      // +1 per added hint accounts for the joining space.
+      let projectedW = leftW + (currentRightW > 0 ? 1 : 0) + currentRightW;
+      for (const h of candidates) {
+        const addW = displayWidth(h) + 1;
+        if (projectedW + addW > cols) break;
+        rightParts.push(h);
+        projectedW += addW;
+      }
+    }
   }
 
   const leftStr = leftParts.join(SEP);

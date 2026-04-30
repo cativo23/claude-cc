@@ -195,6 +195,7 @@ export interface DisplayToggles {
   memory: boolean;
   cacheMetrics: boolean;
   mcp: boolean;
+  health: boolean;
 }
 
 export interface ColorConfig {
@@ -227,6 +228,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   memory: true,
   cacheMetrics: true,
   mcp: true,
+  health: false,
 };
 
 export const DEFAULT_CONFIG: HudConfig = {
