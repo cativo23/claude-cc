@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-30
+
 ### Added
-- **Powerline renderer for line 1** — opt-in via `style: "powerline"` (or `--powerline`). Seven separator presets: `arrow`, `flame`, `slant`, `round` (with caps + thin internal sep), `diamond` (per-segment pills), `compatible` (unicode `▶`, no Nerd Font needed), and `plain` (color blocks only). Pick with `powerline.style` in config or `--powerline-style=<name>` on CLI. `auto` picks `arrow` when Nerd Font is available, otherwise `compatible`. Per-theme powerline palettes can be declared on `ThemePalette.powerline`; themes without one get an auto-derived palette (darkened fg hues). Includes **git-dirty bg swap** (branch segment turns red when staged/modified/untracked > 0) and **priority-based eviction** (drops `version` → `task` → `dir` first when the terminal is narrow). Named-ANSI terminals fall back to the classic renderer — powerline needs RGB backgrounds and named-ANSI has only 8 base hues.
+- **Powerline renderer (line 1, 2, 3)** — opt-in via `style: "powerline"` (or `--powerline`). Seven separator presets: `arrow`, `flame`, `slant`, `round` (with caps + thin internal sep), `diamond` (per-segment pills), `compatible` (unicode `▶`, no Nerd Font needed), and `plain` (color blocks only). Pick with `powerline.style` in config or `--powerline-style=<name>` on CLI. `auto` picks `arrow` when Nerd Font is available, otherwise `compatible`. Hand-curated powerline palettes for all 7 built-in themes (dracula, nord, tokyo-night, catppuccin, monokai, gruvbox, solarized) — distinct hues per segment, all clear WCAG AA contrast for white fg. Themes without an explicit palette fall back to an auto-derived one. Includes **git-dirty bg swap** (branch segment turns red when staged/modified/untracked > 0) and **priority-based eviction** (drops lowest-priority segments first when the terminal is narrow). Named-ANSI terminals fall back to the classic renderer — powerline needs RGB backgrounds and named-ANSI has only 8 base hues.
 - **OSC 8 hyperlinks** — the directory (line 1) is now a clickable `file://` link that opens the folder in the OS file manager, and the version tag links to the matching Claude Code npm release page. Modern terminals (iTerm2, WezTerm, Kitty, Alacritty, VS Code, tmux ≥3.4 with passthrough) render them as hyperlinks; terminals without support show plain text. Auto-disabled in Apple_Terminal (which leaks escape markers as text) and `TERM=dumb`. Opt out with `NO_HYPERLINKS=1`; force on with `FORCE_HYPERLINK=1`.
+- **Config health widget** (opt-in, `display.health: true`) — line 2 surfaces silent fallbacks at a glance: `theme` set in named-ANSI mode (no effect), `style: "powerline"` in named-ANSI (falls back to classic), `gsd: true` with no `.planning/STATE.md` reachable from cwd. Hints sit on the right side next to vim/effort and are dropped silently if they would push line 2 past terminal width.
+- **Context bar `plain` rendering mode** — when the bar is embedded in a powerline segment, cells inherit the segment background (proportion still reads from cell length) while the percentage value, warning icon (☠/🔥), and `/compact?` hint keep their alarm colors. Avoids the visible "holes" that inline `\x1b[0m` resets would leave inside a colored segment.
 
 ### Fixed
 - **`stripAnsi` now handles the ST (`ESC \`) OSC terminator**, not just BEL. Required so OSC 8 sequences don't leak into `displayWidth()` and throw off terminal-width fitting.
+- **Config health GSD walk uses `dirname`**, not `join(dir, '..')` — the prior form never resolved and silently bailed at the iteration cap on deeply-nested projects.
 
 ## [0.5.0] - 2026-04-23
 
@@ -190,7 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/cativo23/lumira/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/cativo23/lumira/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cativo23/lumira/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/cativo23/lumira/compare/v0.3.1...v0.3.2
