@@ -1,0 +1,92 @@
+name: Bug report
+description: Something rendered wrong, crashed, or behaved unexpectedly.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: One or two sentences. What did you expect, what did you see instead?
+      placeholder: "Powerline mode renders the directory segment without a background on iTerm2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot or terminal output
+      description: |
+        A screenshot of the broken statusline is the fastest way to triage. Attach an image, or paste the
+        rendered output (if you can copy it from your terminal scrollback).
+      placeholder: drop image here, or paste raw output
+
+  - type: input
+    id: version
+    attributes:
+      label: lumira version
+      description: Run `npx lumira --version` (or check `~/.config/lumira/config.json` mtime against your last update).
+      placeholder: "0.6.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: CLI host
+      options:
+        - Claude Code (CLI)
+        - Claude Code (VS Code extension)
+        - Qwen Code
+        - Other (specify in description)
+    validations:
+      required: true
+
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal + OS
+      description: e.g. "iTerm2 3.5 / macOS 14", "WezTerm / Linux", "Windows Terminal / Windows 11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: lumira config
+      description: |
+        Paste the contents of `~/.config/lumira/config.json` (or note "default config" if you didn't customize).
+        **Redact API keys / secrets** if you have any in there (you shouldn't — lumira doesn't ask for them).
+      render: json
+      placeholder: |
+        {
+          "preset": "balanced",
+          "theme": "tokyo-night",
+          "style": "powerline"
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: debug
+    attributes:
+      label: LUMIRA_DEBUG output (optional but very helpful)
+      description: |
+        Run with `LUMIRA_DEBUG=1` set and paste the stderr output. This shows cache hits, GSD state resolution,
+        transcript parsing decisions, etc. — usually points right at the bug.
+
+        ```bash
+        LUMIRA_DEBUG=1 claude 2> /tmp/lumira.log
+        # then paste the contents of /tmp/lumira.log
+        ```
+      render: text
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce (if you can)
+      description: Optional but helpful for non-obvious cases.
+      placeholder: |
+        1. Set theme to "nord" and style to "powerline"
+        2. Resize terminal to 80 cols
+        3. Statusline wraps onto a 4th line

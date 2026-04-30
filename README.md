@@ -11,12 +11,16 @@ Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen 
 ## Features
 
 - **3-line custom mode** + **1-line minimal mode** (auto-switches at <70 columns)
-- **Context bar** with color thresholds (green → yellow → orange → blinking red)
-- **Git status** with branch, staged/modified/untracked counts (5s TTL cache)
+- **Powerline mode** — opt-in colored segments with 7 separator presets (`arrow`, `flame`, `slant`, `round`, `diamond`, `compatible`, `plain`) across all 3 lines
+- **OSC 8 hyperlinks** — clickable directory (file://) and version (npm) on supported terminals (iTerm2, WezTerm, Kitty, VS Code, Alacritty)
+- **7 built-in themes** — `dracula`, `nord`, `tokyo-night`, `catppuccin`, `monokai`, `gruvbox`, `solarized` with hand-curated powerline palettes
+- **Context bar** with color thresholds (green → yellow → orange → blinking red) and actionable `/compact?` hint at high fill
+- **Git status** with branch, staged/modified/untracked counts (5s TTL cache); branch turns red on dirty repos in powerline mode
 - **Token metrics** — input/output counts, speed (tok/s), cost + burn rate ($/h)
 - **Rate limits** — 5h/7d usage with color warnings and reset countdown
 - **Transcript parsing** — active tools, agents, and todo progress
 - **GSD integration** — current task and update notifications
+- **Config health widget** (opt-in) — surfaces silent fallbacks (theme/powerline in named-ANSI, missing GSD STATE.md)
 - **Memory usage** display
 - **Nerd Font icons** throughout
 - **3-tier color system** — named ANSI, 256-color, truecolor (auto-detected)
@@ -91,21 +95,38 @@ If installed from source:
 my-project |  main | Opus 4.6 | ████░░░░░░░░░░░░░░░░ 21% | 131k↑ 25k↓ | $1.31
 ```
 
+### Powerline Mode (opt-in via `style: "powerline"`)
+
+```
+  Opus 4.6   main    my-project   Fix the bug   v2.1.92
+ ████░░░░░░░░░░░░░░░░ 21%   131k↑ 25k↓   $1.31    35m06s
+ ✓ Read ×3   ✓ Edit ×2    ████████░░ 8/10
+```
+
+Each segment renders with a distinct background colour drawn from the active theme; segments are separated by a Nerd Font glyph (default ``). On dirty git repos the branch segment turns red. Falls back to classic mode silently in named-ANSI terminals (powerline needs RGB backgrounds). See [Powerline](#powerline) below for the 7 separator styles.
+
 ## Configuration
 
 Create `~/.config/lumira/config.json`:
 
 ```json
 {
-  "layout": "auto",
+  "preset": "balanced",
+  "theme": "tokyo-night",
+  "icons": "nerd",
+  "style": "classic",
+  "powerline": { "style": "auto" },
   "gsd": false,
+  "colors": { "mode": "auto" },
   "display": {
     "model": true,
     "branch": true,
     "gitChanges": true,
     "directory": true,
     "contextBar": true,
+    "contextTokens": true,
     "tokens": true,
+    "cacheMetrics": true,
     "cost": true,
     "burnRate": true,
     "duration": true,
@@ -113,6 +134,7 @@ Create `~/.config/lumira/config.json`:
     "rateLimits": true,
     "tools": true,
     "todos": true,
+    "mcp": true,
     "vim": true,
     "effort": true,
     "worktree": true,
@@ -121,23 +143,58 @@ Create `~/.config/lumira/config.json`:
     "style": true,
     "version": true,
     "linesChanged": true,
-    "memory": true
-  },
-  "colors": {
-    "mode": "auto"
+    "memory": true,
+    "health": false
   }
 }
 ```
 
-All fields are optional — defaults are shown above.
+All fields are optional — defaults are shown above. `display.health` defaults to `false` (opt-in widget).
 
 ### CLI Flags
 
 ```bash
-lumira --minimal    # Force single-line mode
-lumira --balanced   # Force balanced preset
-lumira --full       # Force full multi-line preset
-lumira --gsd        # Enable GSD integration
+lumira --minimal                    # Force single-line mode
+lumira --balanced                   # Force balanced preset
+lumira --full                       # Force full multi-line preset
+lumira --gsd                        # Enable GSD integration
+lumira --powerline                  # Enable powerline visual style
+lumira --classic                    # Force classic (pipe-separated) line 1
+lumira --powerline-style=arrow      # Pick separator: arrow|flame|slant|round|diamond|compatible|plain|auto
+lumira --icons=nerd|emoji|none      # Override icon set
+lumira --preset=full|balanced|minimal
+```
+
+## Powerline
+
+`style: "powerline"` (or `--powerline`) renders the statusline with colored segment backgrounds and glyph separators inspired by powerline-go / oh-my-posh. Available separator presets via `powerline.style` (or `--powerline-style=<name>`):
+
+| Style | Look |
+|---|---|
+| `arrow` | classic right-pointing triangle separator (default) |
+| `flame` | wavy flame-shaped separator |
+| `slant` | forward-slanting separator |
+| `round` | rounded caps at line ends + thin internal separators |
+| `diamond` | each segment isolated as its own pill with rounded caps |
+| `compatible` | unicode `▶` separator (no Nerd Font required) |
+| `plain` | no separator glyphs — just colored blocks |
+| `auto` | picks `arrow` if Nerd Font icons are configured, else `compatible` |
+
+### Themes
+
+Pick one of the 7 built-in themes via `theme: "<name>"` in config or during `lumira install`:
+
+`dracula` · `nord` · `tokyo-night` · `catppuccin` · `monokai` · `gruvbox` · `solarized`
+
+Each theme ships with a hand-curated **powerline palette** (per-segment background colors) that meets WCAG AA contrast for white foreground. Themes apply in truecolor and 256-color terminals; named-ANSI terminals fall back to default colors (8 base hues can't represent arbitrary palettes).
+
+### Hyperlinks (OSC 8)
+
+The directory on line 1 becomes a clickable `file://` link, and the version tag links to its npm release page on terminals that support [OSC 8](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda) (iTerm2, WezTerm, Kitty, Alacritty, VS Code terminal, tmux ≥3.4 with passthrough). Other terminals show plain text. Auto-disabled in `Apple_Terminal` (which leaks markers) and `TERM=dumb`.
+
+```bash
+NO_HYPERLINKS=1 claude    # disable
+FORCE_HYPERLINK=1 claude  # force-enable (overrides denylist)
 ```
 
 ### Qwen Code

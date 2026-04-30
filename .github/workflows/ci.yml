@@ -15,5 +15,23 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: npm test
+      # Coverage thresholds enforced via vitest.config.ts. A drop below
+      # the configured floors (lines 87, statements 85, branches 75,
+      # functions 80) fails this step.
+      - run: npm run test:coverage
+      - run: npm run lint
       - run: npm run build
+      # Bundle size guard: dist/ ships to npm. Currently ~280 KB; the
+      # ceiling is set to 350 KB so meaningful growth is a deliberate
+      # decision rather than accidental. Raise alongside the corresponding
+      # PR if a feature genuinely needs the headroom.
+      - name: Bundle size guard
+        env:
+          CEILING: '358400'
+        run: |
+          SIZE=$(du -sb dist/ | cut -f1)
+          echo "dist/ size: $SIZE bytes (ceiling: $CEILING)"
+          if [ "$SIZE" -gt "$CEILING" ]; then
+            echo "::error::dist/ exceeded ceiling — raise it in ci.yml if intentional"
+            exit 1
+          fi

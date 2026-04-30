@@ -29,4 +29,19 @@ describe('buildPreview', () => {
     });
     expect(out).toBe('(preview unavailable)');
   });
+
+  it('full preset shows segments that balanced suppresses (regression)', () => {
+    // Pre-fix the wizard preview only mirrored layout, leaving every
+    // display toggle on for both presets. The two outputs were identical
+    // at typical wizard widths. After applyPreset is invoked correctly,
+    // balanced suppresses burnRate, duration, tokenSpeed, linesChanged,
+    // sessionName, version, memory, contextTokens, cacheMetrics — so the
+    // outputs must differ.
+    const full = buildPreview({ preset: 'full', icons: 'nerd' });
+    const balanced = buildPreview({ preset: 'balanced', icons: 'nerd' });
+    expect(full).not.toBe(balanced);
+    // Sanity: full keeps the burn-rate suffix, balanced drops it
+    expect(full).toMatch(/\$\d+\.\d+\/h/);
+    expect(balanced).not.toMatch(/\$\d+\.\d+\/h/);
+  });
 });

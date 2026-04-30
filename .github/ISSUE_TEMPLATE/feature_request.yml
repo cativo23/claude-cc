@@ -1,0 +1,48 @@
+name: Feature request
+description: Suggest a new feature, signal, or visual variant.
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Lead with the pain. "I want X" is harder to triage than "when I do Y, I can't tell whether Z".
+      placeholder: "I can't tell at a glance which sub-agent is running — the agent name gets truncated past 15 chars"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would the fix or new feature look like? A new toggle, a new segment, a config field?
+      placeholder: |
+        Add `display.agentFull` to render the full agent name on its own line, gated to powerline mode.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you try, or what would be the simpler workaround?
+      placeholder: |
+        - Resize terminal wider — works but loses screen space.
+        - Hide other segments via `display.*: false` — works but gives up other signals.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: lumira is a Claude Code statusline. Things that aren't in scope.
+      options:
+        - "✅ Statusline rendering / new signal"
+        - "✅ Theme or visual variant"
+        - "✅ Claude Code integration (transcript / GSD / rate limits)"
+        - "❓ Not sure"
+        - "🚫 Shell prompt features (zsh/fish/etc — out of scope)"
+        - "🚫 Cross-Claude-version testing (out of scope)"
+    validations:
+      required: true
