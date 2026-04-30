@@ -11,6 +11,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
+      // Floors set ~3% below current values (lines 90.08, statements 88.76,
+      // branches 79.10) so normal churn doesn't fail CI but a meaningful drop
+      // does. Raise these as coverage improves; never lower without a PR
+      // that justifies it in the description.
+      thresholds: {
+        lines: 87,
+        statements: 85,
+        branches: 75,
+        functions: 80,
+      },
     },
   },
 });
