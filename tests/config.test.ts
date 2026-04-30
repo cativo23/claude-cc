@@ -91,6 +91,44 @@ describe('loadConfig', () => {
   it('includes contextTokens in display defaults', () => {
     expect(loadConfig(join(dir, 'nope')).display.contextTokens).toBe(true);
   });
+
+  it('parses style: "powerline"', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"style":"powerline"}');
+    expect(loadConfig(dir).style).toBe('powerline');
+  });
+  it('parses style: "classic"', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"style":"classic"}');
+    expect(loadConfig(dir).style).toBe('classic');
+  });
+  it('ignores invalid style value', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"style":"bogus"}');
+    expect(loadConfig(dir).style).toBeUndefined();
+  });
+  it('parses powerline.style', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"powerline":{"style":"flame"}}');
+    expect(loadConfig(dir).powerline?.style).toBe('flame');
+  });
+  it('ignores invalid powerline.style value', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"powerline":{"style":"bogus"}}');
+    expect(loadConfig(dir).powerline).toBeUndefined();
+  });
+  it('ignores malformed powerline (string instead of object)', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"powerline":"arrow"}');
+    expect(loadConfig(dir).powerline).toBeUndefined();
+  });
+  it('accepts all 8 valid powerline styles', () => {
+    mkdirSync(dir, { recursive: true });
+    for (const s of ['arrow', 'flame', 'slant', 'round', 'diamond', 'compatible', 'plain', 'auto']) {
+      writeFileSync(join(dir, 'config.json'), `{"powerline":{"style":"${s}"}}`);
+      expect(loadConfig(dir).powerline?.style).toBe(s);
+    }
+  });
 });
 
 describe('mergeCliFlags', () => {
