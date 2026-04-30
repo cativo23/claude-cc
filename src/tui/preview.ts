@@ -1,6 +1,7 @@
 import { render as defaultRender } from '../render/index.js';
 import { resolveIcons } from '../render/icons.js';
 import { normalize } from '../normalize.js';
+import { applyPreset } from '../config.js';
 import {
   DEFAULT_CONFIG,
   DEFAULT_DISPLAY,
@@ -23,21 +24,19 @@ export interface BuildPreviewDeps {
 }
 
 function buildMockContext(opts: PreviewOpts): RenderContext {
-  // Determine layout from preset (mirrors applyPreset logic without importing it)
-  let layout: HudConfig['layout'] = 'auto';
-  if (opts.preset === 'minimal') layout = 'singleline';
-  else if (opts.preset === 'full') layout = 'multiline';
-  else if (opts.preset === 'balanced') layout = 'auto';
-
+  // Build a fresh HudConfig and run it through `applyPreset` so the wizard
+  // preview matches what users actually get when they pick a preset. The
+  // earlier shortcut only mirrored `layout`, leaving the display toggles
+  // at their defaults — `full` and `balanced` then rendered identically
+  // because both had every segment enabled.
   const config: HudConfig = {
     ...DEFAULT_CONFIG,
-    layout,
-    preset: opts.preset,
     icons: opts.icons,
     theme: opts.theme,
     display: { ...DEFAULT_DISPLAY },
     colors: { mode: opts.colorMode ?? 'truecolor' },
   };
+  applyPreset(config, opts.preset);
 
   // Build a realistic raw Claude Code input that normalize() can consume.
   // Fill every field that renderers access via ctx.input.* or ctx.input.raw.*
