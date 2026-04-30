@@ -116,7 +116,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
   },
 };
 
-function applyPreset(r: HudConfig, preset: NonNullable<HudConfig['preset']>): void {
+export function applyPreset(r: HudConfig, preset: NonNullable<HudConfig['preset']>): void {
   const def = PRESET_DEFS[preset];
   r.preset = preset;
   r.layout = def.layout;
