@@ -128,6 +128,37 @@ describe('buildContextBar — compact hint', () => {
   });
 });
 
+describe('buildContextBar — plain mode (powerline)', () => {
+  it('emits no inline color codes for the bar cells when plain=true', () => {
+    const out = buildContextBar(50, c, { plain: true, showHint: false, showIcons: false });
+    // First 20 chars (the bar itself) should be raw glyphs, no escape sequences.
+    // Find the first space (separates bar from %); bar substring is everything before.
+    const spaceIdx = out.indexOf(' ');
+    const barSlice = out.slice(0, spaceIdx);
+    expect(barSlice).not.toMatch(/\x1b\[/);
+  });
+
+  it('replaces full resets with bg-preserving partial reset', () => {
+    // The colored % still wraps with the named-ANSI reset (\x1b[0m). In plain
+    // mode that gets rewritten to \x1b[39;22;25m so the caller's bg flows
+    // through. Verify no full \x1b[0m survives.
+    const out = buildContextBar(85, c, { plain: true });
+    expect(out).not.toContain('\x1b[0m');
+    expect(out).toContain('\x1b[39;22;25m');
+  });
+
+  it('keeps the percentage value colored', () => {
+    // 70% triggers `orange` (`\x1b[38;5;208m`); 85% would trigger blinkRed.
+    const out = buildContextBar(70, c, { plain: true });
+    expect(out).toContain('\x1b[38;5;208m');
+  });
+
+  it('classic mode (plain=false) is unchanged — still uses \\x1b[0m', () => {
+    const out = buildContextBar(50, c, { plain: false });
+    expect(out).toContain('\x1b[0m');
+  });
+});
+
 describe('SEP constants', () => {
   it('SEP uses Unicode pipe', () => {
     expect(SEP).toContain('\u2502');

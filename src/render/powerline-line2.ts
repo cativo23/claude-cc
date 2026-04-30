@@ -19,15 +19,21 @@ import {
 //   modelBg    → context bar segment
 //   taskBg     → cost/tokens segment
 //   versionBg  → duration segment
-// The context bar retains its own green→yellow→red gradient inside the segment text.
+//
+// Context bar policy: cells inherit segment bg (proportion reads from cell
+// length, no need for a colored gradient). The percentage value, warning
+// icon (☠/🔥), and `/compact?` hint keep their alarm colors — these are the
+// urgency channels the user actually needs at a glance. Decision rationale
+// recorded against PR #47.
 
 function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors): PowerlineSegment[] {
   const { input, config: { display }, icons } = ctx;
   const segments: PowerlineSegment[] = [];
 
-  // Context bar — always highest priority, retains its own coloring inside the segment.
+  // Context bar — always highest priority. plain=true so the bar cells inherit
+  // the powerline segment bg; only %/icon/hint emit color escapes.
   if (display.contextBar) {
-    const bar = buildContextBar(input.context.usedPercentage, c, { iconSet: icons });
+    const bar = buildContextBar(input.context.usedPercentage, c, { iconSet: icons, plain: true });
     segments.push({ text: bar, bg: palette.modelBg, fg: palette.fg, priority: 100 });
   }
 

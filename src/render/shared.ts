@@ -19,17 +19,31 @@ export interface ContextBarOpts {
   iconSet?: IconSet;
   /** When true (default), append an actionable hint like `/compact?` at high fill. */
   showHint?: boolean;
+  /**
+   * When true, the bar cells are emitted without inline color escapes so the
+   * surrounding background (e.g. a powerline segment bg) shows through. The
+   * percentage and warning icon still keep their alarm colors — proportion
+   * reads from cell length, urgency reads from the colored suffix. Set by
+   * the powerline renderer; classic mode leaves it false.
+   */
+  plain?: boolean;
 }
 
 export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): string {
   const segments = opts?.segments ?? 20;
   const showIcons = opts?.showIcons ?? true;
   const showHint = opts?.showHint ?? true;
+  const plain = opts?.plain ?? false;
   const ic = opts?.iconSet ?? NERD_ICONS;
 
   const filled = Math.round((pct / 100) * segments);
   const colorFn = c[getContextColor(pct)];
-  const bar = colorFn(ic.barFull.repeat(filled)) + c.dim(ic.barEmpty.repeat(segments - filled));
+  // In plain mode the bar cells emit no ANSI — terminal default fg over
+  // whatever bg the caller has set. The empty-cell `dim` is also suppressed
+  // because `\x1b[2m...\x1b[0m` would still close out the caller's bg.
+  const bar = plain
+    ? ic.barFull.repeat(filled) + ic.barEmpty.repeat(segments - filled)
+    : colorFn(ic.barFull.repeat(filled)) + c.dim(ic.barEmpty.repeat(segments - filled));
 
   let icon = '';
   if (showIcons) {
@@ -47,7 +61,16 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
 
   const pctStr = colorFn(`${pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%`);
 
-  return `${bar} ${pctStr}${icon ? ' ' + icon : ''}${hint}`;
+  const out = `${bar} ${pctStr}${icon ? ' ' + icon : ''}${hint}`;
+  if (plain) {
+    // Inside a powerline segment, a literal `\x1b[0m` would clear the
+    // caller-set background and leak the terminal default bg through the
+    // remaining segment text. Replace each full reset with a partial reset
+    // that clears fg + intensity + blink but leaves bg untouched, so the
+    // segment bg flows continuously across the colored % and warning glyph.
+    return out.replace(/\x1b\[0m/g, '\x1b[39;22;25m');
+  }
+  return out;
 }
 
 export function formatGitChanges(git: GitStatus, c: Colors): string[] {
