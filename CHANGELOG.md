@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-04-30
+
+### Fixed
+- **Install wizard now shows distinct previews per preset.** `full` and `balanced` rendered identically because `buildMockContext` only mirrored the preset's layout while leaving every display toggle at its default. The wizard now goes through the same `applyPreset` code path as `loadConfig` / `mergeCliFlags`, so each preset shows the actual segment set users will see after install. CLI flags (`--full` / `--balanced` / `--minimal`) were never affected.
+
 ## [0.6.0] - 2026-04-30
 
 ### Added
@@ -195,7 +200,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/cativo23/lumira/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/cativo23/lumira/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/cativo23/lumira/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cativo23/lumira/compare/v0.3.2...v0.4.0
