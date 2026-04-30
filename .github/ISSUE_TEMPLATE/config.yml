@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/cativo23/lumira#readme
+    about: README has setup, configuration, theme, and powerline docs.
+  - name: 🔒 Security issues
+    url: https://github.com/cativo23/lumira/security/advisories/new
+    about: Report security vulnerabilities privately, not as a public issue.
+  - name: 💬 Discussions
+    url: https://github.com/cativo23/lumira/discussions
+    about: Open-ended questions, ideas, "is this a bug?" — start a discussion if unsure.
