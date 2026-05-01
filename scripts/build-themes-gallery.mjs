@@ -102,14 +102,22 @@ function wrapHtml(body) {
 <body><pre>${body}</pre></body></html>`;
 }
 
-const env = { ...process.env, COLORTERM: 'truecolor', FORCE_HYPERLINK: '0', COLUMNS: '180' };
 const outDir = join(ROOT, 'assets', 'showcase');
 mkdirSync(outDir, { recursive: true });
+
+// Classic mode renders the full multi-line statusline with all fields,
+// which is ~120 cols wide. Powerline emits a denser ~70-col layout. To
+// keep the two gallery PNGs visually balanced (so a side-by-side render
+// at width=500 doesn't shrink the classic image into illegibility) we
+// force a tighter terminal width for classic so lumira's progressive
+// truncation drops the lower-priority fields.
+const COLS = { classic: '110', powerline: '180' };
 
 for (const variant of ['classic', 'powerline']) {
   const args = ['themes', 'preview', '--all'];
   if (variant === 'powerline') args.push('--powerline');
+  const env = { ...process.env, COLORTERM: 'truecolor', FORCE_HYPERLINK: '0', COLUMNS: COLS[variant] };
   const ansi = execFileSync('node', [join(ROOT, 'dist', 'index.js'), ...args], { env, encoding: 'utf8' });
   writeFileSync(join(outDir, `themes-gallery-${variant}.html`), wrapHtml(ansiToHtml(ansi).trimEnd()));
-  console.log(`wrote themes-gallery-${variant}.html`);
+  console.log(`wrote themes-gallery-${variant}.html (COLUMNS=${COLS[variant]})`);
 }

@@ -159,9 +159,13 @@ Seven hand-curated themes, every one tested for WCAG AA contrast against white f
 
 `dracula` · `nord` · `tokyo-night` · `catppuccin` · `monokai` · `gruvbox` · `solarized`
 
-| Classic mode | Powerline mode |
-|---|---|
-| <img src="assets/showcase/themes-gallery-classic.png" alt="all 7 themes in classic mode" width="500" /> | <img src="assets/showcase/themes-gallery-powerline.png" alt="all 7 themes in powerline mode" width="500" /> |
+**Classic mode** — pipe-separated layout, theme colors applied to text:
+
+![all 7 themes in classic mode](assets/showcase/themes-gallery-classic.png)
+
+**Powerline mode** — colored segment backgrounds with arrow separators:
+
+![all 7 themes in powerline mode](assets/showcase/themes-gallery-powerline.png)
 
 Themes apply in truecolor and 256-color terminals; named-ANSI terminals fall back to default colors (8 base hues can't represent arbitrary palettes).
 
