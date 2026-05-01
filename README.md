@@ -2,6 +2,8 @@
 
 Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen Code.
 
+![lumira statusline — tokyo-night theme](assets/showcase/hero-5-2.png)
+
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-2d3748?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCI+PHBhdGggZD0iTTY0IDEyOEMzNS44IDEyOCAxMyAxMDUuMiAxMyA3N0MxMyA0OC44IDM1LjggMjYgNjQgMjZjMjguMiAwIDUxIDIyLjggNTEgNTFzLTIyLjggNTEtNTEgNTF6IiBmaWxsPSIjMjQyNTJGIi8+PC9zdmc+)
 ![Qwen Code](https://img.shields.io/badge/Qwen_Code-compatible-6156FF)
