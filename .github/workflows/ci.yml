@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [develop, main]
 
+# Defense-in-depth: explicit read-only token. CI doesn't write to the repo,
+# release.yml is the only workflow that needs contents:write / id-token:write.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -35,3 +40,10 @@ jobs:
             echo "::error::dist/ exceeded ceiling — raise it in ci.yml if intentional"
             exit 1
           fi
+      # Theme contrast guard. Reads compiled THEMES from dist/, computes
+      # WCAG relative-luminance contrast for every powerline cell against
+      # its declared fg, fails the build if any cell drops below 4.5:1
+      # (AA for normal text). Catches contributor PRs that submit a brand
+      # palette where white-on-bg becomes unreadable.
+      - name: Theme contrast guard (WCAG AA)
+        run: node scripts/validate-themes.mjs
