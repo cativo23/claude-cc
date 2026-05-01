@@ -3,3 +3,6 @@ dist/
 coverage/
 *.tgz
 .claude/
+
+# Local plans/specs from superpowers skill
+docs/superpowers/
