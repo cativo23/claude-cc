@@ -108,9 +108,10 @@ jobs:
       - run: npm ci
 
       - name: Publish to npm
-        run: |
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          echo "Publishing lumira@${PKG_VERSION} (release tag: ${{ needs.release.outputs.tag }})"
-          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "Publishing lumira@${PKG_VERSION} (release tag: ${RELEASE_TAG})"
+          npm publish --access public

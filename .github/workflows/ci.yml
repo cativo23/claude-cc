@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, feat/*]
+    branches: [main]
   pull_request:
-    branches: [develop, main]
+    branches: [main]
 
 # Defense-in-depth: explicit read-only token. CI doesn't write to the repo,
 # release.yml is the only workflow that needs contents:write / id-token:write.
