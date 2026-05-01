@@ -7,17 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-01
+
 ### Added
-- README hero shot (tokyo-night classic, 2x DPR) and asciinema embed below the hero showing the context bar filling 5%→96% with active tools and the GSD widget.
-- Display section in README: ASCII-text examples replaced with rendered PNG mockups for Custom / Minimal / Powerline modes.
-- `LICENSE` file (MIT 2025-2026) — package.json declared MIT but the file was missing.
-- README polish: table of contents, Contributing section linking to CONTRIBUTING.md / SECURITY.md / issue #36, expanded Credits with attribution to upstream theme spec sources, expanded License section.
-- `homepage` and `bugs` fields in package.json.
-- Reproducible demo pipeline: `scripts/capture-payloads.mjs` (statusline wrapper that snapshots payload + transcript), `scripts/build-asciinema.mjs` (`.cast` builder with `--sort-by-context`, `--dedupe-by-context`, `--max-frames`), `scripts/build-display-screenshots.mjs` + `scripts/capture-display.sh` (chrome headless renders for the Display section).
+- **Modular theme system** — `src/themes/<slug>.ts` per theme, registry assembly in `src/themes/index.ts` with `assertValidRegistry` enforcing kebab-case slugs and uniqueness at module load. Adding a new theme is now one new file plus a one-line registration.
+- **WCAG AA contrast guard** — `scripts/validate-themes.mjs` runs in CI and fails the build if any powerline cell drops below 4.5:1 against `fg`. Catches contributor PRs that submit unreadable palettes.
+- **Theme contribution flow** — `.github/PULL_REQUEST_TEMPLATE/theme.md` (opt-in via `?template=theme.md`), expanded "Adding a theme" walkthrough in `CONTRIBUTING.md`.
+- **README hero shot** — tokyo-night classic mode rendered at 2x DPR (`assets/showcase/hero-5-2.png`), placed above the fold.
+- **Asciinema embed** — interactive demo (https://asciinema.org/a/apvjkloigO9hrdVA) showing the context bar filling 5%→96% with active tools and GSD widget.
+- **Display section screenshots** — Custom / Minimal / Powerline mode mockups replace the previous ASCII text blocks.
+- **Themes gallery** — all 7 themes rendered side by side in both classic and powerline modes (`assets/showcase/themes-gallery-classic.png`, `themes-gallery-powerline.png`).
+- **README polish** — quick-start fast-path above the badges, Why lumira section, Requirements section, Themes promoted to top-level `##` heading, inline roadmap in Contributing, Discussions CTA above the TOC, trimmed Features list (18 → 8 hero bullets + collapsible disclosure for the rest).
+- **`LICENSE` file** (MIT 2025-2026) — `package.json` declared MIT but the file was missing.
+- **`homepage` and `bugs` fields** in `package.json`.
+- **Reproducible demo pipeline** — `scripts/capture-payloads.mjs` (statusline wrapper that snapshots stdin payload + the live transcript file), `scripts/build-asciinema.mjs` (`.cast` builder with `--sort-by-context`, `--dedupe-by-context`, `--max-frames`), `scripts/build-display-screenshots.mjs` + `scripts/capture-display.sh` + `scripts/build-themes-gallery.mjs` + `scripts/capture-themes-gallery.sh` (chrome headless render → imagemagick auto-trim).
+- **Theme palette attribution** in Credits — links to upstream specs for Dracula, Nord, Tokyo Night, Catppuccin, Monokai, Gruvbox, Solarized.
 
 ### Changed
-- README image refs use absolute `raw.githubusercontent.com` URLs so screenshots render reliably across npmjs.com, social-preview scrapers, and third-party aggregators.
-- CI workflow now declares `permissions: { contents: read }` (defense-in-depth read-only token).
+- **Nord's powerline `modelBg`** darkened from `rgb(94,127,150)` to `rgb(84,113,137)` to satisfy WCAG AA contrast (was 4.24:1, now 5.21:1).
+- **CI workflow** now declares `permissions: { contents: read }` at the top level (defense-in-depth read-only token; `release.yml` is the only workflow that needs write).
+
+### Fixed
+- Wrapper script `capture-payloads.mjs` no longer drops empty stdin pings on the floor — it forwards to lumira unconditionally so the statusline never goes blank during Claude Code restarts.
 
 ## [0.6.2] - 2026-05-01
 
@@ -225,7 +236,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/cativo23/lumira/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/cativo23/lumira/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/cativo23/lumira/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/cativo23/lumira/compare/v0.5.0...v0.6.0
