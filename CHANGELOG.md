@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- CI: migrated release workflow from gitflow (release/* → main PR) to GitHub Flow (push to tag `v*`).
+- Docs: updated CONTRIBUTING.md to reflect single-trunk workflow.
+
 ## [0.7.0] - 2026-05-01
 
 ### Added

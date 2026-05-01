@@ -20,13 +20,12 @@ npm run test:coverage   # vitest with coverage report
 npm run build           # compile to dist/
 ```
 
-## Branching (gitflow)
+## Branching
 
-- **`main`** — released versions, tagged. Don't open PRs against main directly.
-- **`develop`** — integration branch. **Open PRs here.**
-- **Feature branches** — `feature/<name>`, `fix/<name>`, `docs/<name>`. Branch off `develop`.
+- **`main`** — single trunk. Always releasable. **Open PRs here.**
+- **Feature branches** — `feature/<name>`, `fix/<name>`, `docs/<name>`, `refactor/<name>`. Branch off `main`, target `main`.
 
-Releases come from `release/vX.Y.Z` branches that get cut from `develop` by maintainers. After a release lands on `main`, it's back-merged to `develop` to keep the lines in sync.
+No develop branch, no release branches. Releases are cut by tagging `main` (see [Release process](#release-process-maintainers-only) below).
 
 ## Commit style
 
@@ -65,7 +64,7 @@ This is the most common contribution path. Each theme lives in its own module un
 
 6. **Run the full suite.** `npm test` — the catalog test in `tests/themes.test.ts` verifies your theme exposes every required field. No need to add tests for the theme itself unless it has unusual behavior.
 
-Open a PR against `develop` using the theme template (`?template=theme.md` in the URL, or pick it from the dropdown).
+Open a PR against `main` using the theme template (`?template=theme.md` in the URL, or pick it from the dropdown).
 
 ## TypeScript / code style
 
@@ -87,6 +86,20 @@ PRs run CI on push. When tests + typecheck go green, the PR is **ready for revie
 - Plugin / custom-segment marketplace — hold off until at least 3 users request it.
 - Auto-update / self-update — npm handles this.
 - Telemetry — never.
+
+## Release process (maintainers only)
+
+Releases are tag-triggered. From an up-to-date `main`:
+
+```bash
+npm version X.Y.Z --no-git-tag-version       # bump package.json
+# edit CHANGELOG.md: rename [Unreleased] → [X.Y.Z] - YYYY-MM-DD
+git commit -am "chore(release): vX.Y.Z"
+git tag vX.Y.Z
+git push origin main --tags
+```
+
+Pushing the `vX.Y.Z` tag triggers `.github/workflows/release.yml`, which publishes to npm and creates the GitHub Release with notes parsed from `CHANGELOG.md`. Tags with a SemVer suffix (e.g. `v1.0.0-beta.1`) are flagged as prereleases; stable cuts surface as Latest.
 
 ## Questions
 

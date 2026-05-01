@@ -310,7 +310,7 @@ LUMIRA_DEBUG=1 claude    # or export LUMIRA_DEBUG=1
 
 ## Contributing
 
-PRs welcome — particularly for new themes (one of the most common contribution paths). See [CONTRIBUTING.md](CONTRIBUTING.md) for the gitflow, theme submission walkthrough, and the contrast-guard CI step that runs on every theme PR.
+PRs welcome — particularly for new themes (one of the most common contribution paths). See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching model, theme submission walkthrough, and the contrast-guard CI step that runs on every theme PR.
 
 ### What's next
 
