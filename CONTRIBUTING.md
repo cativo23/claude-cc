@@ -7,7 +7,7 @@ Thanks for the interest. lumira is a statusline plugin for [Claude Code](https:/
 ```bash
 git clone https://github.com/cativo23/lumira.git
 cd lumira && npm install
-npm test                # 440+ tests, should all pass on a fresh clone
+npm test                # all tests should pass on a fresh clone
 ```
 
 Other useful scripts:
@@ -63,7 +63,7 @@ This is the most common contribution path. Each theme lives in its own module un
 
 5. **Generate a screenshot.** `COLORTERM=truecolor node dist/index.js themes preview <slug> --powerline` — drag-drop the result into the PR description. Don't commit the image; GitHub `user-attachments` URLs work fine.
 
-6. **Run the full suite.** `npm test` — the existing 466-test catalog test (`tests/themes.test.ts`) verifies your theme exposes every required field. No need to add tests for the theme itself unless it has unusual behavior.
+6. **Run the full suite.** `npm test` — the catalog test in `tests/themes.test.ts` verifies your theme exposes every required field. No need to add tests for the theme itself unless it has unusual behavior.
 
 Open a PR against `develop` using the theme template (`?template=theme.md` in the URL, or pick it from the dropdown).
 

@@ -60,6 +60,11 @@ for (const name of themeNames) {
   const lines = [];
   for (const key of POWERLINE_BG_KEYS) {
     const bg = pl[key];
+    if (!bg || typeof bg.r !== 'number' || typeof bg.g !== 'number' || typeof bg.b !== 'number') {
+      themeFailed = true;
+      lines.push(`    ✗ ${key.padEnd(15)} MISSING or malformed (expected { r, g, b })`);
+      continue;
+    }
     const fg = pl.fg;
     const ratio = contrastRatio(fg, bg);
     const pass = ratio >= THRESHOLD_AA;

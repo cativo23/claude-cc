@@ -29,7 +29,7 @@ License of the upstream:
 - [ ] Registered in `src/themes/index.ts` REGISTRY array (alphabetical with the others)
 - [ ] Powerline palette is **hand-curated** (not auto-derived). Auto-derivation produces muddy results — see `derivePowerlinePalette` for the fallback algorithm if you want a starting point, but fine-tune by hand.
 - [ ] `npm run themes:validate` passes locally (every powerline bg has ≥4.5:1 contrast against `fg`)
-- [ ] `npm test` passes (the existing 466-test suite stays green)
+- [ ] `npm test` passes (full suite stays green)
 - [ ] Screenshot of the new theme in the PR description (`COLORTERM=truecolor node dist/index.js themes preview <slug> --powerline`)
 - [ ] No changes to other themes' palettes (one PR = one new theme)
 - [ ] No new runtime dependencies (lumira ships zero)

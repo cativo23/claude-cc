@@ -36,6 +36,16 @@ const REGISTRY: ReadonlyArray<{ metadata: ThemeMetadata; palette: ThemePalette }
   solarized,
 ];
 
+// Catch contributor-PR mistakes at module load: two themes registered under
+// the same `metadata.name` would silently overwrite each other in the map.
+const seen = new Set<string>();
+for (const t of REGISTRY) {
+  if (seen.has(t.metadata.name)) {
+    throw new Error(`Duplicate theme name in REGISTRY: "${t.metadata.name}". Each theme module must declare a unique metadata.name.`);
+  }
+  seen.add(t.metadata.name);
+}
+
 export const THEMES: Record<string, ThemePalette> = Object.freeze(
   Object.fromEntries(REGISTRY.map(t => [t.metadata.name, t.palette]))
 );
