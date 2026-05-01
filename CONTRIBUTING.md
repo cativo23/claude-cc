@@ -2,6 +2,8 @@
 
 Thanks for the interest. lumira is a statusline plugin for [Claude Code](https://code.claude.com), narrow scope on purpose. Most contributions land best as themes or small renderer tweaks.
 
+All contributors are expected to follow the project's [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Setup (3 commands)
 
 ```bash

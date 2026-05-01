@@ -8,7 +8,7 @@
 
 - **Type:** TypeScript CLI tool (statusline renderer)
 - **License:** MIT
-- **Node:** >= 22.14.0
+- **Node:** >= 18 (matches `engines.node` in `package.json`)
 
 ## Setup & Dev Environment
 
