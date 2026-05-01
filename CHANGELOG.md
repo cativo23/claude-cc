@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1 with a dedicated reporting email.
+
 ### Changed
 - CI: migrated release workflow from gitflow (release/* → main PR) to GitHub Flow (push to tag `v*`).
-- Docs: updated CONTRIBUTING.md to reflect single-trunk workflow.
+- Docs: updated CONTRIBUTING.md and AGENTS.md to reflect single-trunk workflow.
+- Docs: SECURITY.md disclosure timeline now describes coordinated tag on `main` instead of release branches.
+
+### Removed
+- `docs/superpowers/` — local plan/spec scratch artifacts no longer tracked (added to `.gitignore`).
 
 ## [0.7.0] - 2026-05-01
 

@@ -31,6 +31,6 @@ For confirmed vulnerabilities:
 
 1. We acknowledge within 48 hours.
 2. We assess severity and target a fix within 7 days for Critical, 30 days for everything else.
-3. We coordinate disclosure: a private patch lands first (a `release/vX.Y.Z` branch, merged when ready), then a public advisory + CVE if applicable, then a follow-up release note in `CHANGELOG.md` under a `### Security` heading.
+3. We coordinate disclosure: a private patch lands on `main` with a coordinated tag, then a public advisory + CVE if applicable, then a follow-up release note in `CHANGELOG.md` under a `### Security` heading.
 
 You'll be credited in the advisory and changelog unless you ask not to be.
