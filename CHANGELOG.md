@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- README hero shot (tokyo-night classic, 2x DPR) and asciinema embed below the hero showing the context bar filling 5%→96% with active tools and the GSD widget.
+- Display section in README replaced its ASCII-text examples with rendered PNG mockups for Custom / Minimal / Powerline modes.
+- `LICENSE` file (MIT) — package.json declared MIT but the file was missing.
+- README polish: table of contents, Contributing section linking to CONTRIBUTING.md and SECURITY.md, expanded Credits with attribution to upstream theme spec sources, expanded License section.
+- `homepage` and `bugs` fields in package.json.
+- Theme system: modular `src/themes/<slug>.ts` files (one per theme), registry assembly in `src/themes/index.ts` with `assertValidRegistry` enforcing kebab-case slugs and uniqueness at module load.
+- WCAG AA contrast guard (`scripts/validate-themes.mjs`) wired into CI — fails the build if any powerline cell drops below 4.5:1 against `fg`.
+- `.github/PULL_REQUEST_TEMPLATE/theme.md` for theme contributions, plus a rewritten "Adding a theme" walkthrough in CONTRIBUTING.md.
+- Reproducible demo pipeline: `scripts/capture-payloads.mjs` (statusline wrapper that snapshots payload + transcript), `scripts/build-asciinema.mjs` (`.cast` builder with `--sort-by-context`, `--dedupe-by-context`, `--max-frames`), `scripts/build-display-screenshots.mjs` + `scripts/capture-display.sh` (chrome headless renders for the Display section).
+
+### Changed
+- Nord's powerline `modelBg` darkened from rgb(94,127,150) to rgb(84,113,137) to satisfy WCAG AA contrast (was 4.24:1, now 5.21:1).
+- README image refs use absolute `raw.githubusercontent.com` URLs so screenshots render reliably across npmjs.com, social-preview scrapers, and third-party aggregators.
+- CI workflow now declares `permissions: { contents: read }` (defense-in-depth read-only token).
+
 ## [0.6.2] - 2026-05-01
 
 ### Added
