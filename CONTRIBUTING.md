@@ -7,7 +7,7 @@ Thanks for the interest. lumira is a statusline plugin for [Claude Code](https:/
 ```bash
 git clone https://github.com/cativo23/lumira.git
 cd lumira && npm install
-npm test                # 440+ tests, should all pass on a fresh clone
+npm test                # all tests should pass on a fresh clone
 ```
 
 Other useful scripts:
@@ -44,21 +44,28 @@ Subject in present tense, no trailing period. Wrap the body at 72 cols if you wr
 
 ## Adding a theme
 
-This is the most common contribution path. Five steps:
+This is the most common contribution path. Each theme lives in its own module under `src/themes/<slug>.ts` so adding one is a single new file plus a one-line registration.
 
-1. Pick a name and a palette. Real themes only — Dracula, Nord, Catppuccin etc. all have official color specs. Don't invent a "lumira-special" theme without a reference.
+### Steps
 
-2. Open `src/themes.ts`. Each theme exports 8 fg colors (cyan, magenta, yellow, green, orange, red, brightBlue, gray) plus an optional `powerline` palette with 6 backgrounds (modelBg, dirBg, branchCleanBg, branchDirtyBg, taskBg, versionBg).
+1. **Pick a name and a real palette.** Dracula, Nord, Catppuccin etc. all have official color specs. Don't invent a "lumira-special" theme without an upstream reference — reviewers will ask for the source.
 
-3. Pick the bg colors so:
-   - White text is legible on every background — **WCAG AA contrast ≥4.5:1**. Use [contrast-ratio.com](https://contrast-ratio.com/) or any contrast checker.
-   - Each segment background is visibly distinct from its neighbours — `modelBg` and `dirBg` shouldn't both be "muted blue", they should be in different hue families.
+2. **Copy an existing theme as a starting point.** `src/themes/dracula.ts` is the cleanest reference. Save it as `src/themes/<slug>.ts` and replace the values:
+   - `metadata.name` — the slug used as the CLI argument (lowercase, kebab-case)
+   - `metadata.mode` — `'dark'` or `'light'`
+   - `metadata.source` — link to the upstream palette (license check)
+   - `palette` — 8 truecolor fg escapes (cyan, magenta, yellow, green, orange, red, brightBlue, gray) — these are emitted via `\x1b[38;2;r;g;bm` on truecolor terminals and projected to xterm-256 on 256-color terminals
+   - `palette.powerline` — 6 hand-curated bgs (modelBg, dirBg, branchCleanBg, branchDirtyBg, taskBg, versionBg) plus `fg` — bg colors must each be **visibly distinct hues** so segments don't blur together
 
-4. Add the theme name to `tests/themes.test.ts` (the catalog test that asserts every theme has the required fields).
+3. **Register the new module in `src/themes/index.ts`.** Add the import and append to the `REGISTRY` array (alphabetical with the others).
 
-5. Run `npm test` — all 440+ tests should pass.
+4. **Run the contrast guard locally.** `npm run themes:validate` checks that every powerline bg has WCAG AA contrast ≥4.5:1 against `fg` (default white). CI runs the same check on every PR — if it fails locally, it'll fail in CI.
 
-Then open a PR against `develop` with the diff. PRs that don't add tests for new behavior won't be merged.
+5. **Generate a screenshot.** `COLORTERM=truecolor node dist/index.js themes preview <slug> --powerline` — drag-drop the result into the PR description. Don't commit the image; GitHub `user-attachments` URLs work fine.
+
+6. **Run the full suite.** `npm test` — the catalog test in `tests/themes.test.ts` verifies your theme exposes every required field. No need to add tests for the theme itself unless it has unusual behavior.
+
+Open a PR against `develop` using the theme template (`?template=theme.md` in the URL, or pick it from the dropdown).
 
 ## TypeScript / code style
 

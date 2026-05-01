@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { THEMES, getThemeNames, resolveTheme, downgradePaletteTo256, type ThemePalette } from '../src/themes.js';
+import { assertValidRegistry } from '../src/themes/index.js';
 
 // Build a synthetic palette where every color slot is the same RGB triple.
 // Used to exercise rgbTo256 indirectly through downgradePaletteTo256.
@@ -109,5 +110,48 @@ describe('downgradePaletteTo256 (rgbTo256 projection)', () => {
     // returns it unchanged rather than throwing.
     const weird = '\x1b[1;38;5;208m';
     expect(downgradePaletteTo256(synthetic(weird)).cyan).toBe(weird);
+  });
+});
+
+describe('assertValidRegistry', () => {
+  it('accepts a unique, well-formed registry', () => {
+    expect(() => assertValidRegistry([
+      { metadata: { name: 'foo', mode: 'dark', source: 'x' } },
+      { metadata: { name: 'bar-baz', mode: 'dark', source: 'x' } },
+    ])).not.toThrow();
+  });
+
+  it('rejects duplicate names', () => {
+    expect(() => assertValidRegistry([
+      { metadata: { name: 'foo', mode: 'dark', source: 'x' } },
+      { metadata: { name: 'foo', mode: 'light', source: 'y' } },
+    ])).toThrow(/Duplicate theme name.*"foo"/);
+  });
+
+  it('rejects uppercase characters', () => {
+    expect(() => assertValidRegistry([
+      { metadata: { name: 'Dracula', mode: 'dark', source: 'x' } },
+    ])).toThrow(/Invalid theme metadata.name.*"Dracula"/);
+  });
+
+  it('rejects whitespace and underscores', () => {
+    expect(() => assertValidRegistry([
+      { metadata: { name: 'tokyo night', mode: 'dark', source: 'x' } },
+    ])).toThrow(/Invalid theme metadata.name/);
+    expect(() => assertValidRegistry([
+      { metadata: { name: 'tokyo_night', mode: 'dark', source: 'x' } },
+    ])).toThrow(/Invalid theme metadata.name/);
+  });
+
+  it('rejects names starting with a hyphen', () => {
+    expect(() => assertValidRegistry([
+      { metadata: { name: '-leading', mode: 'dark', source: 'x' } },
+    ])).toThrow(/Invalid theme metadata.name/);
+  });
+
+  it('rejects empty name', () => {
+    expect(() => assertValidRegistry([
+      { metadata: { name: '', mode: 'dark', source: 'x' } },
+    ])).toThrow(/Invalid theme metadata.name/);
   });
 });

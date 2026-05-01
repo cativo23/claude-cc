@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
+    "themes:validate": "npm run build && node scripts/validate-themes.mjs",
     "prepublishOnly": "npm run build && npm run test"
   },
   "devDependencies": {
