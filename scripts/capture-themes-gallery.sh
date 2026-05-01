@@ -15,7 +15,7 @@ google-chrome-stable \
   --headless=new \
   --disable-gpu --hide-scrollbars --no-sandbox \
   --force-device-scale-factor=2 \
-  --window-size=1700,1100 \
+  --window-size=1700,1900 \
   --screenshot="$png" \
   "http://localhost:$PORT/themes-gallery.html" 2>/dev/null
 

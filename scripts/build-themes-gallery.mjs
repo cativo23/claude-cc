@@ -77,7 +77,8 @@ function ansiToHtml(input) {
 }
 
 const env = { ...process.env, COLORTERM: 'truecolor', FORCE_HYPERLINK: '0', COLUMNS: '180' };
-const ansi = execFileSync('node', [join(ROOT, 'dist', 'index.js'), 'themes', 'preview', '--all', '--powerline'], { env, encoding: 'utf8' });
+const classic = execFileSync('node', [join(ROOT, 'dist', 'index.js'), 'themes', 'preview', '--all'], { env, encoding: 'utf8' });
+const powerline = execFileSync('node', [join(ROOT, 'dist', 'index.js'), 'themes', 'preview', '--all', '--powerline'], { env, encoding: 'utf8' });
 
 const html = `<!doctype html>
 <html><head><meta charset="utf-8">
@@ -93,11 +94,25 @@ const html = `<!doctype html>
     line-height: 1.45;
     color: #c0caf5;
     padding: 24px 32px;
-    display: inline-block;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
   }
   pre { margin: 0; white-space: pre; }
+  h2 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #7aa2f7;
+  }
+  section { display: inline-block; }
 </style></head>
-<body><pre>${ansiToHtml(ansi).trimEnd()}</pre></body></html>`;
+<body>
+<section><h2>classic mode</h2><pre>${ansiToHtml(classic).trimEnd()}</pre></section>
+<section><h2>powerline mode</h2><pre>${ansiToHtml(powerline).trimEnd()}</pre></section>
+</body></html>`;
 
 const outDir = join(ROOT, 'assets', 'showcase');
 mkdirSync(outDir, { recursive: true });
