@@ -6,6 +6,10 @@ Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen 
 
 [![asciicast — context bar filling, tools active, GSD widget](https://asciinema.org/a/apvjkloigO9hrdVA.svg)](https://asciinema.org/a/apvjkloigO9hrdVA)
 
+[![npm version](https://img.shields.io/npm/v/lumira?color=cb3837&logo=npm)](https://www.npmjs.com/package/lumira)
+[![npm downloads](https://img.shields.io/npm/dw/lumira?color=cb3837&logo=npm&label=downloads%2Fweek)](https://www.npmjs.com/package/lumira)
+![Node](https://img.shields.io/node/v/lumira)
+![License](https://img.shields.io/npm/l/lumira)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-2d3748?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCI+PHBhdGggZD0iTTY0IDEyOEMzNS44IDEyOCAxMyAxMDUuMiAxMyA3N0MxMyA0OC44IDM1LjggMjYgNjQgMjZjMjguMiAwIDUxIDIyLjggNTEgNTFzLTIyLjggNTEtNTEgNTF6IiBmaWxsPSIjMjQyNTJGIi8+PC9zdmc+)
 ![Qwen Code](https://img.shields.io/badge/Qwen_Code-compatible-6156FF)
@@ -87,25 +91,15 @@ If installed from source:
 
 ### Custom Mode (default, >=70 columns)
 
-```
- Opus 4.6 (1M context) │  main ⇡1 !2 │  my-project     +150 -30 │ default │ v2.1.92
-[████████░░░░░░░░░░░░] 21% │  131k↑ 25k↓ │ $1.31 $2.24/h │  35m06s │ 142 tok/s │  72%(5h)
-✓ Read ×3 | ✓ Edit ×2 | ✓ Bash ×5 │ ████████░░ 8/10 | ◐ 1 | ○ 1
-```
+![custom mode — 3 lines: model + git + dir + version, context bar + tokens + cost + time, tools + todos](assets/showcase/mode-custom.png)
 
 ### Minimal Mode (<70 columns or `--minimal`)
 
-```
-my-project |  main | Opus 4.6 | ████░░░░░░░░░░░░░░░░ 21% | 131k↑ 25k↓ | $1.31
-```
+![minimal mode — single line: dir + branch + model + bar + tokens + cost](assets/showcase/mode-minimal.png)
 
 ### Powerline Mode (opt-in via `style: "powerline"`)
 
-```
-  Opus 4.6   main    my-project   Fix the bug   v2.1.92
- ████░░░░░░░░░░░░░░░░ 21%   131k↑ 25k↓   $1.31    35m06s
- ✓ Read ×3   ✓ Edit ×2    ████████░░ 8/10
-```
+![powerline mode — same content with arrow separators and per-segment backgrounds](assets/showcase/mode-powerline.png)
 
 Each segment renders with a distinct background colour drawn from the active theme; segments are separated by a Nerd Font glyph (default ``). On dirty git repos the branch segment turns red. Falls back to classic mode silently in named-ANSI terminals (powerline needs RGB backgrounds). See [Powerline](#powerline) below for the 7 separator styles.
 
