@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- README hero shot (tokyo-night classic, 2x DPR) and asciinema embed below the hero showing the context bar filling 5%→96% with active tools and the GSD widget.
+- Display section in README: ASCII-text examples replaced with rendered PNG mockups for Custom / Minimal / Powerline modes.
+- `LICENSE` file (MIT 2025-2026) — package.json declared MIT but the file was missing.
+- README polish: table of contents, Contributing section linking to CONTRIBUTING.md / SECURITY.md / issue #36, expanded Credits with attribution to upstream theme spec sources, expanded License section.
+- `homepage` and `bugs` fields in package.json.
+- Reproducible demo pipeline: `scripts/capture-payloads.mjs` (statusline wrapper that snapshots payload + transcript), `scripts/build-asciinema.mjs` (`.cast` builder with `--sort-by-context`, `--dedupe-by-context`, `--max-frames`), `scripts/build-display-screenshots.mjs` + `scripts/capture-display.sh` (chrome headless renders for the Display section).
+
+### Changed
+- README image refs use absolute `raw.githubusercontent.com` URLs so screenshots render reliably across npmjs.com, social-preview scrapers, and third-party aggregators.
+- CI workflow now declares `permissions: { contents: read }` (defense-in-depth read-only token).
+
 ## [0.6.2] - 2026-05-01
 
 ### Added
