@@ -1,9 +1,9 @@
 name: Auto Release
 
 on:
-  pull_request:
-    types: [closed]
-    branches: [main]
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -15,9 +15,6 @@ concurrency:
 
 jobs:
   release:
-    if: >-
-      github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
@@ -27,9 +24,9 @@ jobs:
       - name: Extract and validate version
         id: version
         env:
-          BRANCH: ${{ github.event.pull_request.head.ref }}
+          TAG: ${{ github.ref_name }}
         run: |
-          RAW="${BRANCH#release/}"
+          RAW="$TAG"
           if [[ "$RAW" != v* ]]; then
             RAW="v${RAW}"
           fi
@@ -39,9 +36,9 @@ jobs:
           fi
           echo "tag=$RAW" >> "$GITHUB_OUTPUT"
           echo "number=${RAW#v}" >> "$GITHUB_OUTPUT"
-          MAJOR="${RAW#v}"
-          MAJOR="${MAJOR%%.*}"
-          if [[ "$MAJOR" -eq 0 ]]; then
+          # Pre-release only for tags with a SemVer suffix (e.g. v1.0.0-beta.1, v0.8.0-rc.1).
+          # Stable 0.x.y releases are marked as Latest so users see the actual current version.
+          if [[ "$RAW" =~ - ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
@@ -85,7 +82,6 @@ jobs:
         env:
           TAG: ${{ steps.version.outputs.tag }}
           PRERELEASE: ${{ steps.version.outputs.prerelease }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PRERELEASE_FLAG=""
@@ -93,7 +89,6 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             --notes-file /tmp/release-notes.md \
-            --target "$MERGE_SHA" \
             $PRERELEASE_FLAG
 
   npm-publish:
