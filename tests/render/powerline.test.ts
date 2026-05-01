@@ -10,6 +10,7 @@ import {
 import { stripAnsi } from '../../src/render/colors.js';
 import { displayWidth } from '../../src/render/text.js';
 import type { RGB } from '../../src/themes.js';
+import { POWERLINE_STYLE_NAMES } from '../../src/types.js';
 
 const RED: RGB = { r: 255, g: 0, b: 0 };
 const GREEN: RGB = { r: 0, g: 255, b: 0 };
@@ -21,6 +22,17 @@ function seg(text: string, bg: RGB, priority = 50, icon?: string): PowerlineSegm
 }
 
 describe('powerline', () => {
+  describe('POWERLINE_STYLES drift detection', () => {
+    it('map keys match POWERLINE_STYLE_NAMES (excluding "auto" which resolves)', () => {
+      // Adding a name to types.ts without adding the corresponding entry to
+      // POWERLINE_STYLES (or vice versa) silently breaks `resolveStyle`,
+      // which falls back to arrow. This test catches the drift before users do.
+      const mapKeys = Object.keys(POWERLINE_STYLES).sort();
+      const expected = POWERLINE_STYLE_NAMES.filter(n => n !== 'auto').sort();
+      expect(mapKeys).toEqual([...expected]);
+    });
+  });
+
   describe('resolveStyle', () => {
     it('auto picks arrow when Nerd Font available', () => {
       expect(resolveStyle('auto', true).sep).toBe(POWERLINE_STYLES.arrow.sep);

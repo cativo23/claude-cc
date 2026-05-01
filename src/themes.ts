@@ -248,6 +248,7 @@ export function getThemeNames(): string[] {
   return Object.keys(THEMES);
 }
 
+
 /** Darken an RGB triple toward black by `factor` in [0,1]. */
 function darken(c: RGB, factor: number): RGB {
   return {
@@ -291,8 +292,13 @@ export const DEFAULT_POWERLINE_PALETTE: PowerlinePalette = {
 
 export function resolveTheme(name: string | undefined, mode: ColorMode): ThemePalette | null {
   if (!name) return null;
-  const base = THEMES[name.toLowerCase()];
-  if (!base) return null;
+  const key = name.toLowerCase();
+  // hasOwn guard: a name like `__proto__` or `constructor` would otherwise
+  // resolve to `Object.prototype` (truthy), bypass the `!base` check, then
+  // crash later when render code reads `.cyan` etc. Reject anything not
+  // explicitly in the THEMES map.
+  if (!Object.prototype.hasOwnProperty.call(THEMES, key)) return null;
+  const base = THEMES[key];
   // Truecolor terminals get the exact palette; 256-color terminals get a
   // nearest-index projection. Named-ANSI terminals cannot represent arbitrary
   // palettes — fall back to built-in defaults rather than lying with mismatched

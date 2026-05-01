@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-05-01
+
+### Added
+- **`lumira themes` subcommand** — browse and preview the 7 built-in themes from the CLI without touching config. `lumira themes` (or `themes list`) prints names + one-liner descriptions; `lumira themes preview <name>` renders a 3-line sample; `--powerline` and `--style=<arrow|flame|slant|round|diamond|compatible|plain|auto>` toggle the powerline visual; `--all` renders every theme in catalog order (great for screenshots and the upcoming Show & Tell post). `lumira themes help` documents the surface.
+
+### Changed
+- **`POWERLINE_STYLE_NAMES` is now the single source of truth** for the valid powerline style set. `src/config.ts` (JSON validation + `--powerline-style` CLI parser) and `src/render/powerline.ts` (`PowerlineStyleName` type) both derive from it. A new test (`tests/render/powerline.test.ts`) asserts `POWERLINE_STYLES` map keys stay in sync — adding a name to one but not the other now fails CI.
+
+### Fixed
+- **Themes subcommand prototype-pollution guard** — `THEMES['__proto__']` and similar inherited members no longer bypass the unknown-theme check. `Object.prototype.hasOwnProperty.call` is used consistently in `runThemesCommand` and `resolveTheme`.
+- **Themes subcommand error path now writes to stderr** with a non-zero exit code, so `2>/dev/null` and `echo $?` work as users expect.
+- **Control-character sanitization on error banners** — invalid theme names no longer emit raw escape sequences into the user's terminal.
+
 ## [0.6.1] - 2026-04-30
 
 ### Fixed
@@ -200,7 +213,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/cativo23/lumira/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/cativo23/lumira/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/cativo23/lumira/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/cativo23/lumira/compare/v0.4.0...v0.5.0

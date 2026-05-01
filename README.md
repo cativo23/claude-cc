@@ -188,6 +188,17 @@ Pick one of the 7 built-in themes via `theme: "<name>"` in config or during `lum
 
 Each theme ships with a hand-curated **powerline palette** (per-segment background colors) that meets WCAG AA contrast for white foreground. Themes apply in truecolor and 256-color terminals; named-ANSI terminals fall back to default colors (8 base hues can't represent arbitrary palettes).
 
+You can browse and preview themes from the CLI without touching your config:
+
+```bash
+lumira themes                                # list all themes with one-line descriptions
+lumira themes preview dracula                # render a sample with the dracula theme
+lumira themes preview nord --powerline       # same in powerline style (default arrow separator)
+lumira themes preview gruvbox --style=flame  # powerline with the flame separator
+lumira themes preview --all                  # render every theme in sequence
+lumira themes preview --all --powerline      # the powerline grid (great for screenshots)
+```
+
 ### Hyperlinks (OSC 8)
 
 The directory on line 1 becomes a clickable `file://` link, and the version tag links to its npm release page on terminals that support [OSC 8](https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda) (iTerm2, WezTerm, Kitty, Alacritty, VS Code terminal, tmux ≥3.4 with passthrough). Other terminals show plain text. Auto-disabled in `Apple_Terminal` (which leaks markers) and `TERM=dumb`.
