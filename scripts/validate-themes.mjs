@@ -58,6 +58,13 @@ for (const name of themeNames) {
   }
   let themeFailed = false;
   const lines = [];
+  const fg = pl.fg;
+  if (!fg || typeof fg.r !== 'number' || typeof fg.g !== 'number' || typeof fg.b !== 'number') {
+    console.log(`  ✗ ${name}  (${meta?.mode ?? '?'})`);
+    console.log(`    ✗ fg              MISSING or malformed (expected { r, g, b })`);
+    failed++;
+    continue;
+  }
   for (const key of POWERLINE_BG_KEYS) {
     const bg = pl[key];
     if (!bg || typeof bg.r !== 'number' || typeof bg.g !== 'number' || typeof bg.b !== 'number') {
@@ -65,7 +72,6 @@ for (const name of themeNames) {
       lines.push(`    ✗ ${key.padEnd(15)} MISSING or malformed (expected { r, g, b })`);
       continue;
     }
-    const fg = pl.fg;
     const ratio = contrastRatio(fg, bg);
     const pass = ratio >= THRESHOLD_AA;
     if (!pass) themeFailed = true;

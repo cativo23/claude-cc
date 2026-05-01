@@ -36,15 +36,29 @@ const REGISTRY: ReadonlyArray<{ metadata: ThemeMetadata; palette: ThemePalette }
   solarized,
 ];
 
-// Catch contributor-PR mistakes at module load: two themes registered under
-// the same `metadata.name` would silently overwrite each other in the map.
-const seen = new Set<string>();
-for (const t of REGISTRY) {
-  if (seen.has(t.metadata.name)) {
-    throw new Error(`Duplicate theme name in REGISTRY: "${t.metadata.name}". Each theme module must declare a unique metadata.name.`);
+/**
+ * Validate registry shape at module load. Catches contributor-PR mistakes
+ * before they pollute the THEMES map: every metadata.name must match
+ * lowercase kebab-case and must be unique (resolveTheme lowercases lookups,
+ * so "Dracula" + "dracula" both registering would shadow each other).
+ *
+ * Exported so the same check is unit-testable without booting the registry.
+ */
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
+export function assertValidRegistry(registry: ReadonlyArray<{ metadata: ThemeMetadata }>): void {
+  const seen = new Set<string>();
+  for (const t of registry) {
+    const name = t.metadata.name;
+    if (!SLUG_RE.test(name)) {
+      throw new Error(`Invalid theme metadata.name: "${name}". Must be lowercase kebab-case (^[a-z0-9][a-z0-9-]*$).`);
+    }
+    if (seen.has(name)) {
+      throw new Error(`Duplicate theme name in REGISTRY: "${name}". Each theme module must declare a unique metadata.name.`);
+    }
+    seen.add(name);
   }
-  seen.add(t.metadata.name);
 }
+assertValidRegistry(REGISTRY);
 
 export const THEMES: Record<string, ThemePalette> = Object.freeze(
   Object.fromEntries(REGISTRY.map(t => [t.metadata.name, t.palette]))
