@@ -155,11 +155,13 @@ Each segment renders with a distinct background color drawn from the active them
 
 ## Themes
 
-Seven hand-curated themes, every one tested for WCAG AA contrast against white foreground in CI:
-
-![all 7 themes rendered in powerline mode](https://raw.githubusercontent.com/cativo23/lumira/main/assets/showcase/themes-gallery.png)
+Seven hand-curated themes, every one tested for WCAG AA contrast against white foreground in CI. Themes apply to both classic and powerline modes:
 
 `dracula` · `nord` · `tokyo-night` · `catppuccin` · `monokai` · `gruvbox` · `solarized`
+
+| Classic mode | Powerline mode |
+|---|---|
+| <img src="https://raw.githubusercontent.com/cativo23/lumira/main/assets/showcase/themes-gallery-classic.png" alt="all 7 themes in classic mode" width="500" /> | <img src="https://raw.githubusercontent.com/cativo23/lumira/main/assets/showcase/themes-gallery-powerline.png" alt="all 7 themes in powerline mode" width="500" /> |
 
 Themes apply in truecolor and 256-color terminals; named-ANSI terminals fall back to default colors (8 base hues can't represent arbitrary palettes).
 

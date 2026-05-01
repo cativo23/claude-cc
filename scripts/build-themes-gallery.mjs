@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 /**
- * Build the README's themes-gallery composite: render `lumira themes preview
- * --all --powerline` (7 themes × 3 lines each), parse to HTML, capture via
- * chrome headless. The output drops as assets/showcase/themes-gallery.png.
+ * Build the README's themes-gallery composites: one per mode (classic +
+ * powerline), each rendered from `lumira themes preview --all` (with or
+ * without `--powerline`) and parsed to HTML for chrome capture.
+ *
+ * Splits into two files (themes-gallery-classic.png + themes-gallery-
+ * powerline.png) so neither becomes a 3000px-tall column in the README —
+ * they sit side-by-side in a markdown table instead.
  */
 
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -76,11 +80,8 @@ function ansiToHtml(input) {
   return out;
 }
 
-const env = { ...process.env, COLORTERM: 'truecolor', FORCE_HYPERLINK: '0', COLUMNS: '180' };
-const classic = execFileSync('node', [join(ROOT, 'dist', 'index.js'), 'themes', 'preview', '--all'], { env, encoding: 'utf8' });
-const powerline = execFileSync('node', [join(ROOT, 'dist', 'index.js'), 'themes', 'preview', '--all', '--powerline'], { env, encoding: 'utf8' });
-
-const html = `<!doctype html>
+function wrapHtml(body) {
+  return `<!doctype html>
 <html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -94,27 +95,21 @@ const html = `<!doctype html>
     line-height: 1.45;
     color: #c0caf5;
     padding: 24px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 28px;
+    display: inline-block;
   }
   pre { margin: 0; white-space: pre; }
-  h2 {
-    margin: 0 0 6px;
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #7aa2f7;
-  }
-  section { display: inline-block; }
 </style></head>
-<body>
-<section><h2>classic mode</h2><pre>${ansiToHtml(classic).trimEnd()}</pre></section>
-<section><h2>powerline mode</h2><pre>${ansiToHtml(powerline).trimEnd()}</pre></section>
-</body></html>`;
+<body><pre>${body}</pre></body></html>`;
+}
 
+const env = { ...process.env, COLORTERM: 'truecolor', FORCE_HYPERLINK: '0', COLUMNS: '180' };
 const outDir = join(ROOT, 'assets', 'showcase');
 mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, 'themes-gallery.html'), html);
-console.log('wrote themes-gallery.html');
+
+for (const variant of ['classic', 'powerline']) {
+  const args = ['themes', 'preview', '--all'];
+  if (variant === 'powerline') args.push('--powerline');
+  const ansi = execFileSync('node', [join(ROOT, 'dist', 'index.js'), ...args], { env, encoding: 'utf8' });
+  writeFileSync(join(outDir, `themes-gallery-${variant}.html`), wrapHtml(ansiToHtml(ansi).trimEnd()));
+  console.log(`wrote themes-gallery-${variant}.html`);
+}
