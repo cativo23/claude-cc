@@ -1,7 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { parseThemesArgs, runThemesCommand } from '../../src/commands/themes.js';
 import { stripAnsi } from '../../src/render/colors.js';
 import { THEMES } from '../../src/themes.js';
+
+// Force truecolor for tests that assert bg escapes (\x1b[48;…) in powerline
+// output. CI runners don't set COLORTERM, so detectColorMode() returns
+// 'named' and the renderer falls back to classic — no bg escapes emitted.
+const savedColorterm = process.env['COLORTERM'];
+beforeAll(() => { process.env['COLORTERM'] = 'truecolor'; });
+afterAll(() => {
+  if (savedColorterm === undefined) delete process.env['COLORTERM'];
+  else process.env['COLORTERM'] = savedColorterm;
+});
 
 const argv = (...rest: string[]) => ['node', 'lumira', 'themes', ...rest];
 
