@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import { DEFAULT_CONFIG, DEFAULT_DISPLAY, type HudConfig, type DisplayToggles, type ColorConfig } from './types.js';
+import { DEFAULT_CONFIG, DEFAULT_DISPLAY, POWERLINE_STYLE_NAMES, type HudConfig, type DisplayToggles, type ColorConfig } from './types.js';
 
 // Module-level flag: fires the qwen→minimal deprecation warning once per
 // Node process. Process-scoped by design — tests must run in forked workers
@@ -53,8 +53,7 @@ function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
   if (raw.style === 'classic' || raw.style === 'powerline') result.style = raw.style;
   if (raw.powerline && typeof raw.powerline === 'object') {
     const plRaw = raw.powerline as Record<string, unknown>;
-    const validPlStyles = ['arrow', 'flame', 'slant', 'round', 'diamond', 'compatible', 'plain', 'auto'] as const;
-    if (validPlStyles.includes(plRaw.style as never)) {
+    if (POWERLINE_STYLE_NAMES.includes(plRaw.style as never)) {
       result.powerline = { style: plRaw.style as NonNullable<HudConfig['powerline']>['style'] };
     }
   }
@@ -139,7 +138,12 @@ export function mergeCliFlags(config: HudConfig, argv: string[]): HudConfig {
     if (presetMatch) { applyPreset(r, presetMatch[1] as NonNullable<HudConfig['preset']>); continue; }
     const iconsMatch = arg.match(/^--icons[= ]?(nerd|emoji|none)$/);
     if (iconsMatch) { r.icons = iconsMatch[1] as HudConfig['icons']; continue; }
-    const plStyleMatch = arg.match(/^--powerline-style[= ](arrow|flame|slant|round|diamond|compatible|plain|auto)$/);
+    // Build the alternation from POWERLINE_STYLE_NAMES so this regex stays
+    // in sync when a new style is added — single source of truth in types.ts.
+    // Escape regex metacharacters defensively in case a future style name
+    // ever contains one (today they're all `[a-z]+`, but the safety is free).
+    const escaped = POWERLINE_STYLE_NAMES.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const plStyleMatch = arg.match(new RegExp(`^--powerline-style[= ](${escaped.join('|')})$`));
     if (plStyleMatch) {
       r.style = 'powerline';
       r.powerline = { ...(r.powerline ?? {}), style: plStyleMatch[1] as NonNullable<HudConfig['powerline']>['style'] };

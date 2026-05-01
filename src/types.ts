@@ -165,9 +165,21 @@ export interface HudConfig {
   style?: 'classic' | 'powerline';
   powerline?: {
     /** Separator glyph preset. Defaults to 'auto' (nerd font → arrow, else compatible). */
-    style?: 'arrow' | 'flame' | 'slant' | 'round' | 'diamond' | 'compatible' | 'plain' | 'auto';
+    style?: PowerlineStyleName;
   };
 }
+
+/**
+ * Single source of truth for valid powerline style names. Imported by
+ * `src/config.ts` (validates JSON config + CLI flags) and
+ * `src/commands/themes.ts` (validates `--style=<name>`). Keep in sync with
+ * `POWERLINE_STYLES` in `src/render/powerline.ts` — that map's keys
+ * MUST match this list.
+ */
+export const POWERLINE_STYLE_NAMES = [
+  'arrow', 'flame', 'slant', 'round', 'diamond', 'compatible', 'plain', 'auto',
+] as const;
+export type PowerlineStyleName = typeof POWERLINE_STYLE_NAMES[number];
 
 export interface DisplayToggles {
   model: boolean;

@@ -17,6 +17,12 @@ export interface PreviewOpts {
   theme?: string;
   icons: 'nerd' | 'emoji' | 'none';
   colorMode?: ColorMode;
+  /** When set to 'powerline', render with the powerline-style line 1/2/3. */
+  style?: HudConfig['style'];
+  /** Powerline separator style; only consulted when style === 'powerline'. */
+  powerlineStyle?: NonNullable<HudConfig['powerline']>['style'];
+  /** Width to render at; defaults to 120 (the wizard's typical width). */
+  cols?: number;
 }
 
 export interface BuildPreviewDeps {
@@ -37,6 +43,8 @@ function buildMockContext(opts: PreviewOpts): RenderContext {
     colors: { mode: opts.colorMode ?? 'truecolor' },
   };
   applyPreset(config, opts.preset);
+  if (opts.style) config.style = opts.style;
+  if (opts.powerlineStyle) config.powerline = { style: opts.powerlineStyle };
 
   // Build a realistic raw Claude Code input that normalize() can consume.
   // Fill every field that renderers access via ctx.input.* or ctx.input.raw.*
@@ -73,6 +81,8 @@ function buildMockContext(opts: PreviewOpts): RenderContext {
     },
     exceeds_200k_tokens: false,
   };
+
+  const cols = opts.cols ?? 120;
 
   const input = normalize(rawInput);
 
@@ -120,7 +130,7 @@ function buildMockContext(opts: PreviewOpts): RenderContext {
     memory: { usedBytes: 512 * 1024 * 1024, totalBytes: 16 * 1024 * 1024 * 1024, percentage: 3 },
     gsd: null,
     mcp: null,
-    cols: 120,
+    cols,
     config,
     icons: resolveIcons(opts.icons),
   };

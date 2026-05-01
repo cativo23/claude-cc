@@ -15,6 +15,7 @@ import { loadConfig, mergeCliFlags } from './config.js';
 import { render } from './render/index.js';
 import { resolveIcons } from './render/icons.js';
 import { install, uninstall } from './installer.js';
+import { runThemesCommand } from './commands/themes.js';
 import type { Dependencies } from './types.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
 import { normalize } from './normalize.js';
@@ -76,6 +77,11 @@ if (isDirectRun()) {
   } else if (cmd === 'uninstall') {
     const o = uninstall();
     process.stdout.write(o);
+  } else if (cmd === 'themes') {
+    const r = runThemesCommand(process.argv, process.stdout.columns);
+    if (r.stdout) process.stdout.write(r.stdout);
+    if (r.stderr) process.stderr.write(r.stderr);
+    if (r.exitCode !== 0) process.exit(r.exitCode);
   } else {
     main().then(o => process.stdout.write(o)).catch(e => { if (!(e instanceof SyntaxError)) process.stderr.write(`Statusline error: ${e.message}\n`); });
   }

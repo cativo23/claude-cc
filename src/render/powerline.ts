@@ -2,6 +2,10 @@ import type { ColorMode } from './colors.js';
 import { displayWidth, truncField } from './text.js';
 import { stripAnsi } from './colors.js';
 import { type RGB, rgbTo256Index } from '../themes.js';
+// Re-export the canonical name list type so this module stays the runtime
+// home of POWERLINE_STYLES while types.ts is the single source of truth
+// for the name set. A test asserts the map keys match the const.
+import type { PowerlineStyleName as CanonicalName } from '../types.js';
 
 // Powerline renderer — segment-based with colored backgrounds and glyph
 // separators that blend adjacent segment colors. See research notes: all
@@ -20,9 +24,8 @@ export interface PowerlineSegment {
   priority: number;
 }
 
-export type PowerlineStyleName =
-  | 'arrow' | 'flame' | 'slant' | 'round' | 'diamond'
-  | 'compatible' | 'plain' | 'auto';
+/** Aliased from types.ts so types.ts is the single source of truth. */
+export type PowerlineStyleName = CanonicalName;
 
 interface Style {
   leftCap?: string;
