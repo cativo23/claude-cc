@@ -17,7 +17,31 @@ const log = debug('transcript');
 // TaskUpdate's numeric-taskId index semantics. Each call uses local maps
 // (toolMap, agentMap, todos below) — that locality is what keeps the parser
 // concurrent-tick safe. Don't refactor it into shared mutable state.
+//
+// LRU bound: long-running shells switch transcript paths across sessions, so
+// the cache would otherwise grow one entry per session forever (#69). Map
+// iteration order is insertion order, which gives us a free LRU: re-insert
+// on hit to refresh recency, drop the first key when size > cap.
+export const TRANSCRIPT_CACHE_CAP = 10;
 const transcriptCache = new Map<string, { result: TranscriptData; mtime: MtimeState }>();
+
+function touchCache(key: string, value: { result: TranscriptData; mtime: MtimeState }): void {
+  if (transcriptCache.has(key)) transcriptCache.delete(key);
+  transcriptCache.set(key, value);
+  if (transcriptCache.size > TRANSCRIPT_CACHE_CAP) {
+    const oldest = transcriptCache.keys().next().value;
+    if (oldest !== undefined) transcriptCache.delete(oldest);
+  }
+}
+
+// Test-only inspectors. Underscore prefix signals "internal" — do not call
+// from production code paths.
+export function _transcriptCacheSize(): number {
+  return transcriptCache.size;
+}
+export function _clearTranscriptCache(): void {
+  transcriptCache.clear();
+}
 
 const MAX_LINES = 50_000;
 
@@ -64,6 +88,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const cached = transcriptCache.get(resolved);
   if (currentMtime && cached && isMtimeFresh(transcriptPath, cached.mtime)) {
     log('cache hit:', resolved);
+    touchCache(resolved, cached);
     return cached.result;
   }
   const parseStart = log.enabled ? Date.now() : 0;
@@ -160,7 +185,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.todos = todos;
   result.thinkingEffort = thinkingEffort;
   if (currentMtime) {
-    transcriptCache.set(resolved, { result, mtime: currentMtime });
+    touchCache(resolved, { result, mtime: currentMtime });
   }
   if (log.enabled) {
     log('parsed', resolved, {

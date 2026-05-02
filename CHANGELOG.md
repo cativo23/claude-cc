@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: updated CONTRIBUTING.md and AGENTS.md to reflect single-trunk workflow.
 - Docs: SECURITY.md disclosure timeline now describes coordinated tag on `main` instead of release branches.
 
+### Fixed
+- `transcriptCache` is now bounded with LRU eviction at 10 entries (#69). Previously the cache leaked one entry per Claude Code session for the lifetime of the process.
+
 ### Removed
 - `docs/superpowers/` — local plan/spec scratch artifacts no longer tracked (added to `.gitignore`).
 
