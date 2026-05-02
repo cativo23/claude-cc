@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -23,6 +23,10 @@ describe('transcript cache LRU', () => {
     _clearTranscriptCache();
     rmSync(TEST_DIR, { recursive: true, force: true });
     mkdirSync(TEST_DIR, { recursive: true });
+  });
+
+  afterAll(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
   });
 
   it('exposes a fixed cap', () => {
@@ -87,5 +91,20 @@ describe('transcript cache LRU', () => {
     expect(keys).not.toContain(resolve(middle[0]));
     // The newest entry made it in.
     expect(keys).toContain(resolve(newestPath));
+  });
+
+  it('returns a defensive copy so caller mutations do not corrupt the cache', async () => {
+    const path = writeFixture('shared.jsonl');
+    const first = await parseTranscript(path);
+
+    // Caller goes wild: mutates everything they got.
+    first.tools.push({ id: 'fake', name: 'EVIL', target: undefined, status: 'running', startTime: new Date() });
+    first.agents.push({ id: 'fake', type: 'EVIL', status: 'running', startTime: new Date() });
+    first.todos.push({ id: 'fake', content: 'EVIL', status: 'pending' });
+
+    const second = await parseTranscript(path);
+    expect(second.tools.find(t => t.id === 'fake')).toBeUndefined();
+    expect(second.agents.find(a => a.id === 'fake')).toBeUndefined();
+    expect(second.todos.find(t => t.id === 'fake')).toBeUndefined();
   });
 });

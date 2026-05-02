@@ -26,6 +26,19 @@ export const TRANSCRIPT_CACHE_CAP = 10;
 type TranscriptCacheEntry = { result: TranscriptData; mtime: MtimeState };
 const transcriptCache = new Map<string, TranscriptCacheEntry>();
 
+// Shallow-copy the result so callers can't mutate the cached arrays. Returned
+// to both the hit path and the miss path — the parser's local maps are
+// already discarded after the function returns, but the result object itself
+// would otherwise be shared with the cache.
+function snapshot(result: TranscriptData): TranscriptData {
+  return {
+    ...result,
+    tools: result.tools.slice(),
+    agents: result.agents.slice(),
+    todos: result.todos.slice(),
+  };
+}
+
 function touchCache(key: string, value: TranscriptCacheEntry): void {
   if (transcriptCache.has(key)) transcriptCache.delete(key);
   transcriptCache.set(key, value);
@@ -91,12 +104,12 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     return result;
   }
 
-  const currentMtime = getMtimeState(transcriptPath);
+  const currentMtime = getMtimeState(resolved);
   const cached = transcriptCache.get(resolved);
-  if (currentMtime && cached && isMtimeFresh(transcriptPath, cached.mtime)) {
+  if (currentMtime && cached && isMtimeFresh(resolved, cached.mtime)) {
     log('cache hit:', resolved);
     touchCache(resolved, cached);
-    return cached.result;
+    return snapshot(cached.result);
   }
   const parseStart = log.enabled ? Date.now() : 0;
 
@@ -203,5 +216,5 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
       durationMs: Date.now() - parseStart,
     });
   }
-  return result;
+  return snapshot(result);
 }
