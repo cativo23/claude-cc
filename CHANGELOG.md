@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `transcriptCache` is now bounded with LRU eviction at 10 entries (#69). Previously the cache leaked one entry per Claude Code session for the lifetime of the process.
+- Path validation for `transcript_path` no longer accepts sibling-prefix paths (#73). Previously `/tmpattacker/...` passed the `startsWith('/tmp')` check; now the validator uses `path.relative` so only true descendants of `homedir()` or `tmpdir()` are accepted.
 
 ### Removed
 - `docs/superpowers/` — local plan/spec scratch artifacts no longer tracked (added to `.gitignore`).

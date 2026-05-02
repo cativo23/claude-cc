@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, realpathSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
@@ -6,6 +6,7 @@ import type { TranscriptData, ToolEntry, AgentEntry, TodoEntry, TodoStatus, Thin
 import { EMPTY_TRANSCRIPT } from '../types.js';
 import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js';
 import { sanitizeTermString } from '../normalize.js';
+import { isUnderAllowedRoot } from '../utils/path.js';
 import { debug } from '../utils/debug.js';
 
 const log = debug('transcript');
@@ -94,6 +95,15 @@ export function extractToolTarget(toolName: string, input: Record<string, unknow
   return typeof raw === 'string' ? sanitizeTermString(raw) : raw;
 }
 
+// Cache realpath-resolved roots once at module load. realpath dereferences
+// symlinks (e.g. macOS `/var/folders` → `/private/var/folders`) so the
+// validator compares canonical paths consistently. If realpath fails on a
+// root (unusual), fall back to the unresolved value.
+function realpathSafe(p: string): string {
+  try { return realpathSync(p); } catch { return resolve(p); }
+}
+const ALLOWED_ROOTS: readonly string[] = [realpathSafe(homedir()), realpathSafe(tmpdir())];
+
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
   const result: TranscriptData = { ...EMPTY_TRANSCRIPT, tools: [], agents: [], todos: [] };
   if (!transcriptPath || !existsSync(transcriptPath)) {
@@ -104,8 +114,17 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     return result;
   }
 
-  const resolved = resolve(transcriptPath);
-  if (!resolved.startsWith(homedir()) && !resolved.startsWith(tmpdir())) {
+  // Use realpath, not resolve, for the validator: prevents bypasses where an
+  // attacker-placed symlink under home/tmp points at /etc/passwd. realpath
+  // dereferences the symlink before the allowlist check.
+  let resolved: string;
+  try {
+    resolved = realpathSync(transcriptPath);
+  } catch {
+    log('skip — realpath failed:', transcriptPath);
+    return result;
+  }
+  if (!isUnderAllowedRoot(resolved, ALLOWED_ROOTS)) {
     log('skip — path outside allowed roots:', resolved);
     transcriptCache.delete(resolved);
     return result;
@@ -128,7 +147,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
   let fileStream: ReturnType<typeof createReadStream> | null = null;
   try {
-    fileStream = createReadStream(transcriptPath);
+    fileStream = createReadStream(resolved);
     const rl = createInterface({ input: fileStream, crlfDelay: Infinity });
     let lineCount = 0;
 
