@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isUnderAllowedRoot } from '../../src/parsers/transcript.js';
+import { isUnderAllowedRoot } from '../../src/utils/path.js';
 
 describe('isUnderAllowedRoot', () => {
   it('accepts the root itself', () => {
@@ -39,5 +39,18 @@ describe('isUnderAllowedRoot', () => {
   it('handles trailing-separator variations on the root', () => {
     expect(isUnderAllowedRoot('/tmp/x', ['/tmp/'])).toBe(true);
     expect(isUnderAllowedRoot('/tmpattacker/x', ['/tmp/'])).toBe(false);
+  });
+
+  it('rejects everything when roots is empty', () => {
+    expect(isUnderAllowedRoot('/tmp/x', [])).toBe(false);
+    expect(isUnderAllowedRoot('/anything', [])).toBe(false);
+  });
+
+  it('does not silently treat empty-string roots as cwd', () => {
+    // resolve('') is process.cwd() — naïve implementations would accept any
+    // path under cwd. The function must skip empty-string entries.
+    expect(isUnderAllowedRoot(process.cwd() + '/secret', [''])).toBe(false);
+    // Empty-string entries must not poison a valid roots list either.
+    expect(isUnderAllowedRoot('/etc/passwd', ['', '/tmp'])).toBe(false);
   });
 });
