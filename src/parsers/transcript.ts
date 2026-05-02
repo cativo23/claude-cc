@@ -10,6 +10,13 @@ import { debug } from '../utils/debug.js';
 
 const log = debug('transcript');
 
+// Full re-parse on cache miss is intentional. Incremental byte-offset parsing
+// was evaluated and rejected (see #43): real transcripts are low-thousands of
+// lines, parse cost stays under the statusline budget, and stateful
+// accumulation breaks under concurrent ticks, file replacement (TOCTOU), and
+// TaskUpdate's numeric-taskId index semantics. Each call uses local maps
+// (toolMap, agentMap, todos below) — that locality is what keeps the parser
+// concurrent-tick safe. Don't refactor it into shared mutable state.
 const transcriptCache = new Map<string, { result: TranscriptData; mtime: MtimeState }>();
 
 const MAX_LINES = 50_000;
