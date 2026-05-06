@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { renderLine3 } from '../../src/render/line3.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
-import type { ToolEntry, TodoEntry, RenderContext } from '../../src/types.js';
+import type { ClaudeCodeInput, ToolEntry, TodoEntry, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
+import { normalize } from '../../src/normalize.js';
 
 const c = createColors('named');
 
-const baseInput = {
+const baseInput: ClaudeCodeInput = {
   model: 'Claude Opus 4',
   session_id: 'test-123',
   context_window: { used_percentage: 50, remaining_percentage: 50 },
@@ -29,7 +30,7 @@ const todo = (id: string, content: string, status: 'pending' | 'in_progress' | '
 
 function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
   return {
-    input: baseInput, git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
+    input: normalize(baseInput), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd: null, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,
@@ -75,7 +76,6 @@ describe('renderLine3', () => {
     const transcript = { ...EMPTY_TRANSCRIPT, todos };
     const out = stripAnsi(renderLine3(makeCtx({ transcript }), c));
     expect(out).toContain('1/3');
-    expect(out).toContain('1'); // in_progress count
   });
 
   it('shows tools and todos together', () => {

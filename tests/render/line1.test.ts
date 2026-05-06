@@ -5,6 +5,7 @@ import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '..
 import type { ClaudeCodeInput, GitStatus, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
 import { normalize } from '../../src/normalize.js';
+import { displayWidth } from '../../src/render/text.js';
 
 const c = createColors('named');
 
@@ -104,7 +105,7 @@ describe('renderLine1', () => {
   it('does not overflow layout at cols=120 with long model and branch', () => {
     const longBranch = 'feat/ca-71-some-long-description-that-was-truncated-before';
     const out = stripAnsi(renderLine1(makeCtx({ git: { ...git, branch: longBranch }, cols: 120 }), c));
-    expect(out.length).toBeLessThanOrEqual(120);
+    expect(displayWidth(out)).toBeLessThanOrEqual(120);
   });
 
   it('shows duration when display.duration is true and durationMs is set', () => {
