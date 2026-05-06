@@ -39,6 +39,13 @@ status: executing
     expect(s.status).toBe('executing'); // was undefined before fix — body Status ignored when phaseMatch fired
   });
 
+  it('frontmatter status wins over body Status when both are present', () => {
+    const content = `---\nstatus: planning\n---\n\nPhase: 2 of 5 (auth)\n\nStatus: Executing`;
+    const s = parseStateMd(content);
+    expect(s.status).toBe('planning'); // frontmatter always wins; body Status is fallback only
+    expect(s.phaseNum).toBe('2');
+  });
+
   it('treats `null` frontmatter values as absent', () => {
     const content = `---\nstatus: null\nmilestone: v1.0\n---`;
     const s = parseStateMd(content);
