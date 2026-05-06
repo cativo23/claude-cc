@@ -96,7 +96,7 @@ describe('renderPowerlineLine2', () => {
         session_id: 'test',
         context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
         cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
-        rate_limits: { five_hour: { used_percentage: usedPercentage, resets_at: Math.floor(Date.now() / 1000) + 3600 } },
+        rate_limits: { five_hour: { used_percentage: usedPercentage } },
       };
       const icons = iconMode === 'emoji' ? EMOJI_ICONS : iconMode === 'none' ? NO_ICONS : resolveIcons('nerd');
       return makeCtx({ input: normalize(rawInput), icons });

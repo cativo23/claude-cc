@@ -67,6 +67,13 @@ describe('renderLine2', () => {
     expect(out).not.toContain('5h');
   });
 
+  it('does not render rate-limit segment when usedPercentage is NaN', () => {
+    const inputOverride = { rate_limits: { five_hour: { used_percentage: NaN } } };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    expect(out).not.toContain('NaN');
+    expect(out).not.toContain('(5h)');
+  });
+
   it('shows rate limits at >=50%', () => {
     const inputOverride = { rate_limits: { five_hour: { used_percentage: 72 } } };
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));

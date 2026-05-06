@@ -96,7 +96,12 @@ describe('getContextColor', () => {
 
 describe('getQuotaColor', () => {
   it('returns green for <50%', () => { expect(getQuotaColor(30)).toBe('green'); });
+  it('returns green for 0%', () => { expect(getQuotaColor(0)).toBe('green'); });
   it('returns yellow for 50-69%', () => { expect(getQuotaColor(55)).toBe('yellow'); });
   it('returns orange for 70-84%', () => { expect(getQuotaColor(75)).toBe('orange'); });
+  it('returns orange at 84 — one below QUOTA_CRITICAL boundary', () => { expect(getQuotaColor(84)).toBe('orange'); });
+  it('returns blinkRed at 85 — exactly QUOTA_CRITICAL boundary', () => { expect(getQuotaColor(85)).toBe('blinkRed'); });
   it('returns blinkRed for >=85%', () => { expect(getQuotaColor(90)).toBe('blinkRed'); });
+  it('returns blinkRed for 100%', () => { expect(getQuotaColor(100)).toBe('blinkRed'); });
+  it('returns blinkRed for NaN — all comparisons false, falls to last tier', () => { expect(getQuotaColor(NaN)).toBe('blinkRed'); });
 });
