@@ -176,14 +176,15 @@ export function runThemesCommand(argv: string[], cols?: number): ThemesCommandRe
   // into the user's terminal otherwise.
   const safeName = sanitizeTermString(args.themeName);
 
-  if (!isKnownTheme(args.themeName)) {
+  const normalizedName = args.themeName.toLowerCase();
+  if (!isKnownTheme(normalizedName)) {
     return err(
       `lumira themes preview: unknown theme "${safeName}".\n\n`
       + `Available: ${Object.keys(THEMES).join(', ')}\n`,
     );
   }
 
-  return ok(previewBlock(args.themeName, args, previewCols));
+  return ok(previewBlock(normalizedName, args, previewCols));
 }
 
 // Re-export PowerlineStyleName so callers don't have to import it from types.

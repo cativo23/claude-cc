@@ -214,7 +214,17 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
               todos = block.input.todos.map((t: { id?: string; content?: string; status?: string }) => {
                 const id = t.id || t.content || '';
                 const existing = existingById.get(id);
-                if (existing && (!t.status || t.status === existing.status)) return existing;
+                if (existing) {
+                  const contentSame = (t.content || '') === (existing.content || '');
+                  const statusSame = !t.status || t.status === existing.status;
+                  if (contentSame && statusSame) return existing;
+                  // Content or status changed — rebuild, preserving whichever field didn't change.
+                  return {
+                    id: t.id || existing.id || '',
+                    content: sanitizeTermString(t.content || existing.content || ''),
+                    status: t.status ? normalizeTodoStatus(t.status) : existing.status,
+                  };
+                }
                 return { id: t.id || '', content: sanitizeTermString(t.content || ''), status: normalizeTodoStatus(t.status) };
               });
             }

@@ -45,6 +45,26 @@ describe('parseTranscript', () => {
     expect(result.sessionStart!.toISOString()).toBe('2026-04-08T10:00:00.000Z');
   });
 
+  it('preserves content update when status is unchanged in TodoWrite', async () => {
+    // Second TodoWrite has same status for "b" but different content — content change must win.
+    const line1 = JSON.stringify({ timestamp: '2026-04-08T10:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu1', name: 'TodoWrite', input: { todos: [{ id: 'x', content: 'Original text', status: 'pending' }] } }] } });
+    const line2 = JSON.stringify({ timestamp: '2026-04-08T10:00:01Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } });
+    const line3 = JSON.stringify({ timestamp: '2026-04-08T10:00:02Z', message: { content: [{ type: 'tool_use', id: 'tu2', name: 'TodoWrite', input: { todos: [{ id: 'x', content: 'Renamed text', status: 'pending' }] } }] } });
+    const line4 = JSON.stringify({ timestamp: '2026-04-08T10:00:03Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu2', content: 'ok' }] } });
+    const { writeFileSync, mkdtempSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'lumira-test-'));
+    const p = join(dir, 'test.jsonl');
+    writeFileSync(p, [line1, line2, line3, line4].join('\n') + '\n');
+    try {
+      const result = await parseTranscript(p);
+      expect(result.todos[0].content).toBe('Renamed text');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('handles TodoWrite with merge semantics', async () => {
     const result = await parseTranscript(join(FIXTURES, 'transcript-todowrite.jsonl'));
     expect(result.todos).toHaveLength(3);

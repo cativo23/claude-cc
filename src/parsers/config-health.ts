@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import type { HudConfig } from '../types.js';
 import type { ColorMode } from '../render/colors.js';
 
@@ -30,10 +31,11 @@ export function getConfigHealth(config: HudConfig, colorMode: ColorMode, cwd: st
   if (config.gsd && cwd) {
     let found = false;
     let dir = cwd;
-    for (let i = 0; i < 32; i++) {
+    const home = homedir();
+    for (let i = 0; i < 10; i++) {
       if (existsSync(join(dir, '.planning', 'STATE.md'))) { found = true; break; }
       const parent = dirname(dir);
-      if (parent === dir) break;
+      if (parent === dir || dir === home) break;
       dir = parent;
     }
     if (!found) hints.push({ severity: 'info', hint: 'GSD on but no .planning/STATE.md found' });
