@@ -112,9 +112,10 @@ export const EMOJI_ICONS: IconSet = {
   dash:      '—',
   checkmark: '✅',    // ✅
   battery:   (pct: number) => {
-    if (Math.round(pct) >= 100) return '\u{1F480}'; // 💀 — quota exhausted (ceiling, matches nerd alert doctrine)
-    if (pct >= QUOTA_CRITICAL)  return '\u{1FAAB}'; // 🪫 — critical zone
-    return '\u{1F50B}';                              // 🔋 — normal
+    if (!Number.isFinite(pct) || pct < 0) return '\u{1F50B}'; // 🔋 — no data / invalid input
+    if (Math.round(pct) >= 100) return '\u{1F480}';            // 💀 — quota exhausted
+    if (pct >= QUOTA_CRITICAL)  return '\u{1FAAB}';            // 🪫 — critical zone
+    return '\u{1F50B}';                                        // 🔋 — normal
   },
 };
 

@@ -106,11 +106,9 @@ describe('IconSet.battery', () => {
   });
 
   it('EMOJI_ICONS.battery falls back to 🔋 for non-finite / negative inputs', () => {
-    // Callers gate with Number.isFinite before invoking, but document the
-    // asymmetric fallback: emoji returns 🔋 (not outline) for bad inputs.
     expect(EMOJI_ICONS.battery(NaN)).toBe('\u{1F50B}');       // 🔋
     expect(EMOJI_ICONS.battery(-5)).toBe('\u{1F50B}');        // 🔋
-    expect(EMOJI_ICONS.battery(Infinity)).toBe('\u{1F480}');  // Math.round(Infinity) >= 100 → 💀
+    expect(EMOJI_ICONS.battery(Infinity)).toBe('\u{1F50B}');  // 🔋 — guard matches nerd outline behaviour
     expect(EMOJI_ICONS.battery(-Infinity)).toBe('\u{1F50B}'); // 🔋
   });
 });
