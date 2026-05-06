@@ -13,8 +13,8 @@ export const palette: ThemePalette = {
   yellow:     rgb(230, 219, 116),
   green:      rgb(166, 226, 46),
   orange:     rgb(253, 151, 31),
-  red:        rgb(249, 38,  114),
-  brightBlue: rgb(102, 217, 239),
+  red:        rgb(249, 38,  114), // intentional: Monokai uses magenta for red
+  brightBlue: rgb(102, 217, 239), // intentional: Monokai uses cyan for brightBlue
   gray:       rgb(117, 113, 94),
   powerline: {
     modelBg:       { r: 42,  g: 93,  b: 110 },

@@ -186,7 +186,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         const entry = JSON.parse(line);
         if (!result.sessionStart && entry.timestamp) result.sessionStart = new Date(entry.timestamp);
 
-        const effortMatch = line.match(/Set model to .+ with (low|medium|high|max) effort/);
+        const effortMatch = JSON.stringify(entry).match(/Set model to .+ with (low|medium|high|max|xhigh) effort/);
         if (effortMatch) thinkingEffort = effortMatch[1] as ThinkingEffort;
 
         const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
