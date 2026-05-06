@@ -21,7 +21,7 @@ describe('render', () => {
   it('auto-minimal at <70 cols', () => { expect(render(makeCtx({ cols: 60 })).split('\n').length).toBeLessThanOrEqual(2); });
   it('renders with theme config without crashing', () => {
     const out = render(makeCtx({ config: { ...DEFAULT_CONFIG, theme: 'dracula', colors: { mode: 'truecolor' } } }));
-    expect(out).toMatch(/\x1b\[(?:38|48);2;/); // truecolor escape confirms theme colors applied
+    expect(out).toContain('\x1b[38;2;139;233;253m'); // Dracula cyan: rgb(139,233,253) — only present if theme palette is wired
   });
   it('renders with emoji icons without crashing', () => {
     const out = render(makeCtx({ icons: EMOJI_ICONS }));
