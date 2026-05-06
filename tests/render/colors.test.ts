@@ -103,5 +103,5 @@ describe('getQuotaColor', () => {
   it('returns blinkRed at 85 — exactly QUOTA_CRITICAL boundary', () => { expect(getQuotaColor(85)).toBe('blinkRed'); });
   it('returns blinkRed for >=85%', () => { expect(getQuotaColor(90)).toBe('blinkRed'); });
   it('returns blinkRed for 100%', () => { expect(getQuotaColor(100)).toBe('blinkRed'); });
-  it('returns blinkRed for NaN — all comparisons false, falls to last tier', () => { expect(getQuotaColor(NaN)).toBe('blinkRed'); });
+  it('returns blinkRed for NaN — explicit guard, callers should pre-filter with Number.isFinite', () => { expect(getQuotaColor(NaN)).toBe('blinkRed'); });
 });
