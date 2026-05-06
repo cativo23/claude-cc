@@ -64,11 +64,12 @@ describe('IconSet.battery', () => {
     expect(NERD_ICONS.battery(100)).toBe('\u{F0083}');
   });
 
-  it('EMOJI_ICONS.battery uses 🔋 normally and 🪫 when ≥85%', () => {
-    expect(EMOJI_ICONS.battery(50)).toBe('\u{1F50B}');
-    expect(EMOJI_ICONS.battery(84)).toBe('\u{1F50B}');
-    expect(EMOJI_ICONS.battery(85)).toBe('\u{1FAAB}');
-    expect(EMOJI_ICONS.battery(100)).toBe('\u{1FAAB}');
+  it('EMOJI_ICONS.battery uses 🔋 normally, 🪫 at ≥85%, and 💀 at the 100% ceiling', () => {
+    expect(EMOJI_ICONS.battery(50)).toBe('\u{1F50B}');   // 🔋 normal
+    expect(EMOJI_ICONS.battery(84)).toBe('\u{1F50B}');   // 🔋 just below critical
+    expect(EMOJI_ICONS.battery(85)).toBe('\u{1FAAB}');   // 🪫 critical zone starts
+    expect(EMOJI_ICONS.battery(99)).toBe('\u{1FAAB}');   // 🪫 still below ceiling
+    expect(EMOJI_ICONS.battery(100)).toBe('\u{1F480}');  // 💀 quota exhausted
   });
 
   it('NO_ICONS.battery returns empty string regardless of percentage — matches the icon-less mode contract', () => {
@@ -98,8 +99,10 @@ describe('IconSet.battery', () => {
     expect(NERD_ICONS.battery(150)).toBe('\u{F0083}');
   });
 
-  it('EMOJI_ICONS.battery still flips at 100% — same 🪫 used at the ceiling', () => {
-    expect(EMOJI_ICONS.battery(100)).toBe('\u{1FAAB}');
+  it('EMOJI_ICONS.battery uses 💀 at the 100% ceiling — aligns with nerd alert doctrine', () => {
+    expect(EMOJI_ICONS.battery(99.5)).toBe('\u{1F480}');  // rounds to 100 → 💀
+    expect(EMOJI_ICONS.battery(100)).toBe('\u{1F480}');   // exact ceiling → 💀
+    expect(EMOJI_ICONS.battery(99.4)).toBe('\u{1FAAB}');  // rounds to 99 → still 🪫
   });
 });
 

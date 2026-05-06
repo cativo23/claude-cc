@@ -131,7 +131,7 @@ describe('renderLine2', () => {
       { icons: EMOJI_ICONS },
       { rate_limits: { five_hour: { used_percentage: 100 } } },
     ), c));
-    expect(full).toContain('\u{1FAAB}');
+    expect(full).toContain('\u{1F480}'); // 💀 at ceiling
 
     const mid = stripAnsi(renderLine2(makeCtx(
       { icons: EMOJI_ICONS },

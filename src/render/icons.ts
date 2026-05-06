@@ -25,9 +25,9 @@ export interface IconSet {
    * - `nerd`: 11 Material Design glyphs by 10% bucket; alert (`󰂃`) reserved
    *   for the 100% ceiling. Bucket dispatch matches `.toFixed(0)` rounding so
    *   the displayed `%` text and the glyph never disagree.
-   * - `emoji`: two-state — 🔋 below 85, 🪫 at/above. Intentional divergence
-   *   from nerd's ceiling-only alert: emoji has no per-decile gradient, so
-   *   the single tier flip rides the colour escalation at QUOTA_CRITICAL.
+   * - `emoji`: three-state — 🔋 below 85, 🪫 at 85–99, 💀 at the 100% ceiling.
+   *   Aligns with nerd's doctrine: alert glyph reserved for the exhausted ceiling,
+   *   colour escalation at QUOTA_CRITICAL carries urgency below that.
    * - `none`: empty string for all inputs (icon-less mode contract).
    *
    * Out-of-range / malformed inputs (NaN, negative, Infinity) are NOT the
@@ -38,10 +38,8 @@ export interface IconSet {
   battery: (pct: number) => string;
 }
 
-// Emoji boundary mirrors getQuotaColor's blinkRed cutoff at 85% — the two-state
-// 🔋/🪫 split has nowhere else to put a "ceiling" marker, so urgency switches
-// at the colour tier. The Nerd Font ladder below has 11 levels and reserves
-// alert for 100% only.
+// Emoji follows the same doctrine as nerd: alert glyph (💀) reserved for the
+// 100% ceiling, colour escalation at QUOTA_CRITICAL carries urgency below that.
 const QUOTA_CRITICAL = 85;
 
 /**
@@ -113,9 +111,11 @@ export const EMOJI_ICONS: IconSet = {
   ellipsis:  '…',
   dash:      '—',
   checkmark: '✅',    // ✅
-  // 🔋 → 🪫 at the critical boundary so colour and shape signal urgency in
-  // lockstep. Two states keeps emoji semantics simple — no per-decile gradient.
-  battery:   (pct: number) => (pct >= QUOTA_CRITICAL ? '\u{1FAAB}' : '\u{1F50B}'),
+  battery:   (pct: number) => {
+    if (Math.round(pct) >= 100) return '\u{1F480}'; // 💀 — quota exhausted (ceiling, matches nerd alert doctrine)
+    if (pct >= QUOTA_CRITICAL)  return '\u{1FAAB}'; // 🪫 — critical zone
+    return '\u{1F50B}';                              // 🔋 — normal
+  },
 };
 
 export const NO_ICONS: IconSet = {
