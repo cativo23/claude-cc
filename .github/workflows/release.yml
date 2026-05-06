@@ -114,4 +114,4 @@ jobs:
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
           echo "Publishing lumira@${PKG_VERSION} (release tag: ${RELEASE_TAG})"
-          npm publish --access public
+          npm publish --access public --provenance

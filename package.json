@@ -15,7 +15,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "themes:validate": "npm run build && node scripts/validate-themes.mjs",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepublishOnly": "npm run build && npm run lint && node scripts/validate-themes.mjs && npm run test"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
