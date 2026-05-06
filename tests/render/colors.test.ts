@@ -97,11 +97,22 @@ describe('getContextColor', () => {
 describe('getQuotaColor', () => {
   it('returns green for <50%', () => { expect(getQuotaColor(30)).toBe('green'); });
   it('returns green for 0%', () => { expect(getQuotaColor(0)).toBe('green'); });
+  // Exact green→yellow boundary
+  it('returns green at 49 — one below green/yellow boundary', () => { expect(getQuotaColor(49)).toBe('green'); });
+  it('returns yellow at 50 — exactly green/yellow boundary', () => { expect(getQuotaColor(50)).toBe('yellow'); });
   it('returns yellow for 50-69%', () => { expect(getQuotaColor(55)).toBe('yellow'); });
+  // Exact yellow→orange boundary
+  it('returns yellow at 69 — one below yellow/orange boundary', () => { expect(getQuotaColor(69)).toBe('yellow'); });
+  it('returns orange at 70 — exactly yellow/orange boundary', () => { expect(getQuotaColor(70)).toBe('orange'); });
   it('returns orange for 70-84%', () => { expect(getQuotaColor(75)).toBe('orange'); });
   it('returns orange at 84 — one below QUOTA_CRITICAL boundary', () => { expect(getQuotaColor(84)).toBe('orange'); });
   it('returns blinkRed at 85 — exactly QUOTA_CRITICAL boundary', () => { expect(getQuotaColor(85)).toBe('blinkRed'); });
   it('returns blinkRed for >=85%', () => { expect(getQuotaColor(90)).toBe('blinkRed'); });
   it('returns blinkRed for 100%', () => { expect(getQuotaColor(100)).toBe('blinkRed'); });
-  it('returns blinkRed for NaN — explicit guard, callers should pre-filter with Number.isFinite', () => { expect(getQuotaColor(NaN)).toBe('blinkRed'); });
+  // Non-finite guards — these tests validate that the explicit guard fires:
+  // NaN falls through to blinkRed in both old and new code, but Infinity/-Infinity
+  // changed behavior: old code -Infinity → green (< 50 was true), new code → blinkRed.
+  it('returns blinkRed for NaN', () => { expect(getQuotaColor(NaN)).toBe('blinkRed'); });
+  it('returns blinkRed for Infinity', () => { expect(getQuotaColor(Infinity)).toBe('blinkRed'); });
+  it('returns blinkRed for -Infinity — guard prevents false green', () => { expect(getQuotaColor(-Infinity)).toBe('blinkRed'); });
 });
