@@ -60,7 +60,8 @@ describe('fitSegments', () => {
   it('last-resort: truncates single oversized segment without ANSI bleed', () => {
     const result = fitSegments(['X'.repeat(200)], [], ' | ', 50);
     expect(displayWidth(result)).toBeLessThanOrEqual(46);
-    expect(result.endsWith('…')).toBe(true);
+    expect(result).toContain('…'); // ellipsis present; result ends with \x1b[0m defensive reset
+    expect(result.endsWith('\x1b[0m')).toBe(true);
   });
 
   it('ANSI-colored left that overflows stays within displayWidth bounds', () => {
