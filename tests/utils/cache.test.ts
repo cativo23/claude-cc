@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync, statSync, utimesSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, statSync, utimesSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { readTtlCache, writeTtlCache, isMtimeFresh } from '../../src/utils/cache.js';
@@ -25,7 +25,6 @@ describe('TTL cache', () => {
   });
   it('returns null for expired cache', () => {
     const cacheDir = join(dir, `lumira-${uid}`);
-    const { mkdirSync } = require('node:fs');
     mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
     const filePath = join(cacheDir, 'test-key.json');
     writeFileSync(filePath, JSON.stringify({ value: 42 }), { mode: 0o600 });

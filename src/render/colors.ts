@@ -107,6 +107,7 @@ export function getContextColor(
 }
 
 export function getQuotaColor(pct: number): ColorName {
+  if (!Number.isFinite(pct)) return 'blinkRed'; // NaN/Infinity → maximum urgency, caller should gate upstream
   if (pct < 50) return 'green';
   if (pct < 70) return 'yellow';
   if (pct < QUOTA_CRITICAL) return 'orange';
