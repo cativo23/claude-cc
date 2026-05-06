@@ -40,7 +40,7 @@ export interface IconSet {
 
 // Emoji follows the same doctrine as nerd: alert glyph (💀) reserved for the
 // 100% ceiling, colour escalation at QUOTA_CRITICAL carries urgency below that.
-const QUOTA_CRITICAL = 85;
+export const QUOTA_CRITICAL = 85;
 
 /**
  * Pick the Material Design Nerd Font battery glyph for a given percentage.

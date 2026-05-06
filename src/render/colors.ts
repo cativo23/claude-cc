@@ -1,4 +1,5 @@
 import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD } from '../types.js';
+import { QUOTA_CRITICAL } from './icons.js';
 
 export type ColorMode = 'named' | '256' | 'truecolor';
 export type ColorName = 'cyan' | 'magenta' | 'yellow' | 'green' | 'orange' | 'red' | 'blinkRed' | 'gray' | 'brightBlue' | 'dim' | 'bold';
@@ -109,6 +110,6 @@ export function getContextColor(
 export function getQuotaColor(pct: number): ColorName {
   if (pct < 50) return 'green';
   if (pct < 70) return 'yellow';
-  if (pct < 85) return 'orange';
+  if (pct < QUOTA_CRITICAL) return 'orange';
   return 'blinkRed';
 }
