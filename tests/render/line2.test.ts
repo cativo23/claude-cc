@@ -5,6 +5,7 @@ import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '..
 import type { ClaudeCodeInput, RenderContext } from '../../src/types.js';
 import { NERD_ICONS, EMOJI_ICONS, NO_ICONS } from '../../src/render/icons.js';
 import { normalize } from '../../src/normalize.js';
+import { displayWidth } from '../../src/render/text.js';
 
 const c = createColors('named');
 
@@ -333,7 +334,7 @@ describe('renderLine2', () => {
       context_window: { ...baseInput.context_window, cache_read_input_tokens: 80000 },
     };
     const out = stripAnsi(renderLine2(makeCtx({ cols: 60 }, inputOverride), c));
-    expect(out.length).toBeLessThanOrEqual(64); // fitSegments enforces cols - 4
+    expect(displayWidth(out)).toBeLessThanOrEqual(64); // fitSegments enforces cols - 4
     // High-priority segment (context bar) survives; low-priority rate limit drops.
     expect(out).toMatch(/\d+%/); // context % is present
     expect(out).not.toContain('75%(5h)'); // rate-limit segment got dropped
