@@ -4,6 +4,7 @@ import {
   type PowerlineSegment,
   type PowerlineStyleName,
 } from './powerline.js';
+import { QUOTA_CRITICAL } from './icons.js';
 import { buildContextBar } from './shared.js';
 import { formatTokens, formatCost } from '../utils/format.js';
 import type { ColorMode, Colors } from './colors.js';
@@ -67,7 +68,7 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     const fh = input.rateLimits.fiveHour;
     // Number.isFinite guards against NaN/Infinity from malformed payloads.
     if (fh && Number.isFinite(fh.usedPercentage) && fh.usedPercentage >= 50) {
-      const bg = fh.usedPercentage >= 80 ? palette.branchDirtyBg : palette.taskBg;
+      const bg = fh.usedPercentage >= QUOTA_CRITICAL ? palette.branchDirtyBg : palette.taskBg;
       segments.push({ text: `${icons.battery(fh.usedPercentage)} ${fh.usedPercentage.toFixed(0)}%(5h)`, bg, fg: palette.fg, priority: 20 });
     }
   }
