@@ -244,8 +244,14 @@ describe('renderLine2', () => {
     expect(out).toContain('^low');
   });
 
-  it('shows cache hit rate when cache_read_input_tokens present', () => {
-    const inputOverride = { context_window: { ...baseInput.context_window, cache_read_input_tokens: 100000, total_input_tokens: 131000 } };
+  it('shows cache hit rate when current_usage provides per-turn token fields', () => {
+    const inputOverride = {
+      context_window: {
+        ...baseInput.context_window,
+        current_usage: { input_tokens: 31000, cache_read_input_tokens: 100000 },
+      },
+    };
+    // 100000 / (31000 + 100000) = 76%
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
     expect(out).toContain('cache');
     expect(out).toContain('76%');
@@ -267,11 +273,12 @@ describe('renderLine2', () => {
     expect(out).toContain('cache 53%');
   });
 
-  it('caps cache hit rate at 100% when cache_read exceeds total_input (long sessions)', () => {
+  it('hides cache metrics for legacy payloads without current_usage (no denominator after #79)', () => {
+    // Legacy top-level cache_read without current_usage no longer provides a denominator
+    // after dropping the total_input fallback in v0.9.1 (#79). Cache metrics must not render.
     const inputOverride = { context_window: { ...baseInput.context_window, cache_read_input_tokens: 5000000, total_input_tokens: 957000 } };
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
-    expect(out).toContain('cache 100%');
-    expect(out).not.toMatch(/cache [1-9]\d{3,}%|cache [2-9]\d{2}%|cache 1[1-9]\d%/);
+    expect(out).not.toContain('cache');
   });
 
   it('hides cache metrics when cache_read is zero', () => {

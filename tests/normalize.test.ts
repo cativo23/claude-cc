@@ -331,10 +331,11 @@ describe('rateLimits normalization', () => {
 });
 
 describe('cacheHitRate normalization', () => {
-  it('computes hit rate for Claude with cache_read_input_tokens', () => {
+  it('returns undefined cacheHitRate for top-level cache_read without current_usage (no denominator after #79)', () => {
+    // Top-level cache_read_input_tokens without a current_usage object provides no per-turn
+    // denominator since we dropped the legacy total_input fallback in v0.9.1 (#79).
     const input = { ...claudeInput, context_window: { ...claudeInput.context_window, cache_read_input_tokens: 100000, total_input_tokens: 131000 } };
-    const result = normalize(input);
-    expect(result.cacheHitRate).toBe(76);
+    expect(normalize(input).cacheHitRate).toBeUndefined();
   });
   it('cacheHitRate is undefined when no cache_read_input_tokens', () => {
     expect(normalize(claudeInput).cacheHitRate).toBeUndefined();
@@ -353,13 +354,14 @@ describe('cacheHitRate normalization', () => {
     // 80000 / (50000 + 80000 + 20000) = 53%
     expect(normalize(input).cacheHitRate).toBe(53);
   });
-  it('caps hit rate at 100 when cache_read exceeds total_input on legacy payload', () => {
+  it('returns undefined cacheHitRate for legacy payloads without current_usage (no denominator)', () => {
+    // Pre-2.1.x payload: cache_read at top level, no current_usage object.
+    // Without current_usage we cannot compute a per-turn denominator, so cacheHitRate is undefined.
     const input = { ...claudeInput, context_window: { ...claudeInput.context_window, cache_read_input_tokens: 5000000, total_input_tokens: 957000 } };
-    expect(normalize(input).cacheHitRate).toBe(100);
+    expect(normalize(input).cacheHitRate).toBeUndefined();
   });
-  it('falls back to total_input denominator when current_usage has no cache fields', () => {
-    // Modern payload but partial — only output_tokens (no cache_read/creation/input).
-    // Cached comes from legacy top-level; denominator falls back to total_input_tokens.
+  it('returns undefined cacheHitRate when current_usage has no per-turn token fields', () => {
+    // current_usage present but only output_tokens — no fresh/read/creation → denominator = 0.
     const input = {
       ...claudeInput,
       context_window: {
@@ -369,7 +371,7 @@ describe('cacheHitRate normalization', () => {
         total_input_tokens: 131000,
       },
     };
-    expect(normalize(input).cacheHitRate).toBe(76);
+    expect(normalize(input).cacheHitRate).toBeUndefined();
   });
 });
 

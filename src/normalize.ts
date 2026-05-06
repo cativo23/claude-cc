@@ -110,6 +110,23 @@ export function sanitizeTermString(s: string): string {
 /** Allowed values for the reasoning effort level field (CC ≥ 2.1.x). */
 const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
+type CurrentUsageObject = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+
+/**
+ * Extract cache fields from `context_window.current_usage` (modern ≥ 2.1.x payloads).
+ * Returns `cached` (cache_read_input_tokens) and `denominator` (sum of all per-turn input
+ * token categories). Returns empty object when `cu` is absent or not an object shape.
+ */
+function getCacheFields(cu: unknown): { cached?: number; denominator?: number } {
+  if (typeof cu !== 'object' || !cu) return {};
+  const obj = cu as CurrentUsageObject;
+  const read = obj.cache_read_input_tokens;
+  const fresh = obj.input_tokens ?? 0;
+  const create = obj.cache_creation_input_tokens ?? 0;
+  const total = (read ?? 0) + fresh + create;
+  return { cached: read, denominator: total > 0 ? total : undefined };
+}
+
 export function normalize(input: RawInput): NormalizedInput {
   const platform: Platform = isQwenInput(input) ? 'qwen-code' : 'claude-code';
   const qwen = isQwenInput(input) ? input : null;
@@ -141,32 +158,19 @@ export function normalize(input: RawInput): NormalizedInput {
     }
   } else if (claude) {
     // Modern Claude Code (≥ 2.1.x) nests cache fields under current_usage.
-    // Fall back to the legacy top-level path for older payloads.
-    const cu = claude.context_window?.current_usage;
-    const nested = typeof cu === 'object' ? cu?.cache_read_input_tokens : undefined;
-    cached = nested ?? claude.context_window?.cache_read_input_tokens;
+    // Fall back to the legacy top-level path for payloads without current_usage.
+    const { cached: nestedCached } = getCacheFields(claude.context_window?.current_usage);
+    cached = nestedCached ?? claude.context_window?.cache_read_input_tokens;
   }
 
   // Per-turn cache denominator (Claude only): fresh input + cache_read + cache_creation
   // for the current turn. Used to compute a meaningful cache hit rate, since
   // `cached` is per-turn while `total_input_tokens` is cumulative across the session.
-  // Falls back to total_input_tokens for legacy payloads without current_usage.
+  // Requires a modern (≥ 2.1.x) payload with current_usage object fields — older
+  // payloads that only expose total_input_tokens omit the denominator entirely.
   let cacheTurnDenominator: number | undefined;
   if (claude) {
-    const cu = claude.context_window?.current_usage;
-    if (typeof cu === 'object' && cu) {
-      const fresh = cu.input_tokens ?? 0;
-      const read = cu.cache_read_input_tokens ?? 0;
-      const create = cu.cache_creation_input_tokens ?? 0;
-      const total = fresh + read + create;
-      if (total > 0) cacheTurnDenominator = total;
-    }
-    // Legacy fallback: top-level totals (pre-2.1.x payloads, or current_usage
-    // without cache fields). The Math.min(100, ...) cap below protects against
-    // overflow when cache_read accumulates past total_input in long sessions.
-    if (cacheTurnDenominator == null && inputTokens > 0) {
-      cacheTurnDenominator = inputTokens;
-    }
+    ({ denominator: cacheTurnDenominator } = getCacheFields(claude.context_window?.current_usage));
   }
 
   // Performance (Qwen only)
