@@ -6,11 +6,18 @@ import { debug } from '../utils/debug.js';
 
 const log = debug('mcp');
 
+export interface McpReader {
+  existsSync(path: string): boolean;
+  readFileSync(path: string, encoding: 'utf8'): string;
+}
+
+const defaultReader: McpReader = { existsSync, readFileSync };
+
 /**
  * Read MCP server configurations from .mcp.json files.
  * Checks both cwd and ~/.claude/ for server definitions.
  */
-export function getMcpInfo(cwd: string): McpInfo | null {
+export function getMcpInfo(cwd: string, reader: McpReader = defaultReader): McpInfo | null {
   const servers: McpServerInfo[] = [];
 
   const paths = [
@@ -19,9 +26,9 @@ export function getMcpInfo(cwd: string): McpInfo | null {
   ];
 
   for (const p of paths) {
-    if (!existsSync(p)) continue;
+    if (!reader.existsSync(p)) continue;
     try {
-      const raw = JSON.parse(readFileSync(p, 'utf8'));
+      const raw = JSON.parse(reader.readFileSync(p, 'utf8'));
       const mcpServers = raw?.mcpServers ?? {};
       const added: string[] = [];
       for (const name of Object.keys(mcpServers)) {

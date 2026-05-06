@@ -1,27 +1,29 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getMcpInfo } from '../../src/parsers/mcp.js';
-import * as fs from 'node:fs';
+import { describe, it, expect } from 'vitest';
+import { homedir } from 'node:os';
+import { getMcpInfo, type McpReader } from '../../src/parsers/mcp.js';
 
-vi.mock('node:fs');
-
-const mockedExistsSync = vi.mocked(fs.existsSync);
-const mockedReadFileSync = vi.mocked(fs.readFileSync);
-
-beforeEach(() => { vi.resetAllMocks(); });
-afterEach(() => { vi.restoreAllMocks(); });
+function makeReader(files: Record<string, string>): McpReader {
+  return {
+    existsSync: (p: string) => p in files,
+    readFileSync: (p: string) => {
+      if (!(p in files)) throw new Error(`readFileSync called for unregistered path: ${p}`);
+      return files[p]!;
+    },
+  };
+}
 
 describe('getMcpInfo', () => {
   it('returns null when no .mcp.json files exist', () => {
-    mockedExistsSync.mockReturnValue(false);
-    expect(getMcpInfo('/project')).toBeNull();
+    expect(getMcpInfo('/project', makeReader({}))).toBeNull();
   });
 
   it('reads servers from cwd .mcp.json', () => {
-    mockedExistsSync.mockImplementation((p) => String(p).includes('/project/'));
-    mockedReadFileSync.mockReturnValue(JSON.stringify({
-      mcpServers: { 'my-server': { command: 'node', args: ['server.js'] } },
-    }));
-    const result = getMcpInfo('/project');
+    const reader = makeReader({
+      '/project/.mcp.json': JSON.stringify({
+        mcpServers: { 'my-server': { command: 'node', args: ['server.js'] } },
+      }),
+    });
+    const result = getMcpInfo('/project', reader);
     expect(result).not.toBeNull();
     expect(result!.servers).toHaveLength(1);
     expect(result!.servers[0].name).toBe('my-server');
@@ -29,23 +31,24 @@ describe('getMcpInfo', () => {
   });
 
   it('deduplicates servers across files', () => {
-    mockedExistsSync.mockReturnValue(true);
-    mockedReadFileSync.mockReturnValue(JSON.stringify({
-      mcpServers: { 'shared-server': { command: 'node' } },
-    }));
-    const result = getMcpInfo('/project');
+    const content = JSON.stringify({ mcpServers: { 'shared-server': { command: 'node' } } });
+    const reader = makeReader({
+      '/project/.mcp.json': content,
+      [`${homedir()}/.claude/.mcp.json`]: content, // homedir() matches what getMcpInfo uses
+    });
+    const result = getMcpInfo('/project', reader);
     expect(result!.servers).toHaveLength(1);
   });
 
   it('handles malformed JSON gracefully', () => {
-    mockedExistsSync.mockReturnValue(true);
-    mockedReadFileSync.mockReturnValue('not valid json');
-    expect(getMcpInfo('/project')).toBeNull();
+    const reader = makeReader({ '/project/.mcp.json': 'not valid json' });
+    expect(getMcpInfo('/project', reader)).toBeNull();
   });
 
   it('handles missing mcpServers key', () => {
-    mockedExistsSync.mockImplementation((p) => String(p).includes('/project/'));
-    mockedReadFileSync.mockReturnValue(JSON.stringify({ other: 'data' }));
-    expect(getMcpInfo('/project')).toBeNull();
+    const reader = makeReader({
+      '/project/.mcp.json': JSON.stringify({ other: 'data' }),
+    });
+    expect(getMcpInfo('/project', reader)).toBeNull();
   });
 });
