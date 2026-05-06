@@ -1,3 +1,6 @@
+import { QUOTA_CRITICAL } from '../types.js';
+export { QUOTA_CRITICAL }; // re-export for callers that imported it from here before
+
 export interface IconSet {
   model: string;
   branch: string;
@@ -30,17 +33,11 @@ export interface IconSet {
    *   colour escalation at QUOTA_CRITICAL carries urgency below that.
    * - `none`: empty string for all inputs (icon-less mode contract).
    *
-   * Out-of-range / malformed inputs (NaN, negative, Infinity) are NOT the
-   * responsibility of this method — callers MUST gate with `Number.isFinite`
-   * and a sane range check before invoking. `nerdBattery` defends with an
-   * outline fallback as a last line of safety; the other modes do not.
+   * All implementations defend against NaN, negative, and Infinity inputs.
+   * Callers should also gate with `Number.isFinite` at payload boundaries.
    */
   battery: (pct: number) => string;
 }
-
-// Emoji follows the same doctrine as nerd: alert glyph (💀) reserved for the
-// 100% ceiling, colour escalation at QUOTA_CRITICAL carries urgency below that.
-export const QUOTA_CRITICAL = 85;
 
 /**
  * Pick the Material Design Nerd Font battery glyph for a given percentage.

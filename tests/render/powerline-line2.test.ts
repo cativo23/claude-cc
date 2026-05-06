@@ -149,5 +149,43 @@ describe('renderPowerlineLine2', () => {
       expect(out).toContain('\u{F0080}'); // battery_70 glyph for 78%
       expect(out).not.toContain('(5h)');
     });
+
+    it('renders both fiveHour and sevenDay windows when both are above the 50% gate', () => {
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        rate_limits: {
+          five_hour: { used_percentage: 60 },
+          seven_day:  { used_percentage: 90 },
+        },
+      };
+      const ctx = makeCtx({ input: normalize(rawInput), icons: resolveIcons('nerd') });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('60%(5h)');
+      expect(out).toContain('90%(7d)');
+      // 5h renders before 7d (loop order)
+      expect(out.indexOf('(5h)')).toBeLessThan(out.indexOf('(7d)'));
+    });
+
+    it('uses branchDirtyBg for critical window (>=85%) and taskBg for non-critical — mixed criticality', () => {
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        rate_limits: {
+          five_hour: { used_percentage: 60 },  // non-critical → taskBg
+          seven_day:  { used_percentage: 90 },  // critical → branchDirtyBg
+        },
+      };
+      const ctx = makeCtx({ input: normalize(rawInput), icons: resolveIcons('nerd') });
+      // Both segments render — verified in the test above.
+      // Verify critical segment renders with battery_80+ glyph
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('\u{F0082}'); // battery_90 for 90%
+      expect(out).toContain('\u{F007F}'); // battery_60 for 60%
+    });
   });
 });

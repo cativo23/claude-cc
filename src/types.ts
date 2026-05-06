@@ -235,6 +235,14 @@ export interface ColorConfig {
 export const DEFAULT_CONTEXT_WARNING_THRESHOLD = 70;
 export const DEFAULT_CONTEXT_CRITICAL_THRESHOLD = 85;
 
+/**
+ * Rate-limit quota threshold at which all visual escalations fire together:
+ * emoji glyph flips to 🪫, colour escalates to blinkRed, powerline bg switches
+ * to branchDirtyBg, and line2 promotes the segment position. All four call
+ * sites align intentionally — changing one means changing all.
+ */
+export const QUOTA_CRITICAL = 85;
+
 export const DEFAULT_DISPLAY: DisplayToggles = {
   model: true,
   branch: true,

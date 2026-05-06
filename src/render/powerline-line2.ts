@@ -4,7 +4,7 @@ import {
   type PowerlineSegment,
   type PowerlineStyleName,
 } from './powerline.js';
-import { QUOTA_CRITICAL } from './icons.js';
+import { QUOTA_CRITICAL } from '../types.js';
 import { buildContextBar } from './shared.js';
 import { formatTokens, formatCost } from '../utils/format.js';
 import type { ColorMode, Colors } from './colors.js';
@@ -72,8 +72,11 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     for (const [label, win] of limits) {
       // Number.isFinite guards against NaN/Infinity from malformed payloads.
       if (!win || !Number.isFinite(win.usedPercentage) || win.usedPercentage < 50) continue;
-      const bg = win.usedPercentage >= QUOTA_CRITICAL ? palette.branchDirtyBg : palette.taskBg;
-      segments.push({ text: `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`, bg, fg: palette.fg, priority: 20 });
+      const critical = win.usedPercentage >= QUOTA_CRITICAL;
+      const bg = critical ? palette.branchDirtyBg : palette.taskBg;
+      // Critical windows get higher priority so they survive terminal-width eviction
+      // before non-critical ones — same escalation doctrine as line2's slot promotion.
+      segments.push({ text: `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`, bg, fg: palette.fg, priority: critical ? 25 : 20 });
     }
   }
 

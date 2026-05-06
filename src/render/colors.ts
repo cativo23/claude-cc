@@ -1,5 +1,4 @@
-import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD } from '../types.js';
-import { QUOTA_CRITICAL } from './icons.js';
+import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, QUOTA_CRITICAL } from '../types.js';
 
 export type ColorMode = 'named' | '256' | 'truecolor';
 export type ColorName = 'cyan' | 'magenta' | 'yellow' | 'green' | 'orange' | 'red' | 'blinkRed' | 'gray' | 'brightBlue' | 'dim' | 'bold';

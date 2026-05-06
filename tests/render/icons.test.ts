@@ -67,8 +67,10 @@ describe('IconSet.battery', () => {
   it('EMOJI_ICONS.battery uses 🔋 normally, 🪫 at ≥85%, and 💀 at the 100% ceiling', () => {
     expect(EMOJI_ICONS.battery(50)).toBe('\u{1F50B}');   // 🔋 normal
     expect(EMOJI_ICONS.battery(84)).toBe('\u{1F50B}');   // 🔋 just below critical
+    expect(EMOJI_ICONS.battery(84.6)).toBe('\u{1F50B}'); // 🔋 fractional below 85 — no rounding on critical check
     expect(EMOJI_ICONS.battery(85)).toBe('\u{1FAAB}');   // 🪫 critical zone starts
     expect(EMOJI_ICONS.battery(99)).toBe('\u{1FAAB}');   // 🪫 still below ceiling
+    expect(EMOJI_ICONS.battery(99.4)).toBe('\u{1FAAB}'); // 🪫 rounds to 99 — stays in critical zone
     expect(EMOJI_ICONS.battery(100)).toBe('\u{1F480}');  // 💀 quota exhausted
   });
 

@@ -32,6 +32,8 @@ function makeCtx(overrides: Partial<RenderContext> = {}, inputOverride?: Partial
 }
 
 describe('renderLine2', () => {
+  afterEach(() => vi.useRealTimers());
+
   it('shows context bar with percentage', () => {
     const out = stripAnsi(renderLine2(makeCtx(), c));
     expect(out).toContain('55%');
@@ -98,7 +100,6 @@ describe('renderLine2', () => {
       rate_limits: { five_hour: { used_percentage: 70, resets_at: Math.floor(pinnedNow / 1000) + 3600 } },
     };
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
-    vi.useRealTimers();
     expect(out).toContain('\u{F0080}');
     expect(out).toContain('1h00m'); // pinned time → exactly 3600s → 1h00m
   });

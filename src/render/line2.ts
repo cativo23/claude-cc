@@ -1,6 +1,6 @@
 import { fitSegments, displayWidth } from './text.js';
 import { getQuotaColor, detectColorMode, type Colors } from './colors.js';
-import { QUOTA_CRITICAL } from './icons.js';
+import { QUOTA_CRITICAL } from '../types.js';
 import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
