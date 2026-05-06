@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { homedir } from 'node:os';
 import { getMcpInfo, type McpReader } from '../../src/parsers/mcp.js';
 
 function makeReader(files: Record<string, string>): McpReader {
   return {
     existsSync: (p: string) => p in files,
-    readFileSync: (p: string) => files[p] ?? '',
+    readFileSync: (p: string) => {
+      if (!(p in files)) throw new Error(`readFileSync called for unregistered path: ${p}`);
+      return files[p]!;
+    },
   };
 }
 
@@ -30,7 +34,7 @@ describe('getMcpInfo', () => {
     const content = JSON.stringify({ mcpServers: { 'shared-server': { command: 'node' } } });
     const reader = makeReader({
       '/project/.mcp.json': content,
-      [`${process.env['HOME'] ?? '/root'}/.claude/.mcp.json`]: content,
+      [`${homedir()}/.claude/.mcp.json`]: content, // homedir() matches what getMcpInfo uses
     });
     const result = getMcpInfo('/project', reader);
     expect(result!.servers).toHaveLength(1);
