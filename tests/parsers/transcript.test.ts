@@ -39,6 +39,11 @@ describe('parseTranscript', () => {
     expect(result.thinkingEffort).toBe('high');
   });
 
+  it('extracts thinkingEffort xhigh from transcript', async () => {
+    const result = await parseTranscript(join(FIXTURES, 'transcript-effort-xhigh.jsonl'));
+    expect(result.thinkingEffort).toBe('xhigh');
+  });
+
   it('sets sessionStart from first timestamp', async () => {
     const result = await parseTranscript(join(FIXTURES, 'transcript-basic.jsonl'));
     expect(result.sessionStart).toBeInstanceOf(Date);
