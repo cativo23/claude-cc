@@ -1,6 +1,7 @@
-import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync, mkdirSync, rmdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync, mkdirSync, rmdirSync, renameSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
+import { sanitizeTermString } from './normalize.js';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { runWizard } from './installer-wizard.js';
@@ -139,7 +140,13 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
 
   if (existsSync(settingsPath)) {
     try {
-      settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      const parsed = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        settings = parsed as Record<string, unknown>;
+      } else {
+        lines.push(warn('Could not parse existing settings.json, creating fresh'));
+        settings = {};
+      }
     } catch {
       lines.push(warn('Could not parse existing settings.json, creating fresh'));
       settings = {};
@@ -148,7 +155,8 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
 
   const hasForeignStatusLine = settings.statusLine && !isLumira(settings.statusLine);
   if (hasForeignStatusLine) {
-    const currentCmd = (settings.statusLine as Record<string, unknown>).command ?? 'unknown';
+    const rawCmd = (settings.statusLine as Record<string, unknown>).command ?? 'unknown';
+    const currentCmd = sanitizeTermString(String(rawCmd));
     lines.push(warn(`Current statusline: ${YELLOW}${currentCmd}${RST}`));
     const accepted = await confirm('Replace with lumira?');
     if (!accepted) {
@@ -197,7 +205,9 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
 
   settings.statusLine = { ...LUMIRA_STATUSLINE };
   mkdirSync(dirname(settingsPath), { recursive: true });
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
+  const tmp = join(tmpdir(), `lumira-settings-${process.pid}.json`);
+  writeFileSync(tmp, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
+  renameSync(tmp, settingsPath);
   lines.push(ok('Configured lumira as statusline'));
 
   saveConfig(wizard, configPath);

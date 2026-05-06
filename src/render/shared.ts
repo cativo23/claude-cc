@@ -49,8 +49,9 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
   const warning = opts?.warningThreshold ?? DEFAULT_CONTEXT_WARNING_THRESHOLD;
   const critical = opts?.criticalThreshold ?? DEFAULT_CONTEXT_CRITICAL_THRESHOLD;
 
-  const filled = Math.round((pct / 100) * segments);
-  const colorFn = c[getContextColor(pct, warning, critical)];
+  const safePct = Number.isFinite(pct) ? pct : 0;
+  const filled = Math.max(0, Math.min(segments, Math.round((safePct / 100) * segments)));
+  const colorFn = c[getContextColor(safePct, warning, critical)];
   // In plain mode the bar cells emit no ANSI — terminal default fg over
   // whatever bg the caller has set. The empty-cell `dim` is also suppressed
   // because `\x1b[2m...\x1b[0m` would still close out the caller's bg.
@@ -60,19 +61,19 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
 
   let icon = '';
   if (showIcons) {
-    if (pct >= critical) icon = c.blinkRed(ic.skull);
-    else if (pct >= warning) icon = c.orange(ic.fire);
+    if (safePct >= critical) icon = c.blinkRed(ic.skull);
+    else if (safePct >= warning) icon = c.orange(ic.fire);
   }
 
   // Actionable hint at high fill — nudges the user to reclaim context before
   // the session stalls. Thresholds align with the color/icon tiers above.
   let hint = '';
   if (showHint) {
-    if (pct >= critical + 5) hint = ' ' + c.red('/compact!');
-    else if (pct >= critical) hint = ' ' + c.dim('/compact?');
+    if (safePct >= critical + 5) hint = ' ' + c.red('/compact!');
+    else if (safePct >= critical) hint = ' ' + c.dim('/compact?');
   }
 
-  const pctStr = colorFn(`${pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%`);
+  const pctStr = colorFn(`${safePct < 10 ? safePct.toFixed(1) : safePct.toFixed(0)}%`);
 
   const out = `${bar} ${pctStr}${icon ? ' ' + icon : ''}${hint}`;
   if (plain) {

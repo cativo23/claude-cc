@@ -121,9 +121,12 @@ export function normalize(input: RawInput): NormalizedInput {
     : (input.model?.display_name ?? '');
   const cwd = (input as { cwd?: string }).cwd || input.workspace?.current_dir || process.cwd();
 
-  // Token unification
-  const inputTokens = input.context_window.total_input_tokens ?? 0;
-  const outputTokens = input.context_window.total_output_tokens ?? 0;
+  // Token unification — context_window is required by type but can be absent
+  // from malformed payloads; default to an empty object so all field accesses
+  // degrade gracefully rather than crashing with "Cannot read properties of undefined".
+  const contextWindow = (input.context_window ?? {}) as ClaudeCodeInput['context_window'];
+  const inputTokens = contextWindow.total_input_tokens ?? 0;
+  const outputTokens = contextWindow.total_output_tokens ?? 0;
 
   let cached: number | undefined;
   let thoughts: number | undefined;
@@ -219,7 +222,7 @@ export function normalize(input: RawInput): NormalizedInput {
       thoughts,
     },
     context: {
-      usedPercentage: input.context_window.used_percentage,
+      usedPercentage: contextWindow.used_percentage ?? 0,
       windowSize: qwen
         ? qwen.context_window.context_window_size
         : claude?.context_window?.context_window_size,

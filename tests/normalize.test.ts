@@ -373,6 +373,21 @@ describe('cacheHitRate normalization', () => {
   });
 });
 
+describe('normalize — missing context_window', () => {
+  it('does not crash when context_window is absent', () => {
+    const input = { ...claudeInput, context_window: undefined as any };
+    expect(() => normalize(input)).not.toThrow();
+  });
+
+  it('returns zero tokens when context_window is absent', () => {
+    const input = { ...claudeInput, context_window: undefined as any };
+    const result = normalize(input);
+    expect(result.tokens.input).toBe(0);
+    expect(result.tokens.output).toBe(0);
+    expect(result.context.usedPercentage).toBe(0);
+  });
+});
+
 describe('isQwenInput discriminant', () => {
   it('returns true for valid Qwen input', () => {
     expect(isQwenInput(qwenInput)).toBe(true);

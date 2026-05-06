@@ -63,4 +63,24 @@ describe('formatBurnRate', () => {
   it('returns null for zero cost', () => {
     expect(formatBurnRate(0, 120_000)).toBeNull();
   });
+  it('returns null for negative cost', () => {
+    expect(formatBurnRate(-5, 120_000)).toBeNull();
+  });
+});
+
+describe('formatTokens — non-finite inputs', () => {
+  it('returns empty string for NaN', () => { expect(formatTokens(NaN)).toBe(''); });
+  it('returns empty string for Infinity', () => { expect(formatTokens(Infinity)).toBe(''); });
+  it('returns empty string for -Infinity', () => { expect(formatTokens(-Infinity)).toBe(''); });
+});
+
+describe('formatDuration — non-finite inputs', () => {
+  it('returns empty string for NaN', () => { expect(formatDuration(NaN)).toBe(''); });
+  it('returns empty string for Infinity', () => { expect(formatDuration(Infinity)).toBe(''); });
+});
+
+describe('formatCost — non-finite inputs', () => {
+  it('returns empty string for NaN', () => { expect(formatCost(NaN)).toBe(''); });
+  it('returns empty string for Infinity', () => { expect(formatCost(Infinity)).toBe(''); });
+  it('returns empty string for negative cost', () => { expect(formatCost(-0.5)).toBe(''); });
 });

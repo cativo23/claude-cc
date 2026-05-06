@@ -215,6 +215,21 @@ describe('buildContextBar — configurable thresholds', () => {
   });
 });
 
+describe('buildContextBar — out-of-range pct', () => {
+  it('does not throw RangeError when pct > 100', () => {
+    expect(() => buildContextBar(105, c)).not.toThrow();
+    expect(stripAnsi(buildContextBar(105, c))).toContain('%');
+  });
+
+  it('does not throw RangeError when pct < 0', () => {
+    expect(() => buildContextBar(-5, c)).not.toThrow();
+  });
+
+  it('does not crash on NaN pct', () => {
+    expect(() => buildContextBar(NaN, c)).not.toThrow();
+  });
+});
+
 describe('SEP constants', () => {
   it('SEP uses Unicode pipe', () => {
     expect(SEP).toContain('\u2502');

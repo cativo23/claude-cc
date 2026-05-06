@@ -35,4 +35,24 @@ describe('readStdin', () => {
     stream.destroy(new Error('pipe broken'));
     await expect(promise).rejects.toThrow('pipe broken');
   });
+
+  it('rejects when JSON is valid but not an object (null)', async () => {
+    await expect(readStdin(Readable.from(['null']))).rejects.toThrow();
+  });
+
+  it('rejects when JSON is valid but not an object (array)', async () => {
+    await expect(readStdin(Readable.from(['[1,2,3]']))).rejects.toThrow();
+  });
+
+  it('rejects when JSON is valid but not an object (string)', async () => {
+    await expect(readStdin(Readable.from(['"hello"']))).rejects.toThrow();
+  });
+
+  it('rejects when input exceeds 1 MiB', async () => {
+    const large = 'x'.repeat(1024 * 1024 + 1);
+    const stream = new Readable({ read() {} });
+    const promise = readStdin(stream, 500);
+    stream.push(large);
+    await expect(promise).rejects.toThrow();
+  });
 });

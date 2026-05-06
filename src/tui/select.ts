@@ -49,12 +49,18 @@ let exitHandlerInstalled = false;
 function installExitHandler(stdin: SelectStdin, stdout: SelectStdout): void {
   if (exitHandlerInstalled) return;
   exitHandlerInstalled = true;
-  process.once('exit', () => {
+  const restoreTerminal = () => {
     try {
       if (typeof stdin.setRawMode === 'function' && stdin.isRaw) stdin.setRawMode(false);
       stdout.write?.(SHOW_CURSOR);
     } catch { /* best effort */ }
-  });
+  };
+  process.once('exit', restoreTerminal);
+  // SIGINT/SIGTERM bypass the 'exit' handler — restore terminal state and re-raise
+  // so the default signal behaviour (process termination) still occurs.
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+    process.once(sig, () => { restoreTerminal(); process.kill(process.pid, sig); });
+  }
 }
 
 export async function interactiveSelect<T>(opts: SelectOpts<T>): Promise<T | null> {

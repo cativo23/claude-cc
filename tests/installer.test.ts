@@ -92,6 +92,37 @@ describe('install', () => {
     expect(data.statusLine.command).toBe('npx lumira@latest');
     expect(output).toContain('Configured');
   });
+
+  it('handles settings.json containing JSON null (treats as fresh)', async () => {
+    writeFileSync(settingsPath, 'null');
+    const output = await install(baseOpts());
+    expect(output).toContain('Could not parse');
+    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(data.statusLine.command).toBe('npx lumira@latest');
+  });
+
+  it('handles settings.json containing a JSON array (treats as fresh)', async () => {
+    writeFileSync(settingsPath, '[1,2,3]');
+    const output = await install(baseOpts());
+    expect(output).toContain('Could not parse');
+    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(data.statusLine.command).toBe('npx lumira@latest');
+  });
+
+  it('writes settings.json atomically — result is valid JSON', async () => {
+    await install(baseOpts());
+    expect(() => JSON.parse(readFileSync(settingsPath, 'utf8'))).not.toThrow();
+  });
+
+  it('strips ANSI escapes from foreign statusLine.command in the warning banner', async () => {
+    const malicious = '\x1b[31mevil\x1b[0m';
+    writeFileSync(settingsPath, JSON.stringify({
+      statusLine: { type: 'command', command: malicious, padding: 0 },
+    }, null, 2));
+    const output = await install({ ...baseOpts(), confirm: async () => false });
+    expect(output).not.toContain('\x1b[31m');
+    expect(output).toContain('evil');
+  });
 });
 
 describe('uninstall', () => {
