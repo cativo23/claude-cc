@@ -169,23 +169,21 @@ describe('renderPowerlineLine2', () => {
       expect(out.indexOf('(5h)')).toBeLessThan(out.indexOf('(7d)'));
     });
 
-    it('uses branchDirtyBg for critical window (>=85%) and taskBg for non-critical — mixed criticality', () => {
+    it('renders correct battery glyphs for mixed criticality (60% non-critical, 90% critical)', () => {
       const rawInput = {
         model: 'Claude Sonnet 4.6',
         session_id: 'test',
         context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
         cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
         rate_limits: {
-          five_hour: { used_percentage: 60 },  // non-critical → taskBg
-          seven_day:  { used_percentage: 90 },  // critical → branchDirtyBg
+          five_hour: { used_percentage: 60 },
+          seven_day:  { used_percentage: 90 },
         },
       };
       const ctx = makeCtx({ input: normalize(rawInput), icons: resolveIcons('nerd') });
-      // Both segments render — verified in the test above.
-      // Verify critical segment renders with battery_80+ glyph
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
-      expect(out).toContain('\u{F0082}'); // battery_90 for 90%
-      expect(out).toContain('\u{F007F}'); // battery_60 for 60%
+      expect(out).toContain('\u{F0082}'); // battery_90 glyph for 90% (7d)
+      expect(out).toContain('\u{F007F}'); // battery_60 glyph for 60% (5h)
     });
   });
 });

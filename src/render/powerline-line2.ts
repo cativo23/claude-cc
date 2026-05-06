@@ -64,6 +64,9 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
   }
 
   // Rate limits — only show if >=50%
+  // Unlike line2 (which splices critical segments after the context bar), powerline
+  // expresses urgency via priority: critical windows survive fitSegments eviction
+  // before non-critical peers. Same doctrine, different mechanism.
   if (display.rateLimits && input.rateLimits) {
     const limits: [string, typeof input.rateLimits.fiveHour][] = [
       ['5h', input.rateLimits.fiveHour],
@@ -74,8 +77,6 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       if (!win || !Number.isFinite(win.usedPercentage) || win.usedPercentage < 50) continue;
       const critical = win.usedPercentage >= QUOTA_CRITICAL;
       const bg = critical ? palette.branchDirtyBg : palette.taskBg;
-      // Critical windows get higher priority so they survive terminal-width eviction
-      // before non-critical ones — same escalation doctrine as line2's slot promotion.
       segments.push({ text: `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`, bg, fg: palette.fg, priority: critical ? 25 : 20 });
     }
   }

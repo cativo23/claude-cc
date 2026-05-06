@@ -1,5 +1,4 @@
 import { QUOTA_CRITICAL } from '../types.js';
-export { QUOTA_CRITICAL }; // re-export for callers that imported it from here before
 
 export interface IconSet {
   model: string;
