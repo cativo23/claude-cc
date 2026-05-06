@@ -87,7 +87,7 @@ export function powerlineWidth(segments: PowerlineSegment[], style: Style): numb
 
   if (style.gap) {
     // diamond: leftCap + body + rightCap per segment, space between segments.
-    return segments.length * (style.sepWidth + 0) // caps already included in sepWidth=2
+    return segments.length * style.sepWidth // caps already included in sepWidth=2
       + bodyW
       + (segments.length - 1); // spaces between pills
   }

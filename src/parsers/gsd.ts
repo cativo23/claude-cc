@@ -45,8 +45,9 @@ export function parseStateMd(content: string): GsdState {
     state.phaseNum = phaseMatch[1];
     state.phaseTotal = phaseMatch[2];
     state.phaseName = phaseMatch[3];
-  } else if (!state.status) {
-    // Fallback: parse body Status line when frontmatter is absent
+  }
+  if (!state.status) {
+    // Fallback: parse body Status line when frontmatter status is missing
     const bodyStatus = content.match(/^Status:\s*(.+)/m);
     if (bodyStatus) {
       const raw = bodyStatus[1].trim().toLowerCase();
