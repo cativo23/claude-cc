@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-06
+
+### Fixed
+- **Installer writes `settings.json` atomically** via tmp+rename — interrupted installs no longer leave the user's Claude settings file truncated or corrupt.
+- **Installer validates `settings.json` shape** — payloads that are valid JSON but not an object (`null`, arrays, scalars) are now treated as a parse failure and reset to a fresh settings file instead of crashing with a TypeError.
+- **Foreign `statusLine.command` sanitized before display** — ANSI escape sequences in a third-party tool's command string are stripped before being printed in the installer's replacement warning banner.
+- **`stdin` rejects non-object JSON payloads** — `null`, arrays, and scalars are now rejected with a descriptive error rather than propagating silently as `ClaudeCodeInput`.
+- **`stdin` caps input at 1 MiB** — unbounded accumulation from a misbehaving producer is now rejected early.
+- **`normalize` guards absent `context_window`** — payloads missing the `context_window` field no longer crash with `Cannot read properties of undefined`; token counts and `usedPercentage` degrade to zero.
+- **`buildContextBar` clamps fill count** — `pct > 100` or `pct < 0` no longer throws `RangeError: Invalid count value` from `String.prototype.repeat`; `NaN` pct is treated as 0.
+- **Format helpers guard `NaN` and `Infinity`** — `formatTokens`, `formatDuration`, and `formatCost` now return `''` instead of rendering `"NaNs"`, `"InfinityM"`, or `"$NaN"` into the statusline. `formatCost` also rejects negative values; `formatBurnRate` guards both negative cost and non-finite values.
+- **`tui/select` restores terminal on SIGINT/SIGTERM/SIGHUP** — raw mode and hidden cursor are now cleaned up on signal-induced exit, not just natural exit.
+- **`TodoWrite` merge preserves content updates** — renaming a todo without changing its status no longer silently discards the new text.
+- **`config-health` walk aligns with `gsd` parser** — both now stop at `homedir()` with a limit of 10 directories, preventing the health hint and the actual GSD parser from disagreeing.
+- **`lumira themes preview` accepts mixed-case theme names** — `Dracula`, `Nord`, etc. now match the same as their lowercase equivalents.
+- **npm provenance attestation enabled** — `npm publish --provenance` is now passed so the `id-token: write` OIDC permission is actually used for supply-chain integrity.
+- **`prepublishOnly` runs `lint` and `themes:validate`** — a local `npm publish` (e.g. emergency hotfix) can no longer bypass the WCAG contrast guard or type-check that CI enforces.
+
+### Changed
+- **`cacheHitRate` requires modern `current_usage` fields (#79)** — the legacy fallback that computed the per-turn cache-hit denominator from cumulative `total_input_tokens` has been removed. Only payloads that provide `context_window.current_usage` with per-turn token fields produce a `cacheHitRate`; older payloads return `undefined` (no misleading percentage from session-accumulated totals).
+- **`getCacheFields` helper deduplicates `current_usage` access (#80)** — `normalize` now reads `current_usage` through a single helper instead of two separate blocks, removing the duplication noted in the v0.9.0 review.
+
 ## [0.8.0] - 2026-05-06
 
 ### Added
