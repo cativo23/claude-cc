@@ -88,6 +88,7 @@ describe('main', () => {
       getMcpInfo: () => null,
       getTermCols: () => 120,
     });
-    expect(output.length).toBeGreaterThan(0);
+    const plain = stripAnsi(output);
+    expect(plain).toContain('project'); // workspace.current_dir basename rendered in fallback path
   });
 });

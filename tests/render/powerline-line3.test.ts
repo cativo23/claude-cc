@@ -70,7 +70,9 @@ describe('renderPowerlineLine3', () => {
       },
     });
     const out = renderPowerlineLine3(ctx, 'truecolor', null);
-    expect(out).toBeTruthy();
+    const plain = stripAnsi(out);
+    expect(plain).toContain('Edit'); // tool name segment rendered
+    expect(plain).toContain('1/1'); // todo progress segment rendered
     expect(out.endsWith('\x1b[0m')).toBe(true);
   });
 });
