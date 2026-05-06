@@ -3,6 +3,7 @@ import { render } from '../../src/render/index.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, type RenderContext } from '../../src/types.js';
 import { NERD_ICONS, EMOJI_ICONS } from '../../src/render/icons.js';
 import { normalize, type Platform } from '../../src/normalize.js';
+import { stripAnsi } from '../../src/render/colors.js';
 
 function makeCtx(ov: Partial<RenderContext> = {}): RenderContext {
   const rawInput = { model: 'Opus', session_id: 't', context_window: { used_percentage: 50, remaining_percentage: 50 }, cost: { total_cost_usd: 1, total_duration_ms: 60000 }, workspace: { current_dir: '/p' } } as any;
@@ -20,11 +21,11 @@ describe('render', () => {
   it('auto-minimal at <70 cols', () => { expect(render(makeCtx({ cols: 60 })).split('\n').length).toBeLessThanOrEqual(2); });
   it('renders with theme config without crashing', () => {
     const out = render(makeCtx({ config: { ...DEFAULT_CONFIG, theme: 'dracula', colors: { mode: 'truecolor' } } }));
-    expect(out.length).toBeGreaterThan(0);
+    expect(out).toContain('\x1b[38;2;139;233;253m'); // Dracula cyan: rgb(139,233,253) — only present if theme palette is wired
   });
   it('renders with emoji icons without crashing', () => {
     const out = render(makeCtx({ icons: EMOJI_ICONS }));
-    expect(out.length).toBeGreaterThan(0);
+    expect(stripAnsi(out)).toContain('🤖'); // EMOJI_ICONS.model glyph present
   });
   it('forces singleline when input platform is qwen-code, even with multiline layout', () => {
     const out = render(makeCtxWithPlatform('qwen-code', 'multiline'));
