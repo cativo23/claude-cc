@@ -104,6 +104,15 @@ describe('IconSet.battery', () => {
     expect(EMOJI_ICONS.battery(100)).toBe('\u{1F480}');   // exact ceiling → 💀
     expect(EMOJI_ICONS.battery(99.4)).toBe('\u{1FAAB}');  // rounds to 99 → still 🪫
   });
+
+  it('EMOJI_ICONS.battery falls back to 🔋 for non-finite / negative inputs', () => {
+    // Callers gate with Number.isFinite before invoking, but document the
+    // asymmetric fallback: emoji returns 🔋 (not outline) for bad inputs.
+    expect(EMOJI_ICONS.battery(NaN)).toBe('\u{1F50B}');       // 🔋
+    expect(EMOJI_ICONS.battery(-5)).toBe('\u{1F50B}');        // 🔋
+    expect(EMOJI_ICONS.battery(Infinity)).toBe('\u{1F480}');  // Math.round(Infinity) >= 100 → 💀
+    expect(EMOJI_ICONS.battery(-Infinity)).toBe('\u{1F50B}'); // 🔋
+  });
 });
 
 describe('resolveIcons', () => {

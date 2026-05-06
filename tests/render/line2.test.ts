@@ -92,12 +92,15 @@ describe('renderLine2', () => {
   });
 
   it('renders nerd-mode 70% rate-limit with the 70-bucket battery glyph and a countdown', () => {
+    const pinnedNow = 1_700_000_000_000;
+    vi.useFakeTimers({ now: pinnedNow });
     const inputOverride = {
-      rate_limits: { five_hour: { used_percentage: 70, resets_at: Math.floor(Date.now() / 1000) + 3600 } },
+      rate_limits: { five_hour: { used_percentage: 70, resets_at: Math.floor(pinnedNow / 1000) + 3600 } },
     };
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    vi.useRealTimers();
     expect(out).toContain('\u{F0080}');
-    expect(out).toMatch(/\d+h\d{2}m|\d+m\d{2}s/); // countdown still emitted at >=70%
+    expect(out).toContain('1h00m'); // pinned time → exactly 3600s → 1h00m
   });
 
   it('renders nerd-mode 85% rate-limit with the battery_80 glyph (urgency carried by colour, not glyph)', () => {
