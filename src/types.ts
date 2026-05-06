@@ -82,7 +82,7 @@ export const EMPTY_TRANSCRIPT: TranscriptData = {
   sessionStart: null,
 };
 
-export type ThinkingEffort = 'low' | 'medium' | 'high' | 'max' | '';
+export type ThinkingEffort = 'low' | 'medium' | 'high' | 'max' | 'xhigh' | '';
 
 export type ToolStatus = 'running' | 'completed' | 'error';
 

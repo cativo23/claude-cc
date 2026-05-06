@@ -136,7 +136,7 @@ export function normalize(input: RawInput): NormalizedInput {
   const modelName = typeof input.model === 'string'
     ? input.model
     : (input.model?.display_name ?? '');
-  const cwd = (input as { cwd?: string }).cwd || input.workspace?.current_dir || process.cwd();
+  const cwd = input.cwd || input.workspace?.current_dir || process.cwd();
 
   // Token unification — context_window is required by type but can be absent
   // from malformed payloads; default to an empty object so all field accesses

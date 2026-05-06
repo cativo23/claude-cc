@@ -1,8 +1,9 @@
 import { readFileSync, statSync, unlinkSync, openSync, writeSync, closeSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { userInfo } from 'node:os';
 
 function cacheDirPath(dir: string): string {
-  return join(dir, `lumira-${process.getuid?.() ?? 'default'}`);
+  return join(dir, `lumira-${process.getuid?.() ?? userInfo().username ?? 'default'}`);
 }
 
 function ensureCacheDir(dir: string): string {
