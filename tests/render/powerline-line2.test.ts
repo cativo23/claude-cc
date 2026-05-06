@@ -134,5 +134,20 @@ describe('renderPowerlineLine2', () => {
       const out = stripAnsi(renderPowerlineLine2(ctxWithRateLimit(49), 'truecolor', null, c));
       expect(out).not.toContain('(5h)');
     });
+
+    it('renders sevenDay window with correct label and battery glyph', () => {
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        rate_limits: { seven_day: { used_percentage: 78 } },
+      };
+      const ctx = makeCtx({ input: normalize(rawInput), icons: resolveIcons('nerd') });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('(7d)');
+      expect(out).toContain('\u{F0080}'); // battery_70 glyph for 78%
+      expect(out).not.toContain('(5h)');
+    });
   });
 });

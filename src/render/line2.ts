@@ -1,5 +1,6 @@
 import { fitSegments, displayWidth } from './text.js';
 import { getQuotaColor, detectColorMode, type Colors } from './colors.js';
+import { QUOTA_CRITICAL } from './icons.js';
 import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
@@ -97,7 +98,6 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   // it. Promotion only kicks in at the same threshold getQuotaColor flips to
   // blinkRed, so colour and position escalate together.
   if (display.rateLimits && input.rateLimits) {
-    const QUOTA_CRITICAL = 85;
     const limits: [string, typeof input.rateLimits.fiveHour][] = [
       ['5h', input.rateLimits.fiveHour],
       ['7d', input.rateLimits.sevenDay],

@@ -194,6 +194,16 @@ describe('renderLine2', () => {
     expect(fhPos).toBeGreaterThan(costPos); // 5h (non-critical) after cost
   });
 
+  it('sevenDay window renders battery glyph and (7d) label', () => {
+    const out = stripAnsi(renderLine2(makeCtx(
+      {},
+      { rate_limits: { seven_day: { used_percentage: 78 } } },
+    ), c));
+    expect(out).toContain('(7d)');
+    expect(out).toContain('\u{F0080}'); // battery_70 glyph for 78%
+    expect(out).not.toContain('(5h)');
+  });
+
   it('keeps relative 5h-then-7d order when both are critical', () => {
     const out = stripAnsi(renderLine2(makeCtx(
       {},
