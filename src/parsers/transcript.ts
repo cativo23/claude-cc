@@ -8,6 +8,7 @@ import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js'
 import { sanitizeTermString } from '../normalize.js';
 import { isUnderAllowedRoot } from '../utils/path.js';
 import { debug } from '../utils/debug.js';
+import { parseSubagentsDir } from './subagents.js';
 
 const log = debug('transcript');
 
@@ -288,6 +289,17 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = todos;
   result.thinkingEffort = thinkingEffort;
+
+  // The subagents/ dir alongside the main JSONL is Claude Code's own
+  // per-subagent transcript store. It records every agent that ran in this
+  // session — including quiet/background ones whose tool_use entry stays
+  // buffered in the parent JSONL — and exposes a definitive completion
+  // marker via stop_reason. When present, prefer it over the main-JSONL
+  // pairing heuristic. When absent (older Claude Code, layout change), fall
+  // back to whatever main-JSONL parsing produced.
+  const subagentDirAgents = await parseSubagentsDir(resolved);
+  if (subagentDirAgents.length > 0) result.agents = subagentDirAgents;
+
   if (currentMtime) {
     touchCache(resolved, { result, mtime: currentMtime });
   }
