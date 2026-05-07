@@ -186,7 +186,14 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         const entry = JSON.parse(line);
         if (!result.sessionStart && entry.timestamp) result.sessionStart = new Date(entry.timestamp);
 
-        const effortMatch = JSON.stringify(entry).match(/Set model to .+ with (low|medium|high|max|xhigh) effort/);
+        const effortRegex = /Set model to .+? with (low|medium|high|max|xhigh) effort/;
+        const effortMatch = Array.isArray(entry.message?.content)
+          ? entry.message.content
+              .filter((b: { type: string }) => b.type === 'text')
+              .map((b: { text?: string }) => b.text ?? '')
+              .join('\n')
+              .match(effortRegex)
+          : null;
         if (effortMatch) thinkingEffort = effortMatch[1] as ThinkingEffort;
 
         const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
