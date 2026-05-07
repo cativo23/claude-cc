@@ -23,7 +23,7 @@ export function formatCost(usd: number): string {
 }
 
 export function formatBurnRate(costUsd: number, durationMs: number): string | null {
-  if (!Number.isFinite(costUsd) || costUsd <= 0 || durationMs <= 60_000) return null;
+  if (!Number.isFinite(costUsd) || !Number.isFinite(durationMs) || costUsd <= 0 || durationMs <= 60_000) return null;
   const perHour = costUsd / (durationMs / 3_600_000);
   return '$' + perHour.toFixed(2) + '/h';
 }
