@@ -59,12 +59,12 @@ export interface GitStatus {
   untracked: number;
 }
 
-export const EMPTY_GIT: GitStatus = {
+export const EMPTY_GIT: Readonly<GitStatus> = Object.freeze({
   branch: '',
   staged: 0,
   modified: 0,
   untracked: 0,
-};
+});
 
 export interface TranscriptData {
   tools: ToolEntry[];
@@ -74,13 +74,13 @@ export interface TranscriptData {
   sessionStart: Date | null;
 }
 
-export const EMPTY_TRANSCRIPT: TranscriptData = {
-  tools: [],
-  agents: [],
-  todos: [],
+export const EMPTY_TRANSCRIPT: Readonly<TranscriptData> = Object.freeze({
+  tools: Object.freeze([] as readonly ToolEntry[]),
+  agents: Object.freeze([] as readonly AgentEntry[]),
+  todos: Object.freeze([] as readonly TodoEntry[]),
   thinkingEffort: '',
   sessionStart: null,
-};
+});
 
 export type ThinkingEffort = 'low' | 'medium' | 'high' | 'max' | 'xhigh' | '';
 
