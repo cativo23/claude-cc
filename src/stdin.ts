@@ -3,9 +3,12 @@ import type { ClaudeCodeInput } from './types.js';
 
 const MAX_INPUT_BYTES = 1024 * 1024; // 1 MiB — Claude Code payloads are tiny; reject runaway producers
 
+/** Thrown when stdin contains valid JSON but not a plain object (null, array, scalar). */
+export class StdinParseError extends SyntaxError {}
+
 function assertObject(d: unknown): ClaudeCodeInput {
   if (d === null || typeof d !== 'object' || Array.isArray(d)) {
-    throw new SyntaxError(`stdin: expected JSON object, got ${d === null ? 'null' : Array.isArray(d) ? 'array' : typeof d}`);
+    throw new StdinParseError(`stdin: expected JSON object, got ${d === null ? 'null' : Array.isArray(d) ? 'array' : typeof d}`);
   }
   return d as ClaudeCodeInput;
 }

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Readable } from 'node:stream';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readStdin } from '../src/stdin.js';
+import { readStdin, StdinParseError } from '../src/stdin.js';
 
 const FIXTURES = join(import.meta.dirname, 'fixtures');
 
@@ -46,6 +46,18 @@ describe('readStdin', () => {
 
   it('rejects when JSON is valid but not an object (string)', async () => {
     await expect(readStdin(Readable.from(['"hello"']))).rejects.toThrow();
+  });
+
+  it('rejects null with StdinParseError (not bare SyntaxError)', async () => {
+    await expect(readStdin(Readable.from(['null']))).rejects.toBeInstanceOf(StdinParseError);
+  });
+
+  it('rejects array with StdinParseError', async () => {
+    await expect(readStdin(Readable.from(['[1,2,3]']))).rejects.toBeInstanceOf(StdinParseError);
+  });
+
+  it('StdinParseError is a subclass of SyntaxError', () => {
+    expect(new StdinParseError('test')).toBeInstanceOf(SyntaxError);
   });
 
   it('rejects when input exceeds 1 MiB', async () => {
