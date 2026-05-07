@@ -121,8 +121,8 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     }
   }
 
-  // Cache metrics (hit rate) — priority 50, colored text inside segment
-  if (display.cacheMetrics && input.cacheHitRate != null) {
+  // Cache metrics (hit rate) — alarm-mode: only when <90%. See line2.ts for why.
+  if (display.cacheMetrics && input.cacheHitRate != null && input.cacheHitRate < 90) {
     segments.push({ text: `${input.cacheHitRate}%${icons.lightning}`, bg: palette.versionBg, fg: palette.fg, priority: 50 });
   }
 

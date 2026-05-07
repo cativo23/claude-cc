@@ -170,6 +170,16 @@ describe('renderPowerlineLine2', () => {
       expect(out).not.toContain('cache 85%');
     });
 
+    it('cache hit rate hidden in powerline when >=90% (alarm-mode)', () => {
+      const patchedInput = { ...makeCtx().input, cacheHitRate: 99 };
+      const ctx = makeCtx({
+        input: patchedInput,
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toMatch(/\d+%⚡/);
+    });
+
     it('pace delta segment appears when fiveHour window has sufficient data', () => {
       const pinnedNow = 1_700_000_000_000;
       vi.useFakeTimers({ now: pinnedNow });

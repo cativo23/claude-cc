@@ -129,10 +129,12 @@ describe('getPaceColor', () => {
 });
 
 describe('getCacheHitColor', () => {
-  it('returns green at 100% (perfect cache)', () => { expect(getCacheHitColor(100)).toBe('green'); });
-  it('returns green at 70% (lower green boundary)', () => { expect(getCacheHitColor(70)).toBe('green'); });
-  it('returns yellow at 69% (upper yellow boundary)', () => { expect(getCacheHitColor(69)).toBe('yellow'); });
-  it('returns yellow at 40% (lower yellow boundary)', () => { expect(getCacheHitColor(40)).toBe('yellow'); });
-  it('returns orange at 39% (upper orange boundary)', () => { expect(getCacheHitColor(39)).toBe('orange'); });
-  it('returns orange at 0% (no cache hits)', () => { expect(getCacheHitColor(0)).toBe('orange'); });
+  // Alarm-mode tiers: ≥90% is hidden by the renderer entirely; the colors below
+  // describe degrees of "cache is degrading" for the visible-warning range.
+  it('returns yellow at 89% (mild concern, just below alarm threshold)', () => { expect(getCacheHitColor(89)).toBe('yellow'); });
+  it('returns yellow at 70% (lower yellow boundary)', () => { expect(getCacheHitColor(70)).toBe('yellow'); });
+  it('returns orange at 69% (upper orange boundary)', () => { expect(getCacheHitColor(69)).toBe('orange'); });
+  it('returns orange at 40% (lower orange boundary)', () => { expect(getCacheHitColor(40)).toBe('orange'); });
+  it('returns blinkRed at 39% (upper red boundary — cache likely broken)', () => { expect(getCacheHitColor(39)).toBe('blinkRed'); });
+  it('returns blinkRed at 0% (no cache hits)', () => { expect(getCacheHitColor(0)).toBe('blinkRed'); });
 });

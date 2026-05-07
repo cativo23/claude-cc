@@ -365,64 +365,79 @@ describe('renderLine2', () => {
 
   // ── Cache hit rate widget ───────────────────────────────────────────────────
 
-  it('renders cache hit rate as N%⚡ (no "cache" prefix)', () => {
+  // Alarm-mode semantics: cache hit rate widget only renders when something looks
+  // wrong (<90%). Healthy steady-state cache (99-100%) is wallpaper — sibling
+  // widgets (rate limits, agent count) follow the same hide-when-healthy pattern.
+
+  it('hides cache hit rate when >=90% (healthy steady state)', () => {
     const inputOverride = {
       context_window: {
         ...baseInput.context_window,
-        current_usage: { input_tokens: 10000, cache_read_input_tokens: 90000 },
+        current_usage: { input_tokens: 1, cache_read_input_tokens: 99 },
       },
     };
-    // 90000 / (10000 + 90000) = 90%
+    // 99 / 100 = 99% → hidden
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
-    expect(out).toContain('90%');
-    expect(out).not.toContain('cache 90%');
+    expect(out).not.toMatch(/\d+%⚡/);
   });
 
-  it('cache hit rate is green when >=70%', () => {
+  it('hides cache hit rate at the 90% boundary', () => {
     const inputOverride = {
       context_window: {
         ...baseInput.context_window,
         current_usage: { input_tokens: 10000, cache_read_input_tokens: 90000 },
       },
     };
-    const out = renderLine2(makeCtx({}, inputOverride), c);
-    // green = \x1b[32m
-    expect(out).toMatch(/\x1b\[32m90%/);
+    // 90000 / 100000 = 90% — exactly at threshold, hidden
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    expect(out).not.toMatch(/\d+%⚡/);
   });
 
-  it('cache hit rate is yellow when 40-69%', () => {
+  it('renders cache hit rate at 89% (one below threshold) as yellow', () => {
+    const inputOverride = {
+      context_window: {
+        ...baseInput.context_window,
+        current_usage: { input_tokens: 11000, cache_read_input_tokens: 89000 },
+      },
+    };
+    // 89000 / 100000 = 89% → renders
+    const out = renderLine2(makeCtx({}, inputOverride), c);
+    expect(stripAnsi(out)).toContain('89%');
+    expect(out).toMatch(/\x1b\[33m89%/); // yellow
+  });
+
+  it('cache hit rate is orange when 40-69%', () => {
     const inputOverride = {
       context_window: {
         ...baseInput.context_window,
         current_usage: { input_tokens: 60000, cache_read_input_tokens: 40000 },
       },
     };
-    // 40000 / 100000 = 40%
+    // 40000 / 100000 = 40% → orange
     const out = renderLine2(makeCtx({}, inputOverride), c);
-    // yellow = \x1b[33m
-    expect(out).toMatch(/\x1b\[33m40%/);
+    expect(out).toMatch(/\x1b\[38;5;208m40%/);
   });
 
-  it('cache hit rate is orange when <40%', () => {
+  it('cache hit rate is blinkRed when <40% (critical — cache likely broken)', () => {
     const inputOverride = {
       context_window: {
         ...baseInput.context_window,
         current_usage: { input_tokens: 70000, cache_read_input_tokens: 20000 },
       },
     };
-    // 20000 / 90000 ≈ 22%
+    // 20000 / 90000 ≈ 22% → blinkRed
     const out = renderLine2(makeCtx({}, inputOverride), c);
-    // orange = \x1b[38;5;208m
-    expect(out).toMatch(/\x1b\[38;5;208m22%/);
+    expect(out).toMatch(/\x1b\[5;31m22%/);
   });
 
   it('hides cache hit rate when cacheMetrics display is off', () => {
     const inputOverride = {
       context_window: {
         ...baseInput.context_window,
-        current_usage: { input_tokens: 10000, cache_read_input_tokens: 90000 },
+        current_usage: { input_tokens: 60000, cache_read_input_tokens: 40000 },
       },
     };
+    // 40% would normally render; toggle off must still suppress
     const ctx = makeCtx(
       { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: false } } },
       inputOverride,

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Cache hit rate widget switched to alarm mode** — only renders when `cacheHitRate < 90%`. Anthropic's prompt cache pins this near 99% in healthy steady-state sessions, so an always-on 99% reading was wallpaper, not signal. Now mirrors the hide-when-healthy pattern used by rate-limits (≥50%) and agent-count (≥1). Color tiers updated to reflect "degrees of degradation": yellow 70–89%, orange 40–69%, blinkRed <40%.
+
 ## [1.1.0] - 2026-05-07
 
 ### Added
