@@ -46,6 +46,13 @@ const CLEAR_SCREEN = '\x1b[2J\x1b[H';
 // registered once per Node process. Process-scoped by design — tests must
 // run in forked workers (see vitest.config.ts `pool: 'forks'`). Issue #20.
 let exitHandlerInstalled = false;
+
+// Active Promise resolver — set by interactiveSelect while it is waiting for
+// input, cleared on settlement. SIGINT/SIGTERM handlers call this so the
+// Promise always settles (resolves null = cancellation) before the process
+// is re-killed. Without this, embedded/library callers would hang forever.
+let activeFinish: ((v: string | null) => void) | null = null;
+
 function installExitHandler(stdin: SelectStdin, stdout: SelectStdout): void {
   if (exitHandlerInstalled) return;
   exitHandlerInstalled = true;
@@ -56,10 +63,15 @@ function installExitHandler(stdin: SelectStdin, stdout: SelectStdout): void {
     } catch { /* best effort */ }
   };
   process.once('exit', restoreTerminal);
-  // SIGINT/SIGTERM bypass the 'exit' handler — restore terminal state and re-raise
-  // so the default signal behaviour (process termination) still occurs.
+  // SIGINT/SIGTERM bypass the 'exit' handler — resolve any active Promise
+  // (cancellation), restore terminal state, then re-raise so default signal
+  // behaviour (process termination) still occurs.
   for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
-    process.once(sig, () => { restoreTerminal(); process.kill(process.pid, sig); });
+    process.once(sig, () => {
+      if (activeFinish) { activeFinish(null); activeFinish = null; }
+      restoreTerminal();
+      process.kill(process.pid, sig);
+    });
   }
 }
 
@@ -112,7 +124,12 @@ export async function interactiveSelect<T>(opts: SelectOpts<T>): Promise<T | nul
     render();
 
     return await new Promise<T | null>((resolve) => {
-      const finish = (v: T | null) => resolve(v);
+      // Register the resolver so signal handlers can settle this Promise.
+      activeFinish = resolve as (v: string | null) => void;
+      const finish = (v: T | null) => {
+        activeFinish = null; // clear before resolving to avoid double-call
+        resolve(v);
+      };
 
       keypressListener = (_str, key) => {
         if (!key || !key.name) return;
