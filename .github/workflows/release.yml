@@ -5,21 +5,56 @@ on:
     tags:
       - 'v*'
 
+# Workflow-level permissions are read-only. Jobs that need write access
+# declare it explicitly so the attack surface is minimal by default.
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  release:
+  # Gate: run the full CI suite against the tagged SHA before publishing.
+  # This prevents a broken tag from reaching npm if the maintainer bypassed
+  # branch protection or if CI was still running when the tag was pushed.
+  ci-gate:
+    name: CI gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run test:coverage
+      - run: npm run lint
+      - run: npm run build
+      - name: Bundle size guard
+        env:
+          CEILING: '376832'
+        run: |
+          SIZE=$(du -sb dist/ | cut -f1)
+          echo "dist/ size: $SIZE bytes (ceiling: $CEILING)"
+          if [ "$SIZE" -gt "$CEILING" ]; then
+            echo "::error::dist/ exceeded ceiling — raise it in ci.yml + release.yml if intentional"
+            exit 1
+          fi
+      - name: Theme contrast guard (WCAG AA)
+        run: node scripts/validate-themes.mjs
+
+  release:
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      exists: ${{ steps.check_tag.outputs.exists }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - name: Extract and validate version
         id: version
@@ -34,15 +69,15 @@ jobs:
             echo "::error::Invalid version format: $RAW (expected vX.Y.Z)"
             exit 1
           fi
-          echo "tag=$RAW" >> "$GITHUB_OUTPUT"
-          echo "number=${RAW#v}" >> "$GITHUB_OUTPUT"
-          # Pre-release only for tags with a SemVer suffix (e.g. v1.0.0-beta.1, v0.8.0-rc.1).
-          # Stable 0.x.y releases are marked as Latest so users see the actual current version.
-          if [[ "$RAW" =~ - ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "tag=$RAW"
+            echo "number=${RAW#v}"
+            if [[ "$RAW" =~ - ]]; then
+              echo "prerelease=true"
+            else
+              echo "prerelease=false"
+            fi
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check tag does not already exist
         id: check_tag
@@ -85,7 +120,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PRERELEASE_FLAG=""
-          [[ "$PRERELEASE" == "true" ]] && PRERELEASE_FLAG="--prerelease"
+          if [[ "$PRERELEASE" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
           gh release create "$TAG" \
             --title "$TAG" \
             --notes-file /tmp/release-notes.md \
@@ -93,14 +130,17 @@ jobs:
 
   npm-publish:
     needs: release
+    # Skip if the release already existed (re-run of an old tag) — npm would
+    # reject the duplicate publish anyway, but this avoids a noisy failure.
+    if: needs.release.outputs.exists != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
