@@ -25,8 +25,8 @@ export async function parseGitStatus(cwd: string, exec: ExecFn = safeExec): Prom
   const status = await exec('git', ['status', '--porcelain'], { cwd, timeoutMs: 2000 });
   if (status) {
     const lines = status.split('\n').filter(Boolean);
-    // staged: any non-space, non-? in col 0 means something is in the index
-    result.staged = lines.filter(l => l[0] !== ' ' && l[0] !== '?').length;
+    const UNMERGED = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
+    result.staged = lines.filter(l => l[0] !== ' ' && l[0] !== '?' && !UNMERGED.has(l.slice(0, 2))).length;
     // modified: worktree changes (col 1 = M or D)
     result.modified = lines.filter(l => l[1] === 'M' || l[1] === 'D').length;
     result.untracked = lines.filter(l => l.startsWith('??')).length;
