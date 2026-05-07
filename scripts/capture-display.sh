@@ -23,7 +23,7 @@ for name in mode-custom mode-minimal mode-powerline; do
     --hide-scrollbars \
     --no-sandbox \
     --force-device-scale-factor=2 \
-    --window-size=1400,400 \
+    --window-size=2600,400 \
     --screenshot="$png" \
     "http://localhost:$PORT/${name}.html" 2>/dev/null
 

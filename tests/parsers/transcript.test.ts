@@ -20,6 +20,21 @@ describe('parseTranscript', () => {
     expect(result.agents[0].type).toBe('Explore');
     expect(result.agents[0].status).toBe('completed');
   });
+
+  it('parses subagents from the modern Agent tool name (Claude Code ≥ 2.1.x)', async () => {
+    // Claude Code renamed the subagent dispatch tool from `Task` → `Agent` in
+    // a recent version. Lumira must accept both so installations on either
+    // version surface the live agent count widget.
+    const result = await parseTranscript(join(FIXTURES, 'transcript-agent-tool.jsonl'));
+    expect(result.agents).toHaveLength(2);
+    const completed = result.agents.find(a => a.id === 'a1');
+    const running = result.agents.find(a => a.id === 'a2');
+    expect(completed?.status).toBe('completed');
+    expect(completed?.type).toBe('general-purpose');
+    expect(running?.status).toBe('running');
+    expect(running?.type).toBe('feature-dev:code-reviewer');
+    expect(running?.model).toBe('opus');
+  });
   it('parses TaskCreate and TaskUpdate', async () => {
     const result = await parseTranscript(join(FIXTURES, 'transcript-todos.jsonl'));
     expect(result.todos).toHaveLength(2);

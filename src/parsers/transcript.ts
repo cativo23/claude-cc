@@ -204,7 +204,11 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           if (block.type === 'tool_use' && block.id && block.name) {
             toolMap.set(block.id, { id: block.id, name: sanitizeTermString(block.name), target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
 
-            if (block.name === 'Task') {
+            // Claude Code ≥ 2.1.x renamed the subagent dispatch tool from
+            // `Task` to `Agent`. Both shapes carry the same fields
+            // (subagent_type, description, model, prompt). Accept either so the
+            // live agent count widget works on both versions.
+            if (block.name === 'Task' || block.name === 'Agent') {
               const inp = block.input || {};
               agentMap.set(block.id, {
                 id: block.id,

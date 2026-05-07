@@ -124,6 +124,15 @@ const TRANSCRIPT_SOURCE = '/tmp/lumira-display-transcript.jsonl';
 _copy(TRANSCRIPT_SRC_REPO, TRANSCRIPT_SOURCE);
 
 function makePayload() {
+  // Pin a 5h rate-limit window where ~50% used at ~65% elapsed → pace delta
+  // around -15% (turtle 🐢, healthy "behind pace" — the v1.0/1.1 signature).
+  // Compute resetsAt relative to "now" so the screenshot regenerates with the
+  // same relative pace each time the script runs.
+  const NOW_SEC = Math.floor(Date.now() / 1000);
+  const ELAPSED_PCT = 0.65;
+  const WINDOW_SEC = 5 * 3600;
+  const remainingSec = WINDOW_SEC * (1 - ELAPSED_PCT);
+
   return {
     session_id: 'demo',
     cwd: '/home/dev/projects/my-project',
@@ -133,6 +142,7 @@ function makePayload() {
     workspace: { current_dir: '/home/dev/projects/my-project', project_dir: '/home/dev/projects/my-project' },
     version: '2.1.92',
     output_style: { name: 'default' },
+    agent: { name: 'Jarvis' },
     cost: {
       total_cost_usd: 1.31,
       total_duration_ms: 35 * 60 * 1000 + 6 * 1000,
@@ -147,6 +157,10 @@ function makePayload() {
       current_usage: { input_tokens: 1, output_tokens: 142, cache_creation_input_tokens: 1272, cache_read_input_tokens: 130000 },
       used_percentage: 21,
       remaining_percentage: 79,
+    },
+    rate_limits: {
+      five_hour: { used_percentage: 50, resets_at: NOW_SEC + remainingSec },
+      seven_day: { used_percentage: 38 },
     },
   };
 }
@@ -170,7 +184,10 @@ mkdirSync(OUT, { recursive: true });
 const payload = JSON.stringify(makePayload());
 
 for (const [name, { config }] of Object.entries(CONFIGS)) {
-  const cols = name === 'mode-minimal' ? 80 : 130;
+  // mode-custom + mode-powerline need ~200 cols to fit all the v1.1 segments
+  // (agent name, version, rate-limit, pace delta) without truncation. Minimal
+  // intentionally stays at 80 to demonstrate the auto-fit fallback.
+  const cols = name === 'mode-minimal' ? 80 : 200;
   const ansi = renderWithConfig(payload, config, cols);
   const html = wrapHtml(`lumira — ${name}`, ansiToHtml(ansi).trimEnd());
   writeFileSync(join(OUT, `${name}.html`), html);
