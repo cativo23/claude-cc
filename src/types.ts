@@ -75,12 +75,12 @@ export interface TranscriptData {
 }
 
 export const EMPTY_TRANSCRIPT: Readonly<TranscriptData> = Object.freeze({
-  tools: Object.freeze([] as readonly ToolEntry[]),
-  agents: Object.freeze([] as readonly AgentEntry[]),
-  todos: Object.freeze([] as readonly TodoEntry[]),
-  thinkingEffort: '',
+  tools: Object.freeze([] as ToolEntry[]),
+  agents: Object.freeze([] as AgentEntry[]),
+  todos: Object.freeze([] as TodoEntry[]),
+  thinkingEffort: '' as ThinkingEffort,
   sessionStart: null,
-});
+} as TranscriptData);
 
 export type ThinkingEffort = 'low' | 'medium' | 'high' | 'max' | 'xhigh' | '';
 
