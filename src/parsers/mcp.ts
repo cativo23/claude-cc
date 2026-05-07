@@ -29,7 +29,8 @@ export function getMcpInfo(cwd: string, reader: McpReader = defaultReader): McpI
     if (!reader.existsSync(p)) continue;
     try {
       const raw = JSON.parse(reader.readFileSync(p, 'utf8'));
-      const mcpServers = raw?.mcpServers ?? {};
+      const mcpServers = raw?.mcpServers;
+      if (!mcpServers || typeof mcpServers !== 'object' || Array.isArray(mcpServers)) continue;
       const added: string[] = [];
       for (const name of Object.keys(mcpServers)) {
         // Avoid duplicates if same server in both files

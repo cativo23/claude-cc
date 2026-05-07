@@ -9,7 +9,7 @@ type ExecFn = (cmd: string, args: string[], opts?: ExecOptions) => Promise<strin
 const GIT_CACHE_TTL = 5000;
 
 function cacheKey(cwd: string): string {
-  return 'git-' + createHash('md5').update(cwd).digest('hex').slice(0, 8);
+  return 'git-' + createHash('md5').update(cwd).digest('hex');
 }
 
 export async function parseGitStatus(cwd: string, exec: ExecFn = safeExec): Promise<GitStatus> {

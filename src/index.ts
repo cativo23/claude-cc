@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { readStdin as defaultReadStdin } from './stdin.js';
+import { readStdin as defaultReadStdin, StdinParseError } from './stdin.js';
 import { parseGitStatus } from './parsers/git.js';
 import { parseTranscript } from './parsers/transcript.js';
 import { getTokenSpeed } from './parsers/token-speed.js';
@@ -83,6 +83,6 @@ if (isDirectRun()) {
     if (r.stderr) process.stderr.write(r.stderr);
     if (r.exitCode !== 0) process.exit(r.exitCode);
   } else {
-    main().then(o => process.stdout.write(o)).catch(e => { if (!(e instanceof SyntaxError)) process.stderr.write(`Statusline error: ${e.message}\n`); });
+    main().then(o => process.stdout.write(o)).catch(e => { if (!(e instanceof StdinParseError)) process.stderr.write(`Statusline error: ${e.message}\n`); });
   }
 }

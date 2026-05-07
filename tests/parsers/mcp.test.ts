@@ -51,4 +51,25 @@ describe('getMcpInfo', () => {
     });
     expect(getMcpInfo('/project', reader)).toBeNull();
   });
+
+  it('ignores mcpServers when it is an array (not a plain object)', () => {
+    const reader = makeReader({
+      '/project/.mcp.json': JSON.stringify({ mcpServers: ['server1', 'server2'] }),
+    });
+    expect(getMcpInfo('/project', reader)).toBeNull();
+  });
+
+  it('ignores mcpServers when it is a string', () => {
+    const reader = makeReader({
+      '/project/.mcp.json': JSON.stringify({ mcpServers: 'server1' }),
+    });
+    expect(getMcpInfo('/project', reader)).toBeNull();
+  });
+
+  it('ignores mcpServers when it is null', () => {
+    const reader = makeReader({
+      '/project/.mcp.json': JSON.stringify({ mcpServers: null }),
+    });
+    expect(getMcpInfo('/project', reader)).toBeNull();
+  });
 });

@@ -11,6 +11,24 @@ describe('loadConfig', () => {
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
   it('returns defaults when no config', () => { expect(loadConfig(join(dir, 'nope'))).toEqual(DEFAULT_CONFIG); });
+
+  it('returns defaults when config.json contains JSON null', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), 'null');
+    expect(loadConfig(dir)).toEqual(DEFAULT_CONFIG);
+  });
+
+  it('returns defaults when config.json contains a JSON array', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '[1,2,3]');
+    expect(loadConfig(dir)).toEqual(DEFAULT_CONFIG);
+  });
+
+  it('returns defaults when config.json contains a JSON scalar (number)', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '42');
+    expect(loadConfig(dir)).toEqual(DEFAULT_CONFIG);
+  });
   it('merges partial config', () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'config.json'), '{"layout":"singleline","display":{"model":false}}');

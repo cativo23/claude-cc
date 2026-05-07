@@ -48,6 +48,7 @@ export function loadConfig(configDir: string = join(homedir(), '.config', 'lumir
   if (!existsSync(p)) return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } };
   try {
     const raw = JSON.parse(readFileSync(p, 'utf8'));
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } };
     return mergeConfig(raw);
   } catch { return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } }; }
 }

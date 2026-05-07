@@ -1,6 +1,6 @@
-import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync, mkdirSync, rmdirSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync, mkdirSync, rmdirSync, renameSync, openSync, writeSync, fsyncSync, closeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { sanitizeTermString } from './normalize.js';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
@@ -205,9 +205,17 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
 
   settings.statusLine = { ...LUMIRA_STATUSLINE };
   mkdirSync(dirname(settingsPath), { recursive: true });
-  const tmp = join(tmpdir(), `lumira-settings-${process.pid}.json`);
-  writeFileSync(tmp, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
-  renameSync(tmp, settingsPath);
+  const tmp = settingsPath + '.lumira.tmp';
+  try {
+    const fd = openSync(tmp, 'wx', 0o600);
+    writeSync(fd, JSON.stringify(settings, null, 2) + '\n');
+    fsyncSync(fd);
+    closeSync(fd);
+    renameSync(tmp, settingsPath);
+  } catch (e) {
+    try { unlinkSync(tmp); } catch {}
+    throw e;
+  }
   lines.push(ok('Configured lumira as statusline'));
 
   saveConfig(wizard, configPath);
@@ -258,7 +266,17 @@ export function uninstall(opts: InstallerOptions = {}): string {
   try {
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     delete settings.statusLine;
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
+    const uninstTmp = settingsPath + '.lumira.tmp';
+    try {
+      const fd = openSync(uninstTmp, 'wx', 0o600);
+      writeSync(fd, JSON.stringify(settings, null, 2) + '\n');
+      fsyncSync(fd);
+      closeSync(fd);
+      renameSync(uninstTmp, settingsPath);
+    } catch (e) {
+      try { unlinkSync(uninstTmp); } catch {}
+      throw e;
+    }
     lines.push(ok('Removed lumira statusline from settings'));
   } catch {
     lines.push(warn('Could not parse settings.json'));
