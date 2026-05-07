@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -16,11 +16,19 @@ describe('getTokenSpeed', () => {
     expect(getTokenSpeed({ used_percentage: 50, remaining_percentage: 50 } as never, dir)).toBeNull();
   });
   it('calculates speed from two calls', () => {
-    const ctx1 = { used_percentage: 50, remaining_percentage: 50, current_usage: { output_tokens: 1000 } };
-    const ctx2 = { used_percentage: 50, remaining_percentage: 50, current_usage: { output_tokens: 2000 } };
-    getTokenSpeed(ctx1, dir);
-    const speed = getTokenSpeed(ctx2, dir);
-    if (speed !== null) expect(speed).toBeGreaterThan(0);
+    vi.useFakeTimers();
+    try {
+      const ctx1 = { used_percentage: 50, remaining_percentage: 50, current_usage: { output_tokens: 1000 } };
+      const ctx2 = { used_percentage: 50, remaining_percentage: 50, current_usage: { output_tokens: 2000 } };
+      getTokenSpeed(ctx1, dir);
+      // Advance time by 1 second so deltaMs > 0 and the speed calculation fires
+      vi.advanceTimersByTime(1000);
+      const speed = getTokenSpeed(ctx2, dir);
+      expect(speed).not.toBeNull();
+      expect(speed).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('returns null for NaN output_tokens', () => {
