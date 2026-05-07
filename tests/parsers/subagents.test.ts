@@ -234,6 +234,34 @@ describe('parseSubagentsDir', () => {
     const agents = await parseSubagentsDir(jsonlPath);
     expect(agents[0].endTime?.toISOString()).toBe(ts);
   });
+
+  it('falls back to file mtime when the JSONL timestamp is malformed', async () => {
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeAgent(subagentsDir, 'badts',
+      { agentId: 'badts', timestamp: 'not-a-date', message: { role: 'assistant', stop_reason: 'end_turn' } },
+    );
+    const agents = await parseSubagentsDir(jsonlPath);
+    // endTime is still a valid Date (file mtime) — never NaN.
+    expect(agents[0].endTime).toBeInstanceOf(Date);
+    expect(Number.isFinite(agents[0].endTime!.getTime())).toBe(true);
+  });
+
+  it('uses the first JSONL line timestamp for startTime, not the file mtime', async () => {
+    // For a long-running agent, file mtime points at the close-out (end_turn
+    // write), which is wrong as a "started at" value. The first line's
+    // dispatch timestamp is the correct source.
+    const { jsonlPath, subagentsDir } = makeSession();
+    const startTs = '2026-05-07T18:00:00.000Z';
+    const endTs = '2026-05-07T18:05:00.000Z';
+    const lines = [
+      JSON.stringify({ agentId: 'long', timestamp: startTs, type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'go' }] } }),
+      JSON.stringify({ agentId: 'long', timestamp: endTs, type: 'assistant', message: { role: 'assistant', stop_reason: 'end_turn' } }),
+    ].join('\n') + '\n';
+    writeRawAgent(subagentsDir, 'long', lines);
+    const agents = await parseSubagentsDir(jsonlPath);
+    expect(agents[0].startTime.toISOString()).toBe(startTs);
+    expect(agents[0].endTime?.toISOString()).toBe(endTs);
+  });
 });
 
 describe('isNamedAgentType', () => {
@@ -249,6 +277,14 @@ describe('isNamedAgentType', () => {
     expect(isNamedAgentType('')).toBe(false);
     expect(isNamedAgentType(undefined)).toBe(false);
     expect(isNamedAgentType(null)).toBe(false);
+  });
+  it('matches case-sensitively (treats different casing as named)', () => {
+    // Documents the case-sensitive contract: if Claude Code emits
+    // "General-Purpose" or "UNKNOWN", we treat them as user-defined names.
+    // If the upstream type-string casing ever drifts, this test will fail
+    // and the GENERIC_AGENT_TYPES set should be updated.
+    expect(isNamedAgentType('General-Purpose')).toBe(true);
+    expect(isNamedAgentType('UNKNOWN')).toBe(true);
   });
 });
 
@@ -284,9 +320,53 @@ describe('getSubagentsDirState + subagentsDirStateEqual', () => {
     expect(subagentsDirStateEqual(state1, state2)).toBe(false);
   });
 
+  it('returns a zero-count state (not null) when the dir exists but has no agent files', async () => {
+    // A dir with only sidecars or unrelated files should still be detected
+    // as "exists but empty" — count=0, totals=0 — distinct from null which
+    // means "no dir at all". The cache check distinguishes these so an
+    // empty dir doesn't masquerade as a missing one.
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeFileSync(join(subagentsDir, 'noise.txt'), 'irrelevant');
+    writeFileSync(join(subagentsDir, 'agent-x.meta.json'), '{}');
+    const state = await getSubagentsDirState(jsonlPath);
+    expect(state).not.toBeNull();
+    expect(state?.count).toBe(0);
+    expect(state?.maxMtimeMs).toBe(0);
+    expect(state?.totalSize).toBe(0);
+  });
+
+  it('returns null when the path resolves to a regular file instead of a directory', async () => {
+    // If something has stuffed a file where the subagents dir would live,
+    // readdir throws ENOTDIR. The fingerprint should treat that the same
+    // as a missing dir.
+    const sessionId = 'sess-file-not-dir';
+    const jsonlPath = join(workDir, `${sessionId}.jsonl`);
+    writeFileSync(jsonlPath, '{}\n');
+    mkdirSync(join(workDir, sessionId), { recursive: true });
+    writeFileSync(join(workDir, sessionId, 'subagents'), 'this is a file, not a dir');
+    expect(await getSubagentsDirState(jsonlPath)).toBeNull();
+  });
+
+  it('changes maxMtimeMs (not just totalSize) when an existing file is modified in place at a later mtime', async () => {
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeAgent(subagentsDir, 'm1',
+      { agentId: 'm1', message: { role: 'assistant', stop_reason: 'tool_use' } },
+      10,
+    );
+    const before = await getSubagentsDirState(jsonlPath);
+
+    // Same id, fresh mtime, different (longer) body
+    writeAgent(subagentsDir, 'm1',
+      { agentId: 'm1', message: { role: 'assistant', stop_reason: 'end_turn', text: 'much longer body to widen totalSize' } },
+    );
+    const after = await getSubagentsDirState(jsonlPath);
+    expect(after?.count).toBe(before?.count);
+    expect(after?.maxMtimeMs).toBeGreaterThan(before?.maxMtimeMs ?? 0);
+  });
+
   it('subagentsDirStateEqual treats two nulls as equal but null vs state as not equal', () => {
     expect(subagentsDirStateEqual(null, null)).toBe(true);
-    expect(subagentsDirStateEqual(null, { count: 0, totalMtimeMs: 0, totalSize: 0 })).toBe(false);
-    expect(subagentsDirStateEqual({ count: 1, totalMtimeMs: 100, totalSize: 50 }, { count: 1, totalMtimeMs: 100, totalSize: 50 })).toBe(true);
+    expect(subagentsDirStateEqual(null, { count: 0, maxMtimeMs: 0, totalSize: 0 })).toBe(false);
+    expect(subagentsDirStateEqual({ count: 1, maxMtimeMs: 100, totalSize: 50 }, { count: 1, maxMtimeMs: 100, totalSize: 50 })).toBe(true);
   });
 });

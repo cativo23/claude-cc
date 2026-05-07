@@ -28,8 +28,9 @@ const MAX_AGENTS = 10;
 // Generic dispatch types Claude Code attaches to anonymous Agent calls. The
 // list is hard-coded today; extend it when Claude Code adds new generic
 // types so the statusline doesn't accidentally surface their names as if
-// they were user-named subagents.
-const GENERIC_AGENT_TYPES: ReadonlySet<string> = new Set(['general-purpose', 'unknown']);
+// they were user-named subagents. Exported so tests can assert membership
+// directly without re-encoding the values.
+export const GENERIC_AGENT_TYPES: ReadonlySet<string> = new Set(['general-purpose', 'unknown']);
 
 /**
  * Returns true when `type` identifies a *named* subagent — i.e. one defined
@@ -67,6 +68,19 @@ interface MetaSidecar {
   description?: unknown;
 }
 
+/**
+ * Per-file metadata captured by `scanSubagentsDir`. Phase 1 of the parse:
+ * a stat-only summary the cache uses for fingerprinting and that the full
+ * parse re-uses to avoid re-running readdir/stat on miss.
+ */
+export interface AgentCandidate {
+  id: string;
+  jsonlFile: string;
+  metaFile: string;
+  mtimeMs: number;
+  size: number;
+}
+
 export function deriveSubagentsDir(jsonlPath: string): string {
   const dir = dirname(jsonlPath);
   const base = basename(jsonlPath).replace(/\.jsonl$/i, '');
@@ -75,9 +89,13 @@ export function deriveSubagentsDir(jsonlPath: string): string {
 
 /**
  * Cheap filesystem fingerprint of a session's subagents dir, suitable for
- * folding into a transcript-level cache key. Returns the directory mtime plus
- * the count and aggregate mtime/size of agent JSONL files inside. A change to
- * any agent file flips at least one of these values.
+ * folding into a transcript-level cache key. Captures (a) the number of
+ * matching agent files, (b) the most recent file mtime in the dir, and
+ * (c) the aggregate file size. A change to any agent file flips at least
+ * one of these — `maxMtimeMs` is monotonic across writes (every new write
+ * either bumps mtime or leaves it unchanged on the same-second case where
+ * the size delta still fires), and `totalSize` catches in-place edits that
+ * happen at exactly the same mtime tick.
  *
  * Intentionally O(N) on dir size: the dir is small (≤ MAX_AGENTS handful)
  * and `stat` is fast. Returns null when the dir doesn't exist or isn't
@@ -86,40 +104,68 @@ export function deriveSubagentsDir(jsonlPath: string): string {
  */
 export interface SubagentsDirState {
   count: number;
-  totalMtimeMs: number;
+  maxMtimeMs: number;
   totalSize: number;
 }
 
-export async function getSubagentsDirState(jsonlPath: string): Promise<SubagentsDirState | null> {
-  if (!jsonlPath) return null;
+/**
+ * Unified scan: walks the subagents/ dir once, gathering both the cache
+ * fingerprint AND the per-file stat metadata needed for the full parse.
+ * Callers that only need the fingerprint can ignore `candidates`; callers
+ * doing a full parse can hand the candidates to `readSubagentDetails`
+ * without re-running readdir/stat.
+ */
+export async function scanSubagentsDir(jsonlPath: string): Promise<{ state: SubagentsDirState | null; candidates: AgentCandidate[] }> {
+  if (!jsonlPath) return { state: null, candidates: [] };
   const dir = deriveSubagentsDir(jsonlPath);
-  if (!isUnderAllowedRoot(resolve(dir), LUMIRA_ALLOWED_ROOTS)) return null;
+  const resolved = resolve(dir);
+  if (!isUnderAllowedRoot(resolved, LUMIRA_ALLOWED_ROOTS)) {
+    log('skip — subagents dir outside allowed roots:', resolved);
+    return { state: null, candidates: [] };
+  }
   let entries: string[];
   try {
-    entries = await readdir(dir);
-  } catch {
-    return null;
+    entries = await readdir(resolved);
+  } catch (err) {
+    log('readdir failed:', resolved, err);
+    return { state: null, candidates: [] };
   }
   let count = 0;
-  let totalMtimeMs = 0;
+  let maxMtimeMs = 0;
   let totalSize = 0;
+  const candidates: AgentCandidate[] = [];
   for (const file of entries) {
-    if (!AGENT_FILE_RE.test(file)) continue;
+    const m = file.match(AGENT_FILE_RE);
+    if (!m) continue;
     try {
-      const st = await stat(join(dir, file));
+      const jsonlFile = join(resolved, file);
+      const st = await stat(jsonlFile);
       if (!st.isFile()) continue;
       count += 1;
-      totalMtimeMs += st.mtimeMs;
+      if (st.mtimeMs > maxMtimeMs) maxMtimeMs = st.mtimeMs;
       totalSize += st.size;
+      candidates.push({
+        id: m[1],
+        jsonlFile,
+        metaFile: join(resolved, `agent-${m[1]}.meta.json`),
+        mtimeMs: st.mtimeMs,
+        size: st.size,
+      });
     } catch { /* file disappeared mid-scan — skip */ }
   }
-  return { count, totalMtimeMs, totalSize };
+  return { state: { count, maxMtimeMs, totalSize }, candidates };
+}
+
+// Thin wrapper retained for callers that only want the cache fingerprint.
+// Internally re-uses `scanSubagentsDir` so the two paths can never drift.
+export async function getSubagentsDirState(jsonlPath: string): Promise<SubagentsDirState | null> {
+  return (await scanSubagentsDir(jsonlPath)).state;
 }
 
 export function subagentsDirStateEqual(a: SubagentsDirState | null, b: SubagentsDirState | null): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return a.count === b.count && a.totalMtimeMs === b.totalMtimeMs && a.totalSize === b.totalSize;
+  return a.count === b.count && a.maxMtimeMs === b.maxMtimeMs && a.totalSize === b.totalSize;
 }
 
 async function readMeta(metaPath: string): Promise<MetaSidecar | null> {
@@ -131,17 +177,33 @@ async function readMeta(metaPath: string): Promise<MetaSidecar | null> {
   return null;
 }
 
-async function readLastJsonLine(filePath: string): Promise<unknown> {
+interface JsonlBoundaryLines {
+  first: unknown | null;
+  last: unknown | null;
+}
+
+// One pass over the file extracts both the first and last well-formed JSON
+// objects. We need the first line's timestamp for `startTime` (file mtime
+// drifts to the *last* write) and the last line for completion markers.
+async function readBoundaryJsonLines(filePath: string): Promise<JsonlBoundaryLines> {
   try {
     const raw = await readFile(filePath, 'utf8');
     const lines = raw.split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      try { return JSON.parse(line); } catch { /* try previous line */ }
+    let first: unknown | null = null;
+    for (const l of lines) {
+      const t = l.trim();
+      if (!t) continue;
+      try { first = JSON.parse(t); break; } catch { /* try next line */ }
     }
+    let last: unknown | null = null;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const t = lines[i].trim();
+      if (!t) continue;
+      try { last = JSON.parse(t); break; } catch { /* try previous line */ }
+    }
+    return { first, last };
   } catch { /* unreadable */ }
-  return null;
+  return { first: null, last: null };
 }
 
 function extractStopReason(lastLine: unknown): string | null {
@@ -164,9 +226,14 @@ function extractTimestamp(lastLine: unknown): Date | null {
 }
 
 // When the user stops a running subagent, Claude Code appends a synthetic
-// user-role message whose text marker is "[Request interrupted by user…]".
-// That's the only on-disk signal of a kill — the assistant message that
-// preceded it never gets its closing stop_reason rewritten.
+// user-role message whose text is bracket-wrapped, e.g.
+// "[Request interrupted by user for tool use]". That's the only on-disk
+// signal of a kill — the assistant message that preceded it never gets its
+// closing stop_reason rewritten. Matching is anchored on both ends to avoid
+// false positives if Claude Code ever ships an unrelated message that
+// starts with the same prefix.
+const INTERRUPT_MARKER_RE = /^\[Request interrupted by user[^\]]*\]$/;
+
 function wasInterruptedByUser(lastLine: unknown): boolean {
   if (!lastLine || typeof lastLine !== 'object') return false;
   const d = lastLine as { type?: unknown; message?: { role?: unknown; content?: unknown } };
@@ -176,28 +243,16 @@ function wasInterruptedByUser(lastLine: unknown): boolean {
   for (const block of content) {
     if (block && typeof block === 'object') {
       const text = (block as { text?: unknown }).text;
-      if (typeof text === 'string' && text.startsWith('[Request interrupted by user')) return true;
+      if (typeof text === 'string' && INTERRUPT_MARKER_RE.test(text.trim())) return true;
     }
   }
   return false;
 }
 
-// Phase 1 entry: stat-only metadata for ranking. Phase 2 (`readAgentDetails`)
-// reads JSONL + meta only for files that survive the MAX_AGENTS slice — this
-// avoids opening the entire dir on every statusline tick when a session has
-// accumulated dozens of historical agent files.
-interface AgentCandidate {
-  id: string;
-  jsonlFile: string;
-  metaFile: string;
-  mtimeMs: number;
-  size: number;
-}
-
 async function readAgentDetails(c: AgentCandidate): Promise<AgentEntry | null> {
-  const lastLine = await readLastJsonLine(c.jsonlFile);
-  const stopReason = extractStopReason(lastLine);
-  const interrupted = wasInterruptedByUser(lastLine);
+  const { first, last } = await readBoundaryJsonLines(c.jsonlFile);
+  const stopReason = extractStopReason(last);
+  const interrupted = wasInterruptedByUser(last);
 
   const meta = await readMeta(c.metaFile);
   const agentType = sanitizeTermString(typeof meta?.agentType === 'string' ? meta.agentType : 'unknown');
@@ -205,76 +260,58 @@ async function readAgentDetails(c: AgentCandidate): Promise<AgentEntry | null> {
 
   const status: ToolStatus = (stopReason === 'end_turn' || interrupted) ? 'completed' : 'running';
 
-  // birthtimeMs is unreliable across filesystems (often 0/unset, can't be
-  // updated by tests via utimes). Fall back to mtimeMs whenever it's missing.
-  const startTimeMs = c.mtimeMs;
+  // startTime: prefer the first JSONL line's embedded ISO timestamp (the
+  // dispatch moment) over the file mtime. mtime tracks the *last* write,
+  // which for a long-running agent is the close-out — using it as
+  // startTime would make duration calculations meaningless. birthtimeMs
+  // is unreliable across filesystems (often 0/unset, can't be updated by
+  // utimes() so tests can't simulate it), hence we don't try it.
+  const startTime = extractTimestamp(first) ?? new Date(c.mtimeMs);
   const agent: AgentEntry = {
     id: c.id,
     type: agentType,
     status,
-    startTime: new Date(startTimeMs),
+    startTime,
   };
   if (description) agent.description = description;
   if (status === 'completed') {
-    const tsFromLine = extractTimestamp(lastLine);
+    const tsFromLine = extractTimestamp(last);
     agent.endTime = tsFromLine ?? new Date(c.mtimeMs);
   }
   return agent;
 }
 
-export async function parseSubagentsDir(jsonlPath: string): Promise<AgentEntry[]> {
-  if (!jsonlPath) return [];
-  const subagentsDir = deriveSubagentsDir(jsonlPath);
-  const resolved = resolve(subagentsDir);
-  if (!isUnderAllowedRoot(resolved, LUMIRA_ALLOWED_ROOTS)) {
-    log('skip — subagents dir outside allowed roots:', resolved);
-    return [];
-  }
-
-  // No `existsSync` guard: the readdir below already returns ENOENT on a
-  // missing dir, and skipping the sync stat removes the TOCTOU window where
-  // the dir could be deleted between check and use.
-  let entries: string[];
-  try {
-    entries = await readdir(resolved);
-  } catch (err) {
-    log('readdir failed:', resolved, err);
-    return [];
-  }
-
-  // Phase 1 — stat all candidate files. `stat` is cheap; reading the JSONL
-  // bodies is what we want to keep bounded.
-  const candidates: AgentCandidate[] = [];
-  for (const file of entries) {
-    const m = file.match(AGENT_FILE_RE);
-    if (!m) continue;
-    const id = m[1];
-    const jsonlFile = join(resolved, file);
-    try {
-      const st = await stat(jsonlFile);
-      if (!st.isFile()) continue;
-      candidates.push({
-        id,
-        jsonlFile,
-        metaFile: join(resolved, `agent-${id}.meta.json`),
-        mtimeMs: st.mtimeMs,
-        size: st.size,
-      });
-    } catch { /* race with deletion — skip */ }
-  }
-
-  // Sort oldest → newest by file mtime, then keep only the most recent
-  // MAX_AGENTS. mtime is the on-disk last-write timestamp, not the
-  // subagent's logical "last activity" — those are usually the same but can
-  // drift when the OS journal flushes well after the write.
-  candidates.sort((a, b) => a.mtimeMs - b.mtimeMs);
-  const top = candidates.slice(-MAX_AGENTS);
-
-  // Phase 2 — read JSONL bodies + meta sidecars only for the survivors.
+/**
+ * Phase 2 of the parse — reads JSONL bodies + meta sidecars only for the
+ * MAX_AGENTS most recent files in `candidates`. Sorts oldest → newest by
+ * file mtime; the survivors of `slice(-MAX_AGENTS)` are read.
+ *
+ * `mtime` is the on-disk last-write timestamp, not the subagent's logical
+ * "last activity" — those are usually the same but can drift when the OS
+ * journal flushes well after the write.
+ *
+ * Exported so callers that already ran `scanSubagentsDir` (e.g. the
+ * transcript parser, which uses the same scan to build its cache key) can
+ * skip a second readdir+stat pass.
+ */
+export async function readSubagentDetails(candidates: AgentCandidate[]): Promise<AgentEntry[]> {
+  const sorted = candidates.slice().sort((a, b) => a.mtimeMs - b.mtimeMs);
+  const top = sorted.slice(-MAX_AGENTS);
   const agents: AgentEntry[] = [];
   for (const c of top) {
     const a = await readAgentDetails(c);
     if (a) agents.push(a);
   }
   return agents;
+}
+
+/**
+ * Convenience wrapper: full scan + full parse. Equivalent to
+ * `(await scanSubagentsDir(p)).candidates → readSubagentDetails`.
+ * Callers that need the cache fingerprint *and* the agents in the same
+ * tick should call `scanSubagentsDir` directly to avoid a second scan.
+ */
+export async function parseSubagentsDir(jsonlPath: string): Promise<AgentEntry[]> {
+  const { candidates } = await scanSubagentsDir(jsonlPath);
+  return readSubagentDetails(candidates);
 }

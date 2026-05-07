@@ -7,6 +7,12 @@ import { parseTranscript, extractToolTarget, normalizeTodoStatus, _clearTranscri
 const FIXTURES = join(import.meta.dirname, '..', 'fixtures');
 
 describe('parseTranscript', () => {
+  // Without this, fixtures with stable mtimes can cache-hit across cases —
+  // a previous test populates the cache, the next one runs `parseTranscript`
+  // on the same fixture, sees a fresh mtime and returns the cached result
+  // without exercising the parse path under test.
+  beforeEach(() => { _clearTranscriptCache(); });
+
   it('parses basic tool use and result', async () => {
     const result = await parseTranscript(join(FIXTURES, 'transcript-basic.jsonl'));
     expect(result.tools).toHaveLength(1);
@@ -88,9 +94,6 @@ describe('parseTranscript', () => {
     const line2 = JSON.stringify({ timestamp: '2026-04-08T10:00:01Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } });
     const line3 = JSON.stringify({ timestamp: '2026-04-08T10:00:02Z', message: { content: [{ type: 'tool_use', id: 'tu2', name: 'TodoWrite', input: { todos: [{ id: 'x', content: 'Renamed text', status: 'pending' }] } }] } });
     const line4 = JSON.stringify({ timestamp: '2026-04-08T10:00:03Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu2', content: 'ok' }] } });
-    const { writeFileSync, mkdtempSync, rmSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const { tmpdir } = await import('node:os');
     const dir = mkdtempSync(join(tmpdir(), 'lumira-test-'));
     const p = join(dir, 'test.jsonl');
     writeFileSync(p, [line1, line2, line3, line4].join('\n') + '\n');
@@ -188,6 +191,29 @@ describe('parseTranscript + subagents/ dir integration', () => {
     const result = await parseTranscript(mainPath);
     expect(result.agents).toHaveLength(1);
     expect(result.agents[0].type).toBe('general-purpose');
+  });
+
+  it('still invalidates the cache when the main JSONL changes and the subagent dir does not exist', async () => {
+    // Both cached and current dir state are null; the cache hit must be
+    // gated only by the main-JSONL mtime, never by `null === null` on the
+    // dir fingerprint accidentally short-circuiting the freshness check.
+    const mainPath = writeMain('sess-no-subdir', [
+      { timestamp: '2026-05-07T18:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu0', name: 'Bash', input: { command: 'ls' } }] } },
+    ]);
+    const first = await parseTranscript(mainPath);
+    expect(first.tools).toHaveLength(1);
+
+    // Push the file mtime back, then rewrite — this gives a NEW mtime
+    // distinct from the cached entry.
+    const past = (Date.now() - 5000) / 1000;
+    utimesSync(mainPath, past, past);
+    writeFileSync(mainPath, [
+      JSON.stringify({ timestamp: '2026-05-07T18:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu0', name: 'Bash', input: { command: 'ls' } }] } }),
+      JSON.stringify({ timestamp: '2026-05-07T18:00:01Z', message: { content: [{ type: 'tool_use', id: 'tuX', name: 'Read', input: { file_path: '/x' } }] } }),
+    ].join('\n') + '\n');
+
+    const second = await parseTranscript(mainPath);
+    expect(second.tools).toHaveLength(2);
   });
 
   it('invalidates the cache when only the subagent dir changes', async () => {

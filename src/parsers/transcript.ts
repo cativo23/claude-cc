@@ -7,7 +7,7 @@ import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js'
 import { sanitizeTermString } from '../normalize.js';
 import { isUnderAllowedRoot, LUMIRA_ALLOWED_ROOTS } from '../utils/path.js';
 import { debug } from '../utils/debug.js';
-import { parseSubagentsDir, getSubagentsDirState, subagentsDirStateEqual, type SubagentsDirState } from './subagents.js';
+import { scanSubagentsDir, readSubagentDetails, subagentsDirStateEqual, type SubagentsDirState } from './subagents.js';
 
 const log = debug('transcript');
 
@@ -137,6 +137,9 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     return result;
   }
 
+  // path.resolve, NOT realpathSafe — symlink resolution is deliberately not
+  // done here (and not in subagents.ts either). See `src/utils/path.ts`
+  // header for the string-level threat model rationale.
   const resolved = resolve(transcriptPath);
   if (!isUnderAllowedRoot(resolved, LUMIRA_ALLOWED_ROOTS)) {
     log('skip — path outside allowed roots:', resolved);
@@ -147,10 +150,12 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const currentMtime = getMtimeState(resolved);
   // The subagents/ dir lives outside the main JSONL's stat scope, so a quiet
   // subagent's progress (or a `stop_reason: end_turn` flush) wouldn't change
-  // anything the cache can see. Fold a cheap fingerprint of the dir into the
-  // cache key so updates there force a re-parse even when the parent JSONL
-  // is unchanged.
-  const currentSubagentsState = await getSubagentsDirState(resolved);
+  // anything the cache can see. A single `scanSubagentsDir` produces both
+  // the cache fingerprint AND the per-file candidates we'll feed to
+  // `readSubagentDetails` on a miss — eliminates the double readdir+stat
+  // pass that an independent fingerprint call would force.
+  const subagentsScan = await scanSubagentsDir(resolved);
+  const currentSubagentsState = subagentsScan.state;
   const cached = transcriptCache.get(resolved);
   if (
     currentMtime && cached && isMtimeFresh(resolved, cached.mtime)
@@ -298,7 +303,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   // marker via stop_reason. When present, prefer it over the main-JSONL
   // pairing heuristic. When absent (older Claude Code, layout change), fall
   // back to whatever main-JSONL parsing produced.
-  const subagentDirAgents = await parseSubagentsDir(resolved);
+  const subagentDirAgents = await readSubagentDetails(subagentsScan.candidates);
   if (subagentDirAgents.length > 0) {
     if (log.enabled) log('subagents-dir override:', subagentDirAgents.length, 'agents replace', result.agents.length, 'from main JSONL');
     result.agents = subagentDirAgents;
