@@ -373,6 +373,21 @@ describe('cacheHitRate normalization', () => {
     };
     expect(normalize(input).cacheHitRate).toBeUndefined();
   });
+  it('tokens.cached is undefined when payload has top-level cache_read_input_tokens but no current_usage', () => {
+    // Verifies the legacy top-level fallback is gone: pre-2.1.x payloads that only expose
+    // cache_read_input_tokens at context_window root (no current_usage) must produce
+    // tokens.cached === undefined, not a stale numeric value.
+    const input = {
+      ...claudeInput,
+      context_window: {
+        ...claudeInput.context_window,
+        cache_read_input_tokens: 50000,
+        total_input_tokens: 120000,
+        // deliberately no current_usage
+      },
+    };
+    expect(normalize(input).tokens.cached).toBeUndefined();
+  });
 });
 
 describe('normalize — missing context_window', () => {
