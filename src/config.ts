@@ -175,9 +175,9 @@ export function mergeCliFlags(config: HudConfig, argv: string[]): HudConfig {
   if (argv.includes('--powerline')) r.style = 'powerline';
   if (argv.includes('--classic'))   r.style = 'classic';
   for (const arg of argv) {
-    const presetMatch = arg.match(/^--preset=?(full|balanced|minimal)$/);
+    const presetMatch = arg.match(/^--preset=(full|balanced|minimal)$/);
     if (presetMatch) { applyPreset(r, presetMatch[1] as NonNullable<HudConfig['preset']>); continue; }
-    const iconsMatch = arg.match(/^--icons=?(nerd|emoji|none)$/);
+    const iconsMatch = arg.match(/^--icons=(nerd|emoji|none)$/);
     if (iconsMatch) { r.icons = iconsMatch[1] as HudConfig['icons']; continue; }
     // Build the alternation from POWERLINE_STYLE_NAMES so this regex stays
     // in sync when a new style is added — single source of truth in types.ts.

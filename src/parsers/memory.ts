@@ -7,7 +7,7 @@ export function getMemoryInfo(): MemoryInfo | null {
     if (platform() === 'darwin') {
       const output = execFileSync('vm_stat', [], { encoding: 'utf8', timeout: 2000 });
       const psMatch = output.match(/page size of (\d+) bytes/);
-      const ps = psMatch ? parseInt(psMatch[1], 10) : 16384;
+      const ps = psMatch ? parseInt(psMatch[1], 10) : 4096;
       const active = output.match(/Pages active:\s+(\d+)/);
       const wired = output.match(/Pages wired down:\s+(\d+)/);
       const compressed = output.match(/Pages occupied by compressor:\s+(\d+)/);

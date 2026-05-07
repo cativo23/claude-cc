@@ -1,11 +1,13 @@
 import { NERD_ICONS, type IconSet } from './icons.js';
 import { getContextColor, type Colors } from './colors.js';
 import { formatTokens } from '../utils/format.js';
-import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus } from '../types.js';
+import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData } from '../types.js';
 import type { NormalizedInput } from '../normalize.js';
 
 export const SEP = ` \x1b[90m\u2502\x1b[0m `;
 export const SEP_MINIMAL = ` \x1b[90m|\x1b[0m `;
+
+export const EXCLUDED_TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate']);
 
 
 export interface ContextBarOpts {
@@ -73,7 +75,8 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
     else if (safePct >= critical) hint = ' ' + c.dim('/compact?');
   }
 
-  const pctStr = colorFn(`${safePct < 10 ? safePct.toFixed(1) : safePct.toFixed(0)}%`);
+  const rounded = Math.round(safePct * 10) / 10;
+  const pctStr = colorFn(`${rounded < 10 ? rounded.toFixed(1) : Math.round(rounded)}%`);
 
   const out = `${bar} ${pctStr}${icon ? ' ' + icon : ''}${hint}`;
   if (plain) {
@@ -85,6 +88,11 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
     return out.replace(/\x1b\[0m/g, '\x1b[39;22;25m');
   }
   return out;
+}
+
+export function getActiveTodo(transcript: TranscriptData): string | undefined {
+  const inProgress = transcript.todos.filter(t => t.status === 'in_progress');
+  return inProgress[0]?.content;
 }
 
 export function formatGitChanges(git: GitStatus, c: Colors): string[] {

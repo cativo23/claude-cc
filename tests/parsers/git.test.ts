@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createHash } from 'node:crypto';
 import { parseGitStatus } from '../../src/parsers/git.js';
 import { EMPTY_GIT } from '../../src/types.js';
+import * as cacheUtils from '../../src/utils/cache.js';
 
 // Clear cache before each test to avoid stale data
 beforeEach(() => {
@@ -53,15 +54,27 @@ describe('parseGitStatus', () => {
     expect(result.untracked).toBe(0);
   });
 
-  it('cache key uses full MD5 digest (32 hex chars) to prevent birthday collisions', () => {
-    // Verify the hash format used for cache keys is the full 32-char hex digest,
-    // not a truncated 8-char version (which has a 32-bit birthday collision risk).
-    const digest = createHash('md5').update('/some/path').digest('hex');
-    expect(digest).toHaveLength(32);
-    // Two paths that differ only in their suffix must produce distinct full digests
-    const d1 = createHash('md5').update('/home/a').digest('hex');
-    const d2 = createHash('md5').update('/home/b').digest('hex');
-    expect(d1).not.toBe(d2);
+  it('cache key uses full MD5 digest (32 hex chars) to prevent birthday collisions', async () => {
+    // Spy on writeTtlCache to capture the key the production code actually uses.
+    // If someone truncates the digest or changes the algorithm in git.ts, the
+    // captured key will no longer match the expected 32-char hex pattern.
+    const writeSpy = vi.spyOn(cacheUtils, 'writeTtlCache');
+    const exec = vi.fn()
+      .mockResolvedValueOnce('main')
+      .mockResolvedValueOnce('');
+
+    const testPath = '/cache-key-test';
+    await parseGitStatus(testPath, exec);
+
+    expect(writeSpy).toHaveBeenCalledOnce();
+    const usedKey: string = writeSpy.mock.calls[0][0];
+
+    const expectedDigest = createHash('md5').update(testPath).digest('hex');
+    expect(usedKey).toBe(`git-${expectedDigest}`);
+    // Full 32-char hex digest — not truncated
+    expect(usedKey).toMatch(/^git-[0-9a-f]{32}$/);
+
+    writeSpy.mockRestore();
   });
 
 });

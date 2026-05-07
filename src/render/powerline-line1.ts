@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { truncField } from './text.js';
+import { getActiveTodo } from './shared.js';
 import { formatDuration } from '../utils/format.js';
 import { hyperlink } from './hyperlink.js';
 import {
@@ -10,18 +11,13 @@ import {
   type PowerlineStyleName,
 } from './powerline.js';
 import type { ColorMode } from './colors.js';
-import type { RenderContext, TranscriptData } from '../types.js';
+import type { RenderContext } from '../types.js';
 import {
   type PowerlinePalette,
   derivePowerlinePalette,
   DEFAULT_POWERLINE_PALETTE,
   type ThemePalette,
 } from '../themes.js';
-
-function getActiveTodo(transcript: TranscriptData): string | undefined {
-  const inProgress = transcript.todos.filter(t => t.status === 'in_progress');
-  return inProgress[0]?.content;
-}
 
 /**
  * Build the line1 segment list for the powerline renderer. Segment priorities
