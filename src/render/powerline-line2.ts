@@ -62,6 +62,9 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
 
   // Rate limits — urgency expressed via priority (critical survives eviction longer).
   // Loop order (5h then 7d) is always preserved; priority is the eviction knob only.
+  // Note: countdown timer (line2.ts:127) is intentionally omitted in powerline mode.
+  // The pace delta segment below already communicates time-to-exhaustion, and the
+  // critical bg (branchDirtyBg) carries the urgency signal that countdown would.
   if (display.rateLimits && input.rateLimits) {
     const limits: [string, typeof input.rateLimits.fiveHour][] = [
       ['5h', input.rateLimits.fiveHour],
