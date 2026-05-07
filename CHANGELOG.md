@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`display.paceDelta` toggle** — pace delta now has its own visibility flag, independent of `display.rateLimits`. Default true; off in the `minimal` preset. Lets users show the pace signal without the raw 5h/7d percentages, or vice versa.
+  - **Migration note for users who set `display.rateLimits: false`**: in v1.0.x, that toggle also implicitly hid the pace segment. With independent gating, pace will now reappear unless you also set `"paceDelta": false` in your config.
+
+### Fixed
+- **Powerline countdown intentionally absent — now documented** — added a code comment explaining that the pace delta segment communicates time-to-exhaustion in powerline mode, replacing the classic-mode countdown signal.
+- **`memory.ts` accepts an injectable `MemoryReader`** — the previous `getMemoryInfo()` test passed vacuously on CI runners without `/proc/meminfo` or `vm_stat`. Refactored to accept a `MemoryReader` (default uses `node:os` + `execFileSync` as before). 11 new deterministic tests cover both the linux freemem path and the darwin vm_stat parser. Production callers unchanged. **Behavior change:** the darwin path now returns `null` when `totalmem()` reports `0` (previously surfaced a phantom 100% reading).
+
+## [1.0.1] - 2026-05-07
+
+### Fixed
+- **`normalize.ts` allows `cacheHitRate = 0` as a legitimate value** — the gate `cached > 0` collapsed "no cache hits this turn" into the same `undefined` as "no data at all". Now returns `0` when the per-turn denominator is positive, treating zero as data rather than absence-of-data.
+- **Uninstall cleans up empty `skills/` parent dir** — after removing `skills/lumira/`, lumira now also attempts to remove the parent `skills/` directory. `rmdirSync` fails with `ENOTEMPTY` when other skills exist, so co-installed skills are preserved.
+
+## [1.0.0] - 2026-05-07
+
+First stable release. API is now considered stable under SemVer.
+
+### Added — Session Intelligence
+- **Pace delta widget** — shows `usedPct − elapsedPct` of the 5h rate-limit window. Turtle (🐢) when behind pace (healthy), car (🏎️) with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed at 0/15/30/30+ deltas. Renders in both classic and powerline modes; gated by `display.rateLimits`.
+- **Live agent count** — `⚡N agent(s)` segment showing the count of running subagents from the transcript. New `display.agents` toggle (default on; off in `minimal` preset). Renders in both classic and powerline modes.
+- **Cache hit rate display** — appended to the token segment as `87%⚡` with green/yellow/orange tiers at 70/40 thresholds. Already gated by `display.cacheMetrics`.
+
+### Fixed — Pre-v1.0 review pass
+- **`installer.ts` atomic `settings.json` write** — `writeFileSync(tmp)` + `renameSync(tmp, dest)` mirrors the pattern in `saveConfig`, eliminating the corrupt-on-interruption window for `~/.claude/settings.json`.
+- **`normalize.ts` defensive `context_window` guard** — null/undefined `context_window` no longer crashes `normalize()`; degrades gracefully via `(input.context_window ?? {})`.
+- **`stdin.ts` 1 MiB limit + shape validation** — rejects runaway producers and non-object JSON (`null`, scalars, arrays). New `StdinParseError` subclass lets `index.ts` distinguish parse failures from real errors.
+- **`shared.ts` `buildContextBar` clamping** — `pct > 100` or `pct < 0` no longer crashes via negative `repeat()` count; `Math.max(0, Math.min(segments, …))` bounds the fill.
+- **`installer.ts` JSON shape validation** — only accepts plain objects (matches `config.ts:209`).
+- **`installer.ts` ANSI sanitization** — foreign `statusLine.command` is now sanitized via `sanitizeTermString` before rendering in the warning banner.
+- **`tui/select.ts` SIGINT/SIGTERM/SIGHUP handlers** — terminal raw mode and cursor are now restored on signal-induced exit.
+- **`format.ts` NaN/Infinity guards** — `formatTokens`, `formatDuration`, `formatCost`, `formatBurnRate` now return empty/null for non-finite or negative inputs.
+- **`transcript.ts` TodoWrite content rebuild** — content edits without status changes are now preserved instead of silently dropped.
+- **Boundary tests pinned** — `getQuotaColor`, `getPaceColor`, `getCacheHitColor` boundary transitions are now explicitly tested.
+- **Vacuous tests fixed** — `token-speed.test.ts` no longer conditional-asserts; `render/index.test.ts` and `integration.test.ts` now assert content rather than `length > 0`.
+
+### Changed
+- **`stdin.ts` returns `Promise<RawInput>`** — Qwen runtime branch is now reachable (was effectively dead code under `Promise<ClaudeCodeInput>`).
+- **`index.ts` non-zero exit code on render failures** — Cron/CI invocations can now detect crashes (was silently exit 0 except for `SyntaxError`).
+
 ## [0.9.5] - 2026-05-06
 
 ### Fixed
@@ -346,7 +386,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/cativo23/lumira/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/cativo23/lumira/compare/v0.9.5...v1.0.0
+[0.9.5]: https://github.com/cativo23/lumira/compare/v0.9.4...v0.9.5
+[0.9.4]: https://github.com/cativo23/lumira/compare/v0.9.3...v0.9.4
+[0.9.3]: https://github.com/cativo23/lumira/compare/v0.9.2...v0.9.3
+[0.9.2]: https://github.com/cativo23/lumira/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/cativo23/lumira/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/cativo23/lumira/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/cativo23/lumira/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/cativo23/lumira/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/cativo23/lumira/compare/v0.7.0...v0.7.1

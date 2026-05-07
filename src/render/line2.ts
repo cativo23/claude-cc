@@ -133,11 +133,14 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
         leftParts.push(limitStr);
       }
     }
+  }
 
-    // Pace delta — shows how far ahead/behind of expected quota burn rate.
-    // Gate on fiveHour window being present and computePaceDelta returning a result.
-    const fiveHourWin = input.rateLimits?.fiveHour;
-    if (fiveHourWin && Number.isFinite(fiveHourWin.usedPercentage)) {
+  // Pace delta — shows how far ahead/behind of expected quota burn rate.
+  // Independent of display.rateLimits so users can show the pace signal without
+  // the raw 5h/7d percentages, or vice versa.
+  if (display.paceDelta && input.rateLimits?.fiveHour) {
+    const fiveHourWin = input.rateLimits.fiveHour;
+    if (Number.isFinite(fiveHourWin.usedPercentage)) {
       const pace = computePaceDelta(fiveHourWin.usedPercentage, fiveHourWin.resetsAt);
       if (pace != null) {
         const paceStr = formatPaceDelta(pace);
