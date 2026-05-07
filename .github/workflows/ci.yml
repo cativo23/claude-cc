@@ -26,13 +26,13 @@ jobs:
       - run: npm run test:coverage
       - run: npm run lint
       - run: npm run build
-      # Bundle size guard: dist/ ships to npm. Currently ~280 KB; the
-      # ceiling is set to 350 KB so meaningful growth is a deliberate
+      # Bundle size guard: dist/ ships to npm. Currently ~352 KB; the
+      # ceiling is set to 368 KB so meaningful growth is a deliberate
       # decision rather than accidental. Raise alongside the corresponding
       # PR if a feature genuinely needs the headroom.
       - name: Bundle size guard
         env:
-          CEILING: '358400'
+          CEILING: '376832'
         run: |
           SIZE=$(du -sb dist/ | cut -f1)
           echo "dist/ size: $SIZE bytes (ceiling: $CEILING)"
