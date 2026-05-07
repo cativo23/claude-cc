@@ -5,8 +5,8 @@ import {
   type PowerlineStyleName,
 } from './powerline.js';
 import { QUOTA_CRITICAL } from '../types.js';
-import { buildContextBar } from './shared.js';
-import { formatTokens, formatCost } from '../utils/format.js';
+import { buildContextBar, formatQwenMetrics } from './shared.js';
+import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import type { ColorMode, Colors } from './colors.js';
 import type { RenderContext } from '../types.js';
 import {
@@ -28,7 +28,7 @@ import {
 // recorded against PR #47.
 
 function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors): PowerlineSegment[] {
-  const { input, config: { display }, icons } = ctx;
+  const { input, config: { display }, icons, mcp, transcript: { thinkingEffort } } = ctx;
   const segments: PowerlineSegment[] = [];
 
   // Context bar — always highest priority. plain=true so the bar cells inherit
@@ -54,31 +54,76 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       ?? (input.tokens.input > 0 ? Math.round(input.tokens.input / (pct / 100)) : 0);
     if (capacity > 0) {
       const used = Math.round(capacity * pct / 100);
-      segments.push({ text: `${formatTokens(used)}/${formatTokens(capacity)}`, bg: palette.dirBg, fg: palette.fg, priority: 80 });
+      segments.push({ text: `${formatTokens(used)}/${formatTokens(capacity)}`, bg: palette.dirBg, fg: palette.fg, priority: 90 });
     }
   }
 
-  // Cost
-  if (display.cost && input.cost != null) {
-    segments.push({ text: formatCost(input.cost), bg: palette.taskBg, fg: palette.fg, priority: 60 });
-  }
-
-  // Rate limits — only show if >=50%
-  // Unlike line2 (which splices critical segments after the context bar), powerline
-  // expresses urgency via priority: critical windows survive fitSegments eviction
-  // before non-critical peers. Same doctrine, different mechanism.
+  // Rate limits — urgency expressed via priority (critical survives eviction longer).
+  // Loop order (5h then 7d) is always preserved; priority is the eviction knob only.
   if (display.rateLimits && input.rateLimits) {
     const limits: [string, typeof input.rateLimits.fiveHour][] = [
       ['5h', input.rateLimits.fiveHour],
       ['7d', input.rateLimits.sevenDay],
     ];
     for (const [label, win] of limits) {
-      // Number.isFinite guards against NaN/Infinity from malformed payloads.
       if (!win || !Number.isFinite(win.usedPercentage) || win.usedPercentage < 50) continue;
       const critical = win.usedPercentage >= QUOTA_CRITICAL;
       const bg = critical ? palette.branchDirtyBg : palette.taskBg;
-      segments.push({ text: `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`, bg, fg: palette.fg, priority: critical ? 25 : 20 });
+      segments.push({ text: `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`, bg, fg: palette.fg, priority: critical ? 85 : 40 });
     }
+  }
+
+  // Cost + burn rate
+  if (display.cost && input.cost != null) {
+    let costText = formatCost(input.cost);
+    if (display.burnRate && input.durationMs != null) {
+      const burn = formatBurnRate(input.cost, input.durationMs);
+      if (burn) costText += ` ${burn}`;
+    }
+    segments.push({ text: costText, bg: palette.taskBg, fg: palette.fg, priority: 70 });
+  }
+
+  // Tokens ↑↓ (cumulative input/output)
+  if (display.tokens) {
+    const inTokens = input.tokens.input;
+    const outTokens = input.tokens.output;
+    const parts: string[] = [];
+    if (inTokens > 0) parts.push(`${formatTokens(inTokens)}↑`);
+    if (outTokens > 0) parts.push(`${formatTokens(outTokens)}↓`);
+    if (parts.length > 0) {
+      segments.push({ text: `${icons.comment} ${parts.join(' ')}`, bg: palette.dirBg, fg: palette.fg, priority: 60 });
+    }
+  }
+
+  // Cache metrics (hit rate)
+  if (display.cacheMetrics && input.cacheHitRate != null) {
+    segments.push({ text: `cache ${input.cacheHitRate}%`, bg: palette.versionBg, fg: palette.fg, priority: 55 });
+  }
+
+  // MCP servers
+  if (display.mcp && mcp) {
+    const total = mcp.servers.length;
+    const errors = mcp.servers.filter(s => s.status === 'error').length;
+    const mcpText = errors > 0 ? `MCP ${total - errors}/${total}` : `MCP ${total}`;
+    segments.push({ text: mcpText, bg: palette.taskBg, fg: palette.fg, priority: 50 });
+  }
+
+  // Qwen metrics
+  const qwenParts = formatQwenMetrics(input, c, icons);
+  for (const part of qwenParts) {
+    segments.push({ text: part, bg: palette.versionBg, fg: palette.fg, priority: 45 });
+  }
+
+
+  // Vim mode (low priority — no right side in powerline, append as left segment)
+  if (display.vim && input.vimMode) {
+    segments.push({ text: `[${input.vimMode}]`, bg: palette.dirBg, fg: palette.fg, priority: 30 });
+  }
+
+  // Effort level (hidden if medium)
+  const effort = input.effortLevel || thinkingEffort;
+  if (display.effort && effort && effort !== 'medium') {
+    segments.push({ text: `^${effort}`, bg: palette.versionBg, fg: palette.fg, priority: 30 });
   }
 
   return segments;

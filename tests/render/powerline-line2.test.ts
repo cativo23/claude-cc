@@ -73,7 +73,20 @@ describe('renderPowerlineLine2', () => {
     const ctx = makeCtx({
       config: {
         ...DEFAULT_CONFIG,
-        display: { ...DEFAULT_DISPLAY, contextBar: false, contextTokens: false, cost: false, duration: false, rateLimits: false },
+        display: {
+          ...DEFAULT_DISPLAY,
+          contextBar: false,
+          contextTokens: false,
+          cost: false,
+          duration: false,
+          rateLimits: false,
+          tokens: false,
+          cacheMetrics: false,
+          burnRate: false,
+          mcp: false,
+          vim: false,
+          effort: false,
+        },
       },
     });
     const out = renderPowerlineLine2(ctx, 'truecolor', null, c);
@@ -89,6 +102,61 @@ describe('renderPowerlineLine2', () => {
 
   // Battery glyph in the rate-limit segment — mirrors the line2.test.ts coverage
   // so the powerline path is not silently regressed when the glyph mapping moves.
+  describe('parity segments', () => {
+    it('tokens segment appears when display.tokens true and input has token counts', () => {
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 50000, total_output_tokens: 5000 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+      };
+      const ctx = makeCtx({
+        input: normalize(rawInput),
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, tokens: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      // Should contain ↑ or ↓ token indicators
+      expect(out).toMatch(/↑|↓/);
+    });
+
+    it('cacheMetrics segment appears when display.cacheMetrics true and input has cacheHitRate', () => {
+      const rawInput = {
+        model: 'claude-code',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 50000, total_output_tokens: 5000 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        usage: { input_tokens: 5000, output_tokens: 1000, cache_read_input_tokens: 4000, cache_creation_input_tokens: 1000 },
+      };
+      // Directly set cacheHitRate on the normalized input
+      const normalizedInput = normalize(rawInput);
+      // Patch cacheHitRate in since the test payload may not trigger the parser logic
+      const patchedInput = { ...normalizedInput, cacheHitRate: 75 };
+      const ctx = makeCtx({
+        input: patchedInput,
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('cache');
+      expect(out).toContain('75%');
+    });
+
+    it('burnRate segment appears next to cost when display.burnRate true', () => {
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+      };
+      const ctx = makeCtx({
+        input: normalize(rawInput),
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cost: true, burnRate: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      // burnRate formatted as $/h or $/min — check for $/
+      expect(out).toMatch(/\$.*\/[hm]/);
+    });
+  });
+
   describe('rate-limit battery glyph', () => {
     function ctxWithRateLimit(usedPercentage: number, iconMode: 'nerd' | 'emoji' | 'none' = 'nerd') {
       const rawInput = {
