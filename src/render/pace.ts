@@ -40,9 +40,11 @@ export function formatPaceDelta(pace: PaceDelta): string {
     let suffix = '';
     if (pace.timeToExhaustion != null) {
       const mins = Math.round(pace.timeToExhaustion);
-      suffix = mins >= 60
-        ? ` (~${Math.round(mins / 60)}h)`
-        : ` (~${mins}min)`;
+      if (mins > 0) {
+        suffix = mins >= 60
+          ? ` (~${Math.round(mins / 60)}h)`
+          : ` (~${mins}min)`;
+      }
     }
     return `+${rounded}%${suffix}`;
   }

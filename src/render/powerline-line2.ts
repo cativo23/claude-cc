@@ -7,7 +7,7 @@ import {
 import { QUOTA_CRITICAL } from '../types.js';
 import { buildContextBar, formatQwenMetrics } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
-import { detectColorMode, type ColorMode, type Colors } from './colors.js';
+import { detectColorMode, getPaceColor, type ColorMode, type Colors } from './colors.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
 import type { RenderContext } from '../types.js';
@@ -88,7 +88,8 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
         } else {
           const paceIcon = pace.delta > 1 ? icons.car : pace.delta < -1 ? icons.turtle : '';
           const iconPrefix = paceIcon ? `${paceIcon}` : '';
-          segments.push({ text: `${iconPrefix}${paceStr}`, bg: palette.dirBg, fg: palette.fg, priority: 60 });
+          const coloredText = c[getPaceColor(pace.delta)](`${iconPrefix}${paceStr}`);
+          segments.push({ text: coloredText, bg: palette.dirBg, fg: palette.fg, priority: 60 });
         }
       }
     }

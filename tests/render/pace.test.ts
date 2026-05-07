@@ -190,4 +190,15 @@ describe('formatPaceDelta', () => {
   it('delta at boundary -1.0 is NOT "on pace" (exclusive lower)', () => {
     expect(formatPaceDelta({ delta: -1, timeToExhaustion: null })).toBe('-1%');
   });
+
+  it('suppresses suffix when TTE rounds to zero (usedPercentage = 100 edge case)', () => {
+    // TTE = 0 means quota already exhausted — showing "~0min" is misleading
+    const result = formatPaceDelta({ delta: 50, timeToExhaustion: 0 });
+    expect(result).toBe('+50%');
+  });
+
+  it('suppresses suffix when TTE is sub-minute (rounds to 0)', () => {
+    const result = formatPaceDelta({ delta: 50, timeToExhaustion: 0.3 });
+    expect(result).toBe('+50%');
+  });
 });
