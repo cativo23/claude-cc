@@ -52,6 +52,32 @@ status: executing
     expect(s.status).toBeUndefined();
     expect(s.milestone).toBe('v1.0');
   });
+
+  it('strips balanced double-quote pairs', () => {
+    const content = `---\nmilestone: "v1.0"\n---`;
+    expect(parseStateMd(content).milestone).toBe('v1.0');
+  });
+
+  it('strips balanced single-quote pairs', () => {
+    const content = `---\nmilestone: 'v1.0'\n---`;
+    expect(parseStateMd(content).milestone).toBe('v1.0');
+  });
+
+  it('preserves leading quote when trailing quote is absent (unmatched)', () => {
+    const content = `---\nmilestone: "foo\n---`;
+    // Unmatched quote — no stripping should occur
+    expect(parseStateMd(content).milestone).toBe('"foo');
+  });
+
+  it('preserves trailing quote when leading quote is absent (unmatched)', () => {
+    const content = `---\nmilestone: foo"\n---`;
+    expect(parseStateMd(content).milestone).toBe('foo"');
+  });
+
+  it('does not strip mismatched quote pair', () => {
+    const content = `---\nmilestone: "foo'\n---`;
+    expect(parseStateMd(content).milestone).toBe('"foo\'');
+  });
 });
 
 describe('getGsdInfo', () => {

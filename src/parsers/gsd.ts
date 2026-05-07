@@ -32,7 +32,7 @@ export function parseStateMd(content: string): GsdState {
       const m = line.match(/^(\w+):\s*(.+)/);
       if (!m) continue;
       const [, key, val] = m;
-      const v = val.trim().replace(/^["']|["']$/g, '');
+      const v = val.trim().replace(/^(["'])(.*)\1$/, '$2');
       if (v === 'null') continue;
       if (key === 'status') state.status = v;
       else if (key === 'milestone') state.milestone = v;
