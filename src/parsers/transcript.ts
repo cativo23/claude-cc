@@ -165,6 +165,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   let todos: TodoEntry[] = [];
   const taskIdToIndex = new Map<string, number>();
   let thinkingEffort: ThinkingEffort = '';
+  const effortRegex = /Set model to .+? with (low|medium|high|max|xhigh) effort/;
 
   let fileStream: ReturnType<typeof createReadStream> | null = null;
   try {
@@ -186,7 +187,6 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         const entry = JSON.parse(line);
         if (!result.sessionStart && entry.timestamp) result.sessionStart = new Date(entry.timestamp);
 
-        const effortRegex = /Set model to .+? with (low|medium|high|max|xhigh) effort/;
         const effortMatch = Array.isArray(entry.message?.content)
           ? entry.message.content
               .filter((b: { type: string }) => b.type === 'text')
