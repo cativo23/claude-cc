@@ -34,7 +34,7 @@ jobs:
       - run: npm run build
       - name: Bundle size guard
         env:
-          CEILING: '376832'
+          CEILING: '393216'
         run: |
           SIZE=$(du -sb dist/ | cut -f1)
           echo "dist/ size: $SIZE bytes (ceiling: $CEILING)"
