@@ -58,6 +58,12 @@ describe('deriveSubagentsDir', () => {
     expect(deriveSubagentsDir('/home/u/.claude/projects/proj/abc.jsonl'))
       .toBe('/home/u/.claude/projects/proj/abc/subagents');
   });
+  it('strips uppercase .JSONL extensions case-insensitively', () => {
+    expect(deriveSubagentsDir('/home/u/proj/abc.JSONL'))
+      .toBe('/home/u/proj/abc/subagents');
+    expect(deriveSubagentsDir('/home/u/proj/abc.Jsonl'))
+      .toBe('/home/u/proj/abc/subagents');
+  });
 });
 
 describe('parseSubagentsDir', () => {
@@ -244,6 +250,56 @@ describe('parseSubagentsDir', () => {
     // endTime is still a valid Date (file mtime) — never NaN.
     expect(agents[0].endTime).toBeInstanceOf(Date);
     expect(Number.isFinite(agents[0].endTime!.getTime())).toBe(true);
+  });
+
+  it('falls back to file mtime for startTime when first JSONL line has no timestamp field', async () => {
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeAgent(subagentsDir, 'no-ts',
+      // No `timestamp` field — extractTimestamp returns null and mtime is used.
+      { agentId: 'no-ts', message: { role: 'assistant', stop_reason: 'end_turn' } },
+    );
+    const agents = await parseSubagentsDir(jsonlPath);
+    expect(agents[0].startTime).toBeInstanceOf(Date);
+    expect(Number.isFinite(agents[0].startTime.getTime())).toBe(true);
+  });
+
+  it('ignores non-text content blocks when checking for the interrupt marker', async () => {
+    // A mixed content array (e.g. image + text) must still trigger the
+    // marker check on the text block. Documents the safety of the
+    // `typeof text === 'string'` guard against non-text blocks.
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeAgent(subagentsDir, 'mix1', {
+      type: 'user',
+      message: { role: 'user', content: [
+        { type: 'image', source: { data: 'fake' } },
+        { type: 'text', text: '[Request interrupted by user]' },
+      ] },
+    });
+    const agents = await parseSubagentsDir(jsonlPath);
+    expect(agents[0].status).toBe('completed');
+  });
+
+  it('handles a large JSONL via head/tail chunked reads (>64 KB threshold)', async () => {
+    // Subagent transcripts can grow into the megabytes when the agent
+    // runs many tool calls. The boundary reader streams via head/tail
+    // chunks instead of slurping. This test fabricates a >64 KB file
+    // with a recognisable first and last line and verifies both
+    // start/end timestamps + completion status survive the chunked path.
+    const { jsonlPath, subagentsDir } = makeSession();
+    const startTs = '2026-05-07T18:00:00.000Z';
+    const endTs = '2026-05-07T18:10:00.000Z';
+    const first = JSON.stringify({ agentId: 'big', timestamp: startTs, type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'go' }] } });
+    const last = JSON.stringify({ agentId: 'big', timestamp: endTs, type: 'assistant', message: { role: 'assistant', stop_reason: 'end_turn' } });
+    // Pad the middle with ~80 KB of junk lines that don't parse as JSON
+    // (they should be skipped by parseFirstJson/parseLastJson).
+    const junk = Array.from({ length: 4000 }, (_, i) => `noise line ${i} `.repeat(8)).join('\n');
+    writeRawAgent(subagentsDir, 'big', `${first}\n${junk}\n${last}\n`);
+    const agents = await parseSubagentsDir(jsonlPath);
+    expect(agents).toHaveLength(1);
+    expect(agents[0].id).toBe('big');
+    expect(agents[0].status).toBe('completed');
+    expect(agents[0].startTime.toISOString()).toBe(startTs);
+    expect(agents[0].endTime?.toISOString()).toBe(endTs);
   });
 
   it('uses the first JSONL line timestamp for startTime, not the file mtime', async () => {

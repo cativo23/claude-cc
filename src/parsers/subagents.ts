@@ -3,7 +3,7 @@
 // `utils/path.ts`. We do not gate any I/O behind `existsSync` here — the
 // async readdir/stat calls have try/catch fallbacks, which avoids the
 // existsSync→readdir TOCTOU window.
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { join, dirname, basename, resolve } from 'node:path';
 import type { AgentEntry, ToolStatus } from '../types.js';
 import { isUnderAllowedRoot, LUMIRA_ALLOWED_ROOTS } from '../utils/path.js';
@@ -115,10 +115,14 @@ export interface SubagentsDirState {
  * doing a full parse can hand the candidates to `readSubagentDetails`
  * without re-running readdir/stat.
  */
-export async function scanSubagentsDir(jsonlPath: string): Promise<{ state: SubagentsDirState | null; candidates: AgentCandidate[] }> {
-  if (!jsonlPath) return { state: null, candidates: [] };
-  const dir = deriveSubagentsDir(jsonlPath);
-  const resolved = resolve(dir);
+export async function scanSubagentsDir(rawJsonlPath: string): Promise<{ state: SubagentsDirState | null; candidates: AgentCandidate[] }> {
+  if (!rawJsonlPath) return { state: null, candidates: [] };
+  // Canonicalise the input path here so public callers (relative paths,
+  // `..` segments) and internal callers (`transcript.ts` already passes a
+  // resolved absolute path) get identical results. `deriveSubagentsDir`
+  // remains a pure string operation; this is the single point of resolution.
+  const jsonlPath = resolve(rawJsonlPath);
+  const resolved = deriveSubagentsDir(jsonlPath);
   if (!isUnderAllowedRoot(resolved, LUMIRA_ALLOWED_ROOTS)) {
     log('skip — subagents dir outside allowed roots:', resolved);
     return { state: null, candidates: [] };
@@ -182,28 +186,69 @@ interface JsonlBoundaryLines {
   last: unknown | null;
 }
 
-// One pass over the file extracts both the first and last well-formed JSON
-// objects. We need the first line's timestamp for `startTime` (file mtime
+// Files larger than this threshold are read via head/tail chunks rather
+// than slurped whole. Subagent transcripts can grow into the megabytes
+// when the agent runs many tool calls — buffering all of them on every
+// cache miss caused real memory pressure in the wild.
+const LARGE_FILE_THRESHOLD = 64 * 1024;
+// Window we read at each end of a large file. 16 KB is comfortably bigger
+// than any single JSONL line we've observed (Claude Code wraps very long
+// content), and small enough to keep a 10-agent miss under 320 KB peak.
+const BOUNDARY_CHUNK_SIZE = 16 * 1024;
+
+// Extracts both the first and last well-formed JSON objects from a JSONL
+// file. We need the first line's timestamp for `startTime` (file mtime
 // drifts to the *last* write) and the last line for completion markers.
-async function readBoundaryJsonLines(filePath: string): Promise<JsonlBoundaryLines> {
+//
+// For files at or below `LARGE_FILE_THRESHOLD` we slurp via `readFile`
+// (one syscall, no chunking). For larger files we open the fd and read
+// only the head and tail windows — bounding peak memory regardless of
+// transcript size.
+async function readBoundaryJsonLines(filePath: string, fileSize: number): Promise<JsonlBoundaryLines> {
+  if (fileSize <= LARGE_FILE_THRESHOLD) {
+    try {
+      const raw = await readFile(filePath, 'utf8');
+      return { first: parseFirstJson(raw), last: parseLastJson(raw) };
+    } catch { return { first: null, last: null }; }
+  }
+  let fd;
+  try { fd = await open(filePath, 'r'); } catch { return { first: null, last: null }; }
   try {
-    const raw = await readFile(filePath, 'utf8');
-    const lines = raw.split('\n');
-    let first: unknown | null = null;
-    for (const l of lines) {
-      const t = l.trim();
-      if (!t) continue;
-      try { first = JSON.parse(t); break; } catch { /* try next line */ }
-    }
-    let last: unknown | null = null;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const t = lines[i].trim();
-      if (!t) continue;
-      try { last = JSON.parse(t); break; } catch { /* try previous line */ }
-    }
-    return { first, last };
-  } catch { /* unreadable */ }
-  return { first: null, last: null };
+    const headSize = Math.min(BOUNDARY_CHUNK_SIZE, fileSize);
+    const headBuf = Buffer.alloc(headSize);
+    await fd.read(headBuf, 0, headSize, 0);
+    const head = headBuf.toString('utf8');
+
+    const tailSize = Math.min(BOUNDARY_CHUNK_SIZE, fileSize);
+    const tailBuf = Buffer.alloc(tailSize);
+    await fd.read(tailBuf, 0, tailSize, fileSize - tailSize);
+    const tail = tailBuf.toString('utf8');
+
+    // The tail chunk likely starts mid-line (we sliced at a byte offset).
+    // Drop the first partial line so JSON.parse doesn't choke on it.
+    const tailFromBoundary = tail.includes('\n') ? tail.slice(tail.indexOf('\n') + 1) : tail;
+    return { first: parseFirstJson(head), last: parseLastJson(tailFromBoundary) };
+  } catch { return { first: null, last: null }; }
+  finally { await fd.close().catch(() => undefined); }
+}
+
+function parseFirstJson(raw: string): unknown | null {
+  for (const l of raw.split('\n')) {
+    const t = l.trim();
+    if (!t) continue;
+    try { return JSON.parse(t); } catch { /* try next line */ }
+  }
+  return null;
+}
+
+function parseLastJson(raw: string): unknown | null {
+  const lines = raw.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const t = lines[i].trim();
+    if (!t) continue;
+    try { return JSON.parse(t); } catch { /* try previous line */ }
+  }
+  return null;
 }
 
 function extractStopReason(lastLine: unknown): string | null {
@@ -232,7 +277,9 @@ function extractTimestamp(lastLine: unknown): Date | null {
 // closing stop_reason rewritten. Matching is anchored on both ends to avoid
 // false positives if Claude Code ever ships an unrelated message that
 // starts with the same prefix.
-const INTERRUPT_MARKER_RE = /^\[Request interrupted by user[^\]]*\]$/;
+// `[^[]*` rather than `[^\]]*` so a hypothetical future variant whose
+// reason text contains a `]` (but no `[`) would still match.
+const INTERRUPT_MARKER_RE = /^\[Request interrupted by user[^[]*\]$/;
 
 function wasInterruptedByUser(lastLine: unknown): boolean {
   if (!lastLine || typeof lastLine !== 'object') return false;
@@ -249,8 +296,8 @@ function wasInterruptedByUser(lastLine: unknown): boolean {
   return false;
 }
 
-async function readAgentDetails(c: AgentCandidate): Promise<AgentEntry | null> {
-  const { first, last } = await readBoundaryJsonLines(c.jsonlFile);
+async function readAgentDetails(c: AgentCandidate): Promise<AgentEntry> {
+  const { first, last } = await readBoundaryJsonLines(c.jsonlFile, c.size);
   const stopReason = extractStopReason(last);
   const interrupted = wasInterruptedByUser(last);
 
@@ -286,9 +333,15 @@ async function readAgentDetails(c: AgentCandidate): Promise<AgentEntry | null> {
  * MAX_AGENTS most recent files in `candidates`. Sorts oldest → newest by
  * file mtime; the survivors of `slice(-MAX_AGENTS)` are read.
  *
- * `mtime` is the on-disk last-write timestamp, not the subagent's logical
- * "last activity" — those are usually the same but can drift when the OS
- * journal flushes well after the write.
+ * `mtime` is the on-disk last-write timestamp, not the agent's logical
+ * "last activity". The two usually coincide, but on a slow filesystem an
+ * agent dispatched recently may have a stale mtime (its first write
+ * hasn't been journaled yet) while an older agent's file gets touched by
+ * an unrelated journal flush. The downstream `startTime` is read from
+ * the JSONL line's embedded `timestamp` field — so the sort order may
+ * not match `startTime` order exactly. Acceptable for the statusline's
+ * "newest N" picker; flagged here so a future caller doesn't assume the
+ * two orderings are identical.
  *
  * Exported so callers that already ran `scanSubagentsDir` (e.g. the
  * transcript parser, which uses the same scan to build its cache key) can
@@ -299,8 +352,7 @@ export async function readSubagentDetails(candidates: AgentCandidate[]): Promise
   const top = sorted.slice(-MAX_AGENTS);
   const agents: AgentEntry[] = [];
   for (const c of top) {
-    const a = await readAgentDetails(c);
-    if (a) agents.push(a);
+    agents.push(await readAgentDetails(c));
   }
   return agents;
 }
