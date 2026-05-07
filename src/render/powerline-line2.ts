@@ -7,7 +7,8 @@ import {
 import { QUOTA_CRITICAL } from '../types.js';
 import { buildContextBar, formatQwenMetrics } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
-import type { ColorMode, Colors } from './colors.js';
+import { detectColorMode, type ColorMode, type Colors } from './colors.js';
+import { getConfigHealth } from '../parsers/config-health.js';
 import type { RenderContext } from '../types.js';
 import {
   type PowerlinePalette,
@@ -124,6 +125,16 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
   const effort = input.effortLevel || thinkingEffort;
   if (display.effort && effort && effort !== 'medium') {
     segments.push({ text: `^${effort}`, bg: palette.versionBg, fg: palette.fg, priority: 30 });
+  }
+
+  // Config health hints (opt-in, lowest priority — evicted first on narrow terminals)
+  if (display.health && input.cwd) {
+    const colorMode = ctx.config.colors.mode === 'auto' ? detectColorMode() : ctx.config.colors.mode;
+    const hints = getConfigHealth(ctx.config, colorMode, input.cwd);
+    for (const h of hints) {
+      const prefix = h.severity === 'warn' ? '⚠ ' : 'ℹ ';
+      segments.push({ text: `${prefix}${h.hint}`, bg: palette.versionBg, fg: palette.fg, priority: 10 });
+    }
   }
 
   return segments;

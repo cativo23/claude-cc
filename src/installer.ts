@@ -205,7 +205,7 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
 
   settings.statusLine = { ...LUMIRA_STATUSLINE };
   mkdirSync(dirname(settingsPath), { recursive: true });
-  const tmp = settingsPath + '.lumira.tmp';
+  const tmp = `${settingsPath}.${process.pid}.${Date.now()}.lumira.tmp`;
   try {
     const fd = openSync(tmp, 'wx', 0o600);
     writeSync(fd, JSON.stringify(settings, null, 2) + '\n');
@@ -263,24 +263,27 @@ export function uninstall(opts: InstallerOptions = {}): string {
     }
   }
 
+  let uninstSettings: Record<string, unknown>;
   try {
-    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    delete settings.statusLine;
-    const uninstTmp = settingsPath + '.lumira.tmp';
-    try {
-      const fd = openSync(uninstTmp, 'wx', 0o600);
-      writeSync(fd, JSON.stringify(settings, null, 2) + '\n');
-      fsyncSync(fd);
-      closeSync(fd);
-      renameSync(uninstTmp, settingsPath);
-    } catch (e) {
-      try { unlinkSync(uninstTmp); } catch {}
-      throw e;
-    }
-    lines.push(ok('Removed lumira statusline from settings'));
+    uninstSettings = JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
   } catch {
     lines.push(warn('Could not parse settings.json'));
+    lines.push(`\n  Restart Claude Code to apply changes.\n`);
+    return lines.join('\n') + '\n';
   }
+  delete uninstSettings.statusLine;
+  const uninstTmp = `${settingsPath}.${process.pid}.${Date.now()}.lumira.tmp`;
+  try {
+    const fd = openSync(uninstTmp, 'wx', 0o600);
+    writeSync(fd, JSON.stringify(uninstSettings, null, 2) + '\n');
+    fsyncSync(fd);
+    closeSync(fd);
+    renameSync(uninstTmp, settingsPath);
+  } catch (e) {
+    try { unlinkSync(uninstTmp); } catch {}
+    throw e;
+  }
+  lines.push(ok('Removed lumira statusline from settings'));
 
   // Remove skill from both destinations (best effort)
   for (const root of [join(home, '.claude'), join(home, '.qwen')]) {

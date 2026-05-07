@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { install, uninstall } from '../src/installer.js';
@@ -115,10 +115,12 @@ describe('install', () => {
   });
 
   it('writes temp file in same dir as settingsPath (no cross-fs rename)', async () => {
-    // The temp file must live beside settings.json so rename() is always same-fs.
-    // We verify no leftover .lumira.tmp exists after install (renamed to final dest).
+    // Temp file lives beside settings.json (same-fs rename). Includes process.pid
+    // so concurrent installs don't collide. Neither the PID-based name nor the
+    // legacy static name should remain after a successful install.
     await install(baseOpts());
-    expect(existsSync(settingsPath + '.lumira.tmp')).toBe(false);
+    const leftover = readdirSync(dir).filter(f => f.includes('lumira.tmp'));
+    expect(leftover).toHaveLength(0);
     expect(existsSync(settingsPath)).toBe(true);
   });
 
@@ -182,6 +184,21 @@ describe('uninstall', () => {
     // Should fall through to removing statusLine key
     const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(data.statusLine).toBeUndefined();
+  });
+
+  it('warns "Could not parse" (not "write") when settings.json is malformed during uninstall', () => {
+    writeFileSync(settingsPath, 'this is { not valid JSON!!');
+    const output = uninstall({ settingsPath });
+    expect(output).toContain('Could not parse');
+    expect(output).not.toContain('Could not write');
+  });
+
+  it('leaves no .lumira.tmp file after successful uninstall', () => {
+    const current = { statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 }, hooks: {} };
+    writeFileSync(settingsPath, JSON.stringify(current, null, 2));
+    uninstall({ settingsPath });
+    const leftover = readdirSync(dir).filter(f => f.includes('lumira.tmp'));
+    expect(leftover).toHaveLength(0);
   });
 });
 
