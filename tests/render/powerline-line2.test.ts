@@ -157,6 +157,54 @@ describe('renderPowerlineLine2', () => {
     });
   });
 
+  describe('config health hints', () => {
+    it('renders GSD-missing info hint when gsd is on but no .planning/STATE.md found', () => {
+      // This is the only health hint reachable in powerline mode (powerline requires
+      // truecolor/256, so named-color hints are never shown through this path).
+      // gsd:true + cwd with no STATE.md → getConfigHealth returns the info hint.
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90, total_input_tokens: 0, total_output_tokens: 0 } }), cwd: '/tmp' },
+        config: {
+          ...DEFAULT_CONFIG,
+          display: { ...DEFAULT_DISPLAY, health: true },
+          colors: { mode: 'truecolor' },
+          gsd: true,
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('ℹ');
+      expect(out).toContain('GSD on but no .planning/STATE.md found');
+    });
+
+    it('does not render health hints when display.health is false', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90, total_input_tokens: 0, total_output_tokens: 0 } }), cwd: '/tmp' },
+        config: {
+          ...DEFAULT_CONFIG,
+          display: { ...DEFAULT_DISPLAY, health: false },
+          colors: { mode: 'truecolor' },
+          gsd: true,
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('ℹ');
+    });
+
+    it('does not render health hints when getConfigHealth returns no hints', () => {
+      // truecolor + no theme + no gsd → getConfigHealth returns []
+      const ctx = makeCtx({
+        config: {
+          ...DEFAULT_CONFIG,
+          display: { ...DEFAULT_DISPLAY, health: true },
+          colors: { mode: 'truecolor' },
+          gsd: false,
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toMatch(/[⚠ℹ]/);
+    });
+  });
+
   describe('rate-limit battery glyph', () => {
     function ctxWithRateLimit(usedPercentage: number, iconMode: 'nerd' | 'emoji' | 'none' = 'nerd') {
       const rawInput = {
