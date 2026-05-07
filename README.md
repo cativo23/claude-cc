@@ -76,7 +76,7 @@ Inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud); takes a dif
 
 - **Git status** — branch + staged/modified/untracked counts, 5s TTL cache. Branch turns red on dirty repos in powerline mode.
 - **Rate limits** — 5h/7d usage as a battery glyph (Nerd Font level fill, or 🔋/🪫 in emoji mode) with color tier and reset countdown. Threshold-gated at 50% to stay invisible while you have margin.
-- **Pace delta** — `usedPct − elapsedPct` of the 5h window. Turtle when behind pace (healthy), car with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed.
+- **Pace delta** — `usedPct − elapsedPct` of the 5h window. Turtle when behind pace (healthy), car with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed. Toggle independently via `display.paceDelta`.
 - **Active agents** — live count of running subagents (`⚡N agents`) plus types parsed from the transcript. Toggle via `display.agents`.
 - **Cache hit rate** — prompt cache efficiency for the current turn (`94k/200k 87%⚡`). Green ≥70%, yellow 40–69%, orange below.
 - **GSD integration** — current task and update notifications (opt-in).
@@ -244,6 +244,7 @@ Create `~/.config/lumira/config.json`:
     "duration": true,
     "tokenSpeed": true,
     "rateLimits": true,
+    "paceDelta": true,
     "tools": true,
     "todos": true,
     "mcp": true,

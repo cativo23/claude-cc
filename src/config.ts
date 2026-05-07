@@ -137,6 +137,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       duration: false,
       tokenSpeed: false,
       rateLimits: false,
+      paceDelta: false,
       tools: false,
       todos: false,
       vim: false,

@@ -475,7 +475,26 @@ describe('renderLine2', () => {
     expect(out).toContain('on pace');
   });
 
-  it('hides pace delta when rateLimits display is off', () => {
+  it('hides pace delta when display.paceDelta is off', () => {
+    const pinnedNow = 1_700_000_000_000;
+    vi.useFakeTimers({ now: pinnedNow });
+    const nowSec = pinnedNow / 1000;
+    const resetsAt = nowSec + 3 * 3600;
+    const inputOverride = {
+      rate_limits: { five_hour: { used_percentage: 60, resets_at: resetsAt } },
+    };
+    const ctx = makeCtx(
+      { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, paceDelta: false } } },
+      inputOverride,
+    );
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('+20%');
+    expect(out).not.toContain('on pace');
+    // rate-limit segment itself should still render
+    expect(out).toContain('60%(5h)');
+  });
+
+  it('shows pace delta even when display.rateLimits is off (independent toggles)', () => {
     const pinnedNow = 1_700_000_000_000;
     vi.useFakeTimers({ now: pinnedNow });
     const nowSec = pinnedNow / 1000;
@@ -488,8 +507,8 @@ describe('renderLine2', () => {
       inputOverride,
     );
     const out = stripAnsi(renderLine2(ctx, c));
-    expect(out).not.toContain('+');
-    expect(out).not.toContain('on pace');
+    expect(out).toContain('+20%');
+    expect(out).not.toContain('60%(5h)');
   });
 
   it('hides pace delta when insufficient data (< 5 min elapsed)', () => {

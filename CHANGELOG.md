@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`display.paceDelta` toggle** — pace delta now has its own visibility flag, independent of `display.rateLimits`. Default true (preserves prior behavior); off in the `minimal` preset. Lets users show the pace signal without the raw 5h/7d percentages, or vice versa.
+
 ### Fixed
 - **Powerline countdown intentionally absent — now documented** — added a code comment explaining that the pace delta segment communicates time-to-exhaustion in powerline mode, replacing the classic-mode countdown signal.
 - **`memory.ts` accepts an injectable `MemoryReader`** — the previous `getMemoryInfo()` test passed vacuously on CI runners without `/proc/meminfo` or `vm_stat`. Refactored to accept a `MemoryReader` (default uses `node:os` + `execFileSync` as before). 11 new deterministic tests cover both the linux freemem path and the darwin vm_stat parser. Production callers unchanged. **Behavior change:** the darwin path now returns `null` when `totalmem()` reports `0` (previously surfaced a phantom 100% reading).

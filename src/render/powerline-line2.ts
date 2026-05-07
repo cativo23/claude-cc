@@ -79,8 +79,9 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
   }
 
   // Pace delta — how far ahead/behind of expected quota burn rate.
-  // Gate on fiveHour window being present and computePaceDelta returning a result.
-  if (display.rateLimits && input.rateLimits) {
+  // Independent of display.rateLimits — the pace signal can render without the
+  // raw 5h/7d percentages and vice versa.
+  if (display.paceDelta && input.rateLimits) {
     const fiveHourWin = input.rateLimits.fiveHour;
     if (fiveHourWin && Number.isFinite(fiveHourWin.usedPercentage)) {
       const pace = computePaceDelta(fiveHourWin.usedPercentage, fiveHourWin.resetsAt);
