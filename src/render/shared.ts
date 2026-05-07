@@ -75,7 +75,8 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
     else if (safePct >= critical) hint = ' ' + c.dim('/compact?');
   }
 
-  const pctStr = colorFn(`${safePct < 10 ? safePct.toFixed(1) : safePct.toFixed(0)}%`);
+  const rounded = Math.round(safePct * 10) / 10;
+  const pctStr = colorFn(`${rounded < 10 ? rounded.toFixed(1) : Math.round(rounded)}%`);
 
   const out = `${bar} ${pctStr}${icon ? ' ' + icon : ''}${hint}`;
   if (plain) {
