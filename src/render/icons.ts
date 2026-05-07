@@ -18,6 +18,9 @@ export interface IconSet {
   ellipsis: string;
   dash: string;
   checkmark: string;
+  car: string;
+  turtle: string;
+  lightning: string;
   /**
    * Battery glyph keyed by usedPercentage. Replaces the bolt prefix on
    * rate-limit segments with a visual fuel gauge so the icon itself signals
@@ -86,6 +89,9 @@ export const NERD_ICONS: IconSet = {
   ellipsis:  '…',  // ...
   dash:      '—',  // em-dash
   checkmark: '✓',  // checkmark
+  car:       '🏎️',  // racing car — pace-ahead indicator
+  turtle:    '🐢',  // turtle — pace-behind indicator
+  lightning: '⚡',  // lightning bolt — cache hit rate
   battery:   nerdBattery,
 };
 
@@ -107,6 +113,9 @@ export const EMOJI_ICONS: IconSet = {
   ellipsis:  '…',
   dash:      '—',
   checkmark: '✅',    // ✅
+  car:       '\u{1F3CE}️', // 🏎️ — racing car
+  turtle:    '\u{1F422}',  // 🐢 — turtle
+  lightning: '⚡',         // ⚡ — cache hit rate
   battery:   (pct: number) => {
     if (!Number.isFinite(pct) || pct < 0) return '\u{1F50B}'; // 🔋 — no data / invalid input
     if (Math.round(pct) >= 100) return '\u{1F480}';            // 💀 — quota exhausted
@@ -133,6 +142,9 @@ export const NO_ICONS: IconSet = {
   ellipsis:  '…',
   dash:      '—',
   checkmark: '✓',
+  car:       '',
+  turtle:    '',
+  lightning: '',
   // No-icon mode keeps the legacy bolt fallback (currently empty) so users who
   // opted out of icons see no shape change from this feature.
   battery:   () => '',

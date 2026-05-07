@@ -9,6 +9,7 @@ import { buildContextBar, formatQwenMetrics } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { detectColorMode, type ColorMode, type Colors } from './colors.js';
 import { getConfigHealth } from '../parsers/config-health.js';
+import { computePaceDelta, formatPaceDelta } from './pace.js';
 import type { RenderContext } from '../types.js';
 import {
   type PowerlinePalette,
@@ -74,6 +75,25 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     }
   }
 
+  // Pace delta — how far ahead/behind of expected quota burn rate.
+  // Gate on fiveHour window being present and computePaceDelta returning a result.
+  if (display.rateLimits && input.rateLimits) {
+    const fiveHourWin = input.rateLimits.fiveHour;
+    if (fiveHourWin && Number.isFinite(fiveHourWin.usedPercentage)) {
+      const pace = computePaceDelta(fiveHourWin.usedPercentage, fiveHourWin.resetsAt);
+      if (pace != null) {
+        const paceStr = formatPaceDelta(pace);
+        if (paceStr === 'on pace') {
+          segments.push({ text: 'on pace', bg: palette.dirBg, fg: palette.fg, priority: 60 });
+        } else {
+          const paceIcon = pace.delta > 1 ? icons.car : pace.delta < -1 ? icons.turtle : '';
+          const iconPrefix = paceIcon ? `${paceIcon}` : '';
+          segments.push({ text: `${iconPrefix}${paceStr}`, bg: palette.dirBg, fg: palette.fg, priority: 60 });
+        }
+      }
+    }
+  }
+
   // Cost + burn rate
   if (display.cost && input.cost != null) {
     let costText = formatCost(input.cost);
@@ -96,9 +116,9 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     }
   }
 
-  // Cache metrics (hit rate)
+  // Cache metrics (hit rate) — priority 50, colored text inside segment
   if (display.cacheMetrics && input.cacheHitRate != null) {
-    segments.push({ text: `cache ${input.cacheHitRate}%`, bg: palette.versionBg, fg: palette.fg, priority: 55 });
+    segments.push({ text: `${input.cacheHitRate}%${icons.lightning}`, bg: palette.versionBg, fg: palette.fg, priority: 50 });
   }
 
   // MCP servers
