@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-05-06
+
+### Fixed
+- **`installer.ts` tmp file includes PID + timestamp** — `.<pid>.<ts>.lumira.tmp` eliminates collision risk between concurrent installs and makes stale tmp files from crashed processes unambiguous to clean up.
+- **`uninstall()` error message split** — parse failures now emit "Could not parse settings.json" and return early; write failures propagate as thrown errors. Previously both failure modes showed the parse message regardless of the actual cause.
+- **`powerline-line2` mirrors `display.health` hints** — config-health hints (`getConfigHealth`) were present in classic line2 but missing from the powerline render path. Added as priority-10 segments (lowest, evicted first on narrow terminals).
+
 ## [0.9.4] - 2026-05-06
 
 ### Fixed
