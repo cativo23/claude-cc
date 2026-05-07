@@ -1,3 +1,7 @@
+import { debug } from '../utils/debug.js';
+
+const log = debug('pace');
+
 export interface PaceDelta {
   delta: number;          // usedPct - elapsedPct (positive = ahead, negative = behind)
   timeToExhaustion: number | null;  // minutes remaining at current burn rate (null if behind pace)
@@ -10,13 +14,19 @@ export function computePaceDelta(
 ): PaceDelta | null {
   const now = nowSec ?? Date.now() / 1000;
 
-  if (resetsAt === undefined || resetsAt <= now) return null;
+  if (resetsAt === undefined || resetsAt <= now) {
+    if (log.enabled) log({ reason: 'no resetsAt or already past', resetsAt, now });
+    return null;
+  }
 
   const totalWindowSec = 5 * 3600;
   const remainingSec = resetsAt - now;
   const elapsedSec = totalWindowSec - remainingSec;
 
-  if (elapsedSec < 300) return null; // insufficient data — less than 5 min elapsed
+  if (elapsedSec < 300) {
+    if (log.enabled) log({ reason: 'insufficient data (<5min)', elapsedSec, remainingSec });
+    return null;
+  }
 
   const elapsedPct = (elapsedSec / totalWindowSec) * 100;
   const delta = usedPercentage - elapsedPct;
@@ -26,6 +36,21 @@ export function computePaceDelta(
     // burn rate = usedPercentage / elapsedSec (pct per second)
     // time to exhaust remaining (100 - usedPercentage) pct at that rate
     timeToExhaustion = (100 - usedPercentage) / (usedPercentage / elapsedSec) / 60;
+  }
+
+  if (log.enabled) {
+    log({
+      usedPercentage,
+      resetsAt,
+      now,
+      elapsedSec: Math.round(elapsedSec),
+      elapsedMin: Math.round(elapsedSec / 60),
+      remainingSec: Math.round(remainingSec),
+      remainingMin: Math.round(remainingSec / 60),
+      elapsedPct: Math.round(elapsedPct * 10) / 10,
+      delta: Math.round(delta * 10) / 10,
+      timeToExhaustionMin: timeToExhaustion != null ? Math.round(timeToExhaustion) : null,
+    });
   }
 
   return { delta, timeToExhaustion };

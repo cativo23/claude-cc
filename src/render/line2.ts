@@ -66,8 +66,11 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     if (parts.length > 0) leftParts.push(`${icons.comment} ${parts.join(' ')}`);
   }
 
-  // Cache metrics (hit rate) — colored by quality tier
-  if (display.cacheMetrics && input.cacheHitRate != null) {
+  // Cache metrics (hit rate) — alarm-mode display: only render when <90%
+  // because Anthropic's prompt cache pins this near 99% in healthy steady state,
+  // and an always-on 99% is wallpaper, not signal. Mirrors the hide-when-healthy
+  // pattern used by rate-limits (≥50%) and agent-count (≥1).
+  if (display.cacheMetrics && input.cacheHitRate != null && input.cacheHitRate < 90) {
     const cacheColorFn = c[getCacheHitColor(input.cacheHitRate)];
     leftParts.push(cacheColorFn(`${input.cacheHitRate}%${icons.lightning}`));
   }

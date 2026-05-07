@@ -119,13 +119,17 @@ export function getPaceColor(delta: number): ColorName {
 }
 
 /**
- * Color for the cache hit rate percentage.
- * Green when cache is working well (≥70%), yellow for moderate (40–69%), orange for poor (<40%).
+ * Color for the cache hit rate widget. Rendered only when below the alarm
+ * threshold (≥90% is hidden as healthy steady-state), so the tiers reflect
+ * degrees of "something is wrong" rather than degrees of healthy.
+ *   70–89%: yellow (mild concern — TTL expiry, fresh content arrived)
+ *   40–69%: orange (caching not engaging)
+ *    <40%:  blinkRed (cache likely broken)
  */
 export function getCacheHitColor(pct: number): ColorName {
-  if (pct >= 70) return 'green';
-  if (pct >= 40) return 'yellow';
-  return 'orange';
+  if (pct >= 70) return 'yellow';
+  if (pct >= 40) return 'orange';
+  return 'blinkRed';
 }
 
 export function getQuotaColor(pct: number): ColorName {

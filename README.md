@@ -78,7 +78,7 @@ Inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud); takes a dif
 - **Rate limits** — 5h/7d usage as a battery glyph (Nerd Font level fill, or 🔋/🪫 in emoji mode) with color tier and reset countdown. Threshold-gated at 50% to stay invisible while you have margin.
 - **Pace delta** — `usedPct − elapsedPct` of the 5h window. Turtle when behind pace (healthy), car with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed. Toggle independently via `display.paceDelta`.
 - **Active agents** — live count of running subagents (`⚡N agents`) plus types parsed from the transcript. Toggle via `display.agents`.
-- **Cache hit rate** — prompt cache efficiency for the current turn (`94k/200k 87%⚡`). Green ≥70%, yellow 40–69%, orange below.
+- **Cache hit rate** — prompt cache efficiency for the current turn (`87%⚡`). Alarm-mode: hidden while ≥90% (Anthropic's prompt cache pins this near 99% in healthy steady state, so an always-on number is wallpaper, not signal). Surfaces as yellow/orange/blinkRed only when the cache is actually degrading. Same hide-when-healthy pattern as rate-limits and agent count.
 - **GSD integration** — current task and update notifications (opt-in).
 - **Config health widget** — surfaces silent fallbacks (theme/powerline degrading in named-ANSI, missing GSD STATE.md). Opt-in.
 - **Memory usage** — process RSS percentage.
