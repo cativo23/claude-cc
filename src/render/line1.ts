@@ -1,16 +1,11 @@
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fitSegments, truncField } from './text.js';
-import { formatGitChanges, SEP } from './shared.js';
+import { formatGitChanges, getActiveTodo, SEP } from './shared.js';
 import { hyperlink } from './hyperlink.js';
 import { formatDuration } from '../utils/format.js';
 import type { Colors } from './colors.js';
-import type { RenderContext, TranscriptData } from '../types.js';
-
-function getActiveTodo(transcript: TranscriptData): string | undefined {
-  const inProgress = transcript.todos.filter(t => t.status === 'in_progress');
-  return inProgress[0]?.content;
-}
+import type { RenderContext } from '../types.js';
 
 export function renderLine1(ctx: RenderContext, c: Colors): string {
   const { input, git, transcript, config: { display }, cols, icons, memory, tokenSpeed } = ctx;
