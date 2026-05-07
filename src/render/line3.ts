@@ -1,10 +1,8 @@
 import { truncField } from './text.js';
-import { SEP } from './shared.js';
+import { SEP, EXCLUDED_TOOLS } from './shared.js';
 import type { IconSet } from './icons.js';
 import type { Colors } from './colors.js';
 import type { RenderContext, ToolEntry, TodoEntry } from '../types.js';
-
-const EXCLUDED_TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate']);
 
 function buildToolsPart(tools: ToolEntry[], c: Colors, ic: IconSet): string {
   const relevant = tools.filter(t => !EXCLUDED_TOOLS.has(t.name));

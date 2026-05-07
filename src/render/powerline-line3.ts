@@ -5,6 +5,7 @@ import {
   type PowerlineStyleName,
 } from './powerline.js';
 import { truncField } from './text.js';
+import { EXCLUDED_TOOLS } from './shared.js';
 import type { ColorMode } from './colors.js';
 import type { RenderContext, ToolEntry } from '../types.js';
 import {
@@ -13,8 +14,6 @@ import {
   DEFAULT_POWERLINE_PALETTE,
   type ThemePalette,
 } from '../themes.js';
-
-const EXCLUDED_TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate']);
 
 function buildSegments(ctx: RenderContext, palette: PowerlinePalette): PowerlineSegment[] {
   const { transcript: { tools, todos }, config: { display }, icons } = ctx;
