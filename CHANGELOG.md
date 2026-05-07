@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-05-06
+
+### Fixed
+- **`installer.ts` temp file in same directory** — temp file is now written to `<settingsDir>/.lumira.tmp` instead of a system temp path, eliminating the `EXDEV` cross-filesystem rename error on Linux when `~/.claude/` is on a different mount than `/tmp`.
+- **`cache.ts` full MD5 digest** — cache key now uses the full 32-character hex digest instead of an 8-character slice, eliminating the 32-bit birthday collision risk for users with many concurrent worktrees.
+- **`parsers/gsd.ts` balanced-quote stripping** — frontmatter values are now stripped with `/^(["'])(.*)\1$/` instead of independent leading/trailing replacements, preventing false-strip of values like `"it's"` or `'say "hi"'`.
+- **`parsers/mcp.ts` `mcpServers` shape guard** — non-object or array `mcpServers` values no longer crash the parser; they now return `null`.
+- **`stdin.ts` tagged `StdinParseError`** — parse errors are now a `StdinParseError` subclass of `SyntaxError`, letting `index.ts` narrow the catch and suppress the stderr dump only for expected parse failures.
+- **`utils/terminal.ts` PPID parsing** — `comm` field is now sliced from after the last `)` in `/proc/<pid>/stat`, correctly handling process names that contain spaces or parentheses.
+- **`utils/cache.ts` `getUid()` helper** — Windows fallback now uses `userInfo().username` in a try/catch to handle containers where the UID has no `/etc/passwd` entry, instead of crashing.
+- **`render/powerline-line2.ts` parity with classic line2** — added 6 missing segment families: tokens (`↑`/`↓`), cache hit rate, burn rate (appended to cost), MCP server count/errors, Qwen metrics, and vim mode / effort level. All are gated by the same `display.*` flags as their classic counterparts.
+- **`render/powerline-line3.ts` pending task count** — added `○ N` pending segment (priority 80 when running is present); completed tasks segment now always renders when present regardless of running state.
+- **`render/text.ts` stray ANSI reset removed** — last-resort truncation in `fitSegments` no longer appends a bare `\x1b[0m]` that bled color into adjacent terminal output.
+- **`tui/select.ts` `activeFinish` resolver** — module-level resolver is now set/cleared on each `selectItem` call and invoked on SIGINT/SIGTERM, ensuring the Promise always settles on signal-induced exit and raw mode is reliably restored.
+
+### Tests
+- Added 623-test suite covering all fixes above with TDD-first approach.
+
 ## [0.9.3] - 2026-05-07
 
 ### Fixed
