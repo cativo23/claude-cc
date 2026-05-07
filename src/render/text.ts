@@ -71,7 +71,7 @@ export function fitSegments(left: string[], right: string[], sep: string, cols: 
   // Safe because left[0] is the model name (~20 chars) — callers must ensure
   // the first segment is short enough to truncate gracefully.
   // Strip ANSI before hard-truncating to avoid cutting mid-escape-sequence.
-  return truncField(stripAnsi(left[0] ?? ''), safeCols) + '\x1b[0m';
+  return truncField(stripAnsi(left[0] ?? ''), safeCols);
 }
 
 export function padLine(left: string, right: string, cols: number): string {
