@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-05-07
+
+### Fixed
+- **Context tokens (`94k/200k`) now always appear before rate-limit segments on line 2** — critical rate limits (≥85%) were spliced right after the context bar, pushing the token count after the usage indicator. Context info (bar + tokens) is now always grouped before usage signals.
+
+### Refactored
+- **Dropped legacy top-level `cache_read_input_tokens` fallback** — pre-2.1.x Claude Code payloads that exposed `cache_read_input_tokens` at the top level of `context_window` (not nested under `current_usage`) now produce `undefined` for `tokens.cached`. `cacheHitRate` was already `undefined` for these payloads (no per-turn denominator), so both fields are now consistently `undefined` for legacy payloads. Closes #79, #80.
+
 ## [0.9.2] - 2026-05-06
 
 ### Fixed
