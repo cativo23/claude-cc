@@ -17,11 +17,14 @@ const log = debug('subagents');
 // the main-JSONL parser remains the source of truth.
 const AGENT_FILE_RE = /^agent-([A-Za-z0-9_-]+)\.jsonl$/;
 
-// Subagent JSONLs without `stop_reason: "end_turn"` AND without disk activity
-// for this many seconds are treated as completed (likely crashed/aborted).
-// Prevents indefinite "running" indicators when an agent dies without writing
-// its closing line.
-export const STALE_GRACE_SECONDS = 60;
+// Only `stop_reason: "end_turn"` definitively marks a subagent as finished.
+// Other terminal markers like `tool_use` are emitted whenever the subagent
+// yields to a long-running tool (e.g. a 5-minute bash heartbeat) and cannot
+// be treated as completion — the JSONL goes silent until the tool returns,
+// so any mtime-based grace window incorrectly flips live agents to completed.
+// Trade-off: a subagent that crashes without writing its closing line will
+// linger as "running" until the session closes. That's rare; false negatives
+// on long-tool agents were the more common bug.
 
 function realpathSafe(p: string): string {
   try { return realpathSync(p); } catch { return resolve(p); }
@@ -71,7 +74,26 @@ function extractStopReason(lastLine: unknown): string | null {
   return typeof sr === 'string' ? sr : null;
 }
 
-export async function parseSubagentsDir(jsonlPath: string, now: number = Date.now()): Promise<AgentEntry[]> {
+// When the user stops a running subagent, Claude Code appends a synthetic
+// user-role message whose text marker is "[Request interrupted by user…]".
+// That's the only on-disk signal of a kill — the assistant message that
+// preceded it never gets its closing stop_reason rewritten.
+function wasInterruptedByUser(lastLine: unknown): boolean {
+  if (!lastLine || typeof lastLine !== 'object') return false;
+  const d = lastLine as { type?: unknown; message?: { role?: unknown; content?: unknown } };
+  if (d.type !== 'user') return false;
+  const content = d.message?.content;
+  if (!Array.isArray(content)) return false;
+  for (const block of content) {
+    if (block && typeof block === 'object') {
+      const text = (block as { text?: unknown }).text;
+      if (typeof text === 'string' && text.startsWith('[Request interrupted by user')) return true;
+    }
+  }
+  return false;
+}
+
+export async function parseSubagentsDir(jsonlPath: string): Promise<AgentEntry[]> {
   if (!jsonlPath) return [];
   const subagentsDir = deriveSubagentsDir(jsonlPath);
   if (!existsSync(subagentsDir)) return [];
@@ -102,17 +124,13 @@ export async function parseSubagentsDir(jsonlPath: string, now: number = Date.no
 
     const lastLine = await readLastJsonLine(jsonlFile);
     const stopReason = extractStopReason(lastLine);
+    const interrupted = wasInterruptedByUser(lastLine);
 
     const meta = await readMeta(join(resolved, `agent-${id}.meta.json`));
     const agentType = sanitizeTermString(meta?.agentType ?? 'unknown');
     const description = typeof meta?.description === 'string' ? sanitizeTermString(meta.description) : undefined;
 
-    const ageMs = now - st.mtimeMs;
-    const isStale = ageMs > STALE_GRACE_SECONDS * 1000;
-    let status: ToolStatus;
-    if (stopReason === 'end_turn') status = 'completed';
-    else if (isStale) status = 'completed';
-    else status = 'running';
+    const status: ToolStatus = (stopReason === 'end_turn' || interrupted) ? 'completed' : 'running';
 
     const startTimeMs = (st.birthtimeMs && st.birthtimeMs > 0) ? st.birthtimeMs : st.mtimeMs;
     const agent: AgentEntry = {

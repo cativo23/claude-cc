@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { parseSubagentsDir, deriveSubagentsDir, STALE_GRACE_SECONDS } from '../../src/parsers/subagents.js';
+import { parseSubagentsDir, deriveSubagentsDir } from '../../src/parsers/subagents.js';
 
 let workDir: string;
 
@@ -81,14 +81,28 @@ describe('parseSubagentsDir', () => {
     expect(agents[0].status).toBe('running');
   });
 
-  it('marks a stale agent (no end_turn, no recent activity) as completed via grace window', async () => {
+  it('marks an agent as completed when last line is "[Request interrupted by user…]"', async () => {
     const { jsonlPath, subagentsDir } = makeSession();
-    writeAgent(subagentsDir, 's1',
-      { agentId: 's1', message: { role: 'assistant', stop_reason: null } },
-      STALE_GRACE_SECONDS + 5,
+    writeAgent(subagentsDir, 'k1',
+      { type: 'user', message: { role: 'user', content: [{ type: 'text', text: '[Request interrupted by user for tool use]' }] } },
     );
     const agents = await parseSubagentsDir(jsonlPath);
     expect(agents[0].status).toBe('completed');
+  });
+
+  it('keeps an agent as running when stop_reason is "tool_use" (waiting for a long tool)', async () => {
+    // A subagent that yields to a long-running tool (e.g. a 5-minute heartbeat
+    // bash) writes its last JSONL line with stop_reason: "tool_use" and goes
+    // silent until the tool returns. Earlier versions used an mtime-based
+    // grace window that would flip these to "completed" — this test guards
+    // against that regression.
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeAgent(subagentsDir, 't1',
+      { agentId: 't1', message: { role: 'assistant', stop_reason: 'tool_use' } },
+      300,
+    );
+    const agents = await parseSubagentsDir(jsonlPath);
+    expect(agents[0].status).toBe('running');
   });
 
   it('falls back to type "unknown" when meta sidecar is missing', async () => {
