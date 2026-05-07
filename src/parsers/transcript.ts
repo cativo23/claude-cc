@@ -202,22 +202,32 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
         for (const block of content) {
           if (block.type === 'tool_use' && block.id && block.name) {
-            toolMap.set(block.id, { id: block.id, name: sanitizeTermString(block.name), target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
+            // Claude Code occasionally re-emits a tool_use after its tool_result
+            // has already landed (observed when a subagent dispatch fails with
+            // "Agent type not found"). Treat the first completion as final —
+            // never downgrade completed/error back to running on re-registration.
+            const existingTool = toolMap.get(block.id);
+            if (!existingTool || existingTool.status === 'running') {
+              toolMap.set(block.id, { id: block.id, name: sanitizeTermString(block.name), target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
+            }
 
             // Claude Code ≥ 2.1.x renamed the subagent dispatch tool from
             // `Task` to `Agent`. Both shapes carry the same fields
             // (subagent_type, description, model, prompt). Accept either so the
             // live agent count widget works on both versions.
             if (block.name === 'Task' || block.name === 'Agent') {
-              const inp = block.input || {};
-              agentMap.set(block.id, {
-                id: block.id,
-                type: sanitizeTermString(inp.subagent_type || 'unknown'),
-                model: typeof inp.model === 'string' ? sanitizeTermString(inp.model) : inp.model,
-                description: typeof inp.description === 'string' ? sanitizeTermString(inp.description) : inp.description,
-                status: 'running',
-                startTime: timestamp,
-              });
+              const existingAgent = agentMap.get(block.id);
+              if (!existingAgent || existingAgent.status === 'running') {
+                const inp = block.input || {};
+                agentMap.set(block.id, {
+                  id: block.id,
+                  type: sanitizeTermString(inp.subagent_type || 'unknown'),
+                  model: typeof inp.model === 'string' ? sanitizeTermString(inp.model) : inp.model,
+                  description: typeof inp.description === 'string' ? sanitizeTermString(inp.description) : inp.description,
+                  status: 'running',
+                  startTime: timestamp,
+                });
+              }
             }
 
             if (block.name === 'TodoWrite' && block.input?.todos && Array.isArray(block.input.todos)) {

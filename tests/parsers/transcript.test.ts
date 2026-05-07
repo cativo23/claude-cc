@@ -35,6 +35,21 @@ describe('parseTranscript', () => {
     expect(running?.type).toBe('feature-dev:code-reviewer');
     expect(running?.model).toBe('opus');
   });
+
+  it('does not downgrade a completed agent to running on duplicate tool_use re-emission', async () => {
+    // Claude Code occasionally re-emits a tool_use entry after the matching
+    // tool_result has already landed (observed when a subagent dispatch fails
+    // with "Agent type not found" and is retried). The parser must treat the
+    // first completion as authoritative — re-emitted tool_use entries with the
+    // same id should not flip status back to "running", which would leave a
+    // zombie ⚡N agents widget.
+    const result = await parseTranscript(join(FIXTURES, 'transcript-agent-zombie.jsonl'));
+    expect(result.agents).toHaveLength(1);
+    expect(result.agents[0].id).toBe('z1');
+    expect(result.agents[0].status).toBe('completed');
+    expect(result.tools.find(t => t.id === 'z1')?.status).toBe('completed');
+  });
+
   it('parses TaskCreate and TaskUpdate', async () => {
     const result = await parseTranscript(join(FIXTURES, 'transcript-todos.jsonl'));
     expect(result.todos).toHaveLength(2);
