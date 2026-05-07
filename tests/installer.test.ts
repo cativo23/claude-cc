@@ -114,6 +114,14 @@ describe('install', () => {
     expect(() => JSON.parse(readFileSync(settingsPath, 'utf8'))).not.toThrow();
   });
 
+  it('writes temp file in same dir as settingsPath (no cross-fs rename)', async () => {
+    // The temp file must live beside settings.json so rename() is always same-fs.
+    // We verify no leftover .lumira.tmp exists after install (renamed to final dest).
+    await install(baseOpts());
+    expect(existsSync(settingsPath + '.lumira.tmp')).toBe(false);
+    expect(existsSync(settingsPath)).toBe(true);
+  });
+
   it('strips ANSI escapes from foreign statusLine.command in the warning banner', async () => {
     const malicious = '\x1b[31mevil\x1b[0m';
     writeFileSync(settingsPath, JSON.stringify({
