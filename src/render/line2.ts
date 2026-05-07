@@ -24,6 +24,10 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   const leftParts: string[] = [];
   const rightParts: string[] = [];
 
+  // Track context slots pushed so critical rate-limit segments anchor after
+  // all context info (bar + tokens), not just after the bar.
+  let contextSlotCount = 0;
+
   // Context bar
   if (display.contextBar) {
     const pct = input.context.usedPercentage;
@@ -33,6 +37,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       warningThreshold: display.contextWarningThreshold,
       criticalThreshold: display.contextCriticalThreshold,
     }));
+    contextSlotCount++;
   }
 
   // Context tokens — prefer windowSize from payload over back-derivation.
@@ -46,6 +51,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     if (capacity > 0) {
       const used = Math.round(capacity * pct / 100);
       leftParts.push(c.dim(`${formatTokens(used)}/${formatTokens(capacity)}`));
+      contextSlotCount++;
     }
   }
 
@@ -102,9 +108,9 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       ['5h', input.rateLimits.fiveHour],
       ['7d', input.rateLimits.sevenDay],
     ];
-    // Anchor index: right after the context bar (slot 1) so promoted segments
-    // visually sit next to the bar rather than ahead of it.
-    let criticalInsertAt = display.contextBar ? 1 : 0;
+    // Anchor index: right after all context slots (bar + tokens) so promoted
+    // segments sit next to context info rather than between bar and tokens.
+    let criticalInsertAt = contextSlotCount;
     for (const [label, win] of limits) {
       // Number.isFinite catches NaN/Infinity from malformed payloads — without
       // it, `NaN < 50` is false and the segment falls through to render
