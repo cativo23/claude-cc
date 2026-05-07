@@ -224,10 +224,24 @@ async function readBoundaryJsonLines(filePath: string, fileSize: number): Promis
     await fd.read(tailBuf, 0, tailSize, fileSize - tailSize);
     const tail = tailBuf.toString('utf8');
 
-    // The tail chunk likely starts mid-line (we sliced at a byte offset).
-    // Drop the first partial line so JSON.parse doesn't choke on it.
+    // The tail window starts at an arbitrary byte offset; if that byte
+    // happens to be inside a JSON line, the leading fragment is malformed
+    // and we discard everything up to the first newline. If the offset
+    // lands cleanly on a line boundary the slice still drops only the
+    // single leading newline byte (harmless), so the same logic covers
+    // both cases without an extra branch.
     const tailFromBoundary = tail.includes('\n') ? tail.slice(tail.indexOf('\n') + 1) : tail;
-    return { first: parseFirstJson(head), last: parseLastJson(tailFromBoundary) };
+    const first = parseFirstJson(head);
+    const last = parseLastJson(tailFromBoundary);
+    if (log.enabled) {
+      // When a single first/last line exceeds the boundary chunk size,
+      // JSON.parse fails silently and we fall back to mtime / "running".
+      // Surface that in debug logs so users tracking down a stuck agent
+      // can spot it.
+      if (first === null) log('warn — first-line parse missed (likely >', BOUNDARY_CHUNK_SIZE, 'bytes):', filePath);
+      if (last === null) log('warn — last-line parse missed (likely >', BOUNDARY_CHUNK_SIZE, 'bytes):', filePath);
+    }
+    return { first, last };
   } catch { return { first: null, last: null }; }
   finally { await fd.close().catch(() => undefined); }
 }

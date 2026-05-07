@@ -290,16 +290,54 @@ describe('parseSubagentsDir', () => {
     const endTs = '2026-05-07T18:10:00.000Z';
     const first = JSON.stringify({ agentId: 'big', timestamp: startTs, type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'go' }] } });
     const last = JSON.stringify({ agentId: 'big', timestamp: endTs, type: 'assistant', message: { role: 'assistant', stop_reason: 'end_turn' } });
-    // Pad the middle with ~80 KB of junk lines that don't parse as JSON
-    // (they should be skipped by parseFirstJson/parseLastJson).
-    const junk = Array.from({ length: 4000 }, (_, i) => `noise line ${i} `.repeat(8)).join('\n');
-    writeRawAgent(subagentsDir, 'big', `${first}\n${junk}\n${last}\n`);
+    // Pad the middle with ~80 KB of junk lines.
+    const junkLines = Array.from({ length: 4000 }, (_, i) => `noise line ${i} `.repeat(8));
+    // Sanity-check the assumption: junk lines must NOT be valid JSON,
+    // otherwise the test passes for the wrong reason (parser would lock
+    // onto the first junk line instead of falling through to `first`).
+    expect(() => JSON.parse(junkLines[0])).toThrow();
+    writeRawAgent(subagentsDir, 'big', `${first}\n${junkLines.join('\n')}\n${last}\n`);
     const agents = await parseSubagentsDir(jsonlPath);
     expect(agents).toHaveLength(1);
     expect(agents[0].id).toBe('big');
     expect(agents[0].status).toBe('completed');
     expect(agents[0].startTime.toISOString()).toBe(startTs);
     expect(agents[0].endTime?.toISOString()).toBe(endTs);
+  });
+
+  it('falls back gracefully when the FIRST JSONL line exceeds the head chunk window (>16 KB)', async () => {
+    // A first line larger than the 16 KB head buffer can't be JSON.parse'd
+    // by parseFirstJson — extractTimestamp returns null and startTime
+    // falls back to mtime. The last line (small) is still parseable so
+    // status detection still works.
+    const { jsonlPath, subagentsDir } = makeSession();
+    const endTs = '2026-05-07T18:10:00.000Z';
+    const huge = JSON.stringify({ agentId: 'fat-first', timestamp: '2026-05-07T18:00:00.000Z', message: { content: 'x'.repeat(20_000) } });
+    const last = JSON.stringify({ agentId: 'fat-first', timestamp: endTs, message: { role: 'assistant', stop_reason: 'end_turn' } });
+    const pad = 'p'.repeat(50_000);
+    writeRawAgent(subagentsDir, 'fat-first', `${huge}\n${pad}\n${last}\n`);
+    const agents = await parseSubagentsDir(jsonlPath);
+    expect(agents[0].status).toBe('completed');
+    expect(agents[0].endTime?.toISOString()).toBe(endTs);
+    // startTime fell back to mtime — Date is finite, never NaN.
+    expect(Number.isFinite(agents[0].startTime.getTime())).toBe(true);
+  });
+
+  it('marks a completed agent as running when the LAST JSONL line exceeds the tail chunk window (>16 KB)', async () => {
+    // Documents the only known semantic regression of the chunked-read
+    // path: a closing assistant message bigger than 16 KB hides its
+    // stop_reason from the tail-window parser, so the agent appears
+    // permanently "running". If this assumption ever breaks (Claude Code
+    // routinely emits huge close-out messages), this test fails and we
+    // revisit the chunk size or restore full-read with a streaming parser.
+    const { jsonlPath, subagentsDir } = makeSession();
+    const first = JSON.stringify({ agentId: 'fat-last', timestamp: '2026-05-07T18:00:00.000Z', message: { role: 'user', content: [{ type: 'text', text: 'go' }] } });
+    const huge = JSON.stringify({ agentId: 'fat-last', timestamp: '2026-05-07T18:10:00.000Z', message: { role: 'assistant', stop_reason: 'end_turn', text: 'x'.repeat(30_000) } });
+    const pad = 'p'.repeat(50_000);
+    writeRawAgent(subagentsDir, 'fat-last', `${first}\n${pad}\n${huge}\n`);
+    const agents = await parseSubagentsDir(jsonlPath);
+    // stop_reason is unreachable → status sticks to running.
+    expect(agents[0].status).toBe('running');
   });
 
   it('uses the first JSONL line timestamp for startTime, not the file mtime', async () => {
