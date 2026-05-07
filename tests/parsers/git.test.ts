@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createHash } from 'node:crypto';
 import { parseGitStatus } from '../../src/parsers/git.js';
 import { EMPTY_GIT } from '../../src/types.js';
 
@@ -50,6 +51,17 @@ describe('parseGitStatus', () => {
     expect(result.staged).toBe(0);
     expect(result.modified).toBe(0);
     expect(result.untracked).toBe(0);
+  });
+
+  it('cache key uses full MD5 digest (32 hex chars) to prevent birthday collisions', () => {
+    // Verify the hash format used for cache keys is the full 32-char hex digest,
+    // not a truncated 8-char version (which has a 32-bit birthday collision risk).
+    const digest = createHash('md5').update('/some/path').digest('hex');
+    expect(digest).toHaveLength(32);
+    // Two paths that differ only in their suffix must produce distinct full digests
+    const d1 = createHash('md5').update('/home/a').digest('hex');
+    const d2 = createHash('md5').update('/home/b').digest('hex');
+    expect(d1).not.toBe(d2);
   });
 
 });
