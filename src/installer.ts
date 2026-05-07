@@ -251,6 +251,7 @@ export function uninstall(opts: InstallerOptions = {}): string {
           try {
             unlinkSync(skillFile);
             try { rmdirSync(dirname(skillFile)); } catch { /* dir not empty, ok */ }
+            try { rmdirSync(dirname(dirname(skillFile))); } catch { /* parent skills/ not empty, ok */ }
           } catch { /* best effort */ }
         }
       }
@@ -292,6 +293,7 @@ export function uninstall(opts: InstallerOptions = {}): string {
       try {
         unlinkSync(skillFile);
         try { rmdirSync(dirname(skillFile)); } catch { /* dir not empty, ok */ }
+        try { rmdirSync(dirname(dirname(skillFile))); } catch { /* parent skills/ not empty, ok */ }
       } catch { /* best effort */ }
     }
   }

@@ -337,4 +337,32 @@ describe('install — skill dual install for Qwen', () => {
     expect(existsSync(join(claudeHome, 'skills', 'lumira', 'SKILL.md'))).toBe(false);
     expect(existsSync(join(qwenHome, 'skills', 'lumira', 'SKILL.md'))).toBe(false);
   });
+
+  it('uninstall cleans up empty skills/ parent dir when no other skills remain', () => {
+    mkdirSync(join(claudeHome, 'skills', 'lumira'), { recursive: true });
+    writeFileSync(join(claudeHome, 'skills', 'lumira', 'SKILL.md'), 'dummy');
+
+    const settingsPath = join(claudeHome, 'settings.json');
+    writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'npx lumira@latest' } }));
+
+    uninstall({ settingsPath, homeOverride: tmpHome });
+
+    expect(existsSync(join(claudeHome, 'skills', 'lumira'))).toBe(false);
+    expect(existsSync(join(claudeHome, 'skills'))).toBe(false);
+  });
+
+  it('uninstall preserves skills/ parent dir when other skills exist', () => {
+    mkdirSync(join(claudeHome, 'skills', 'lumira'), { recursive: true });
+    writeFileSync(join(claudeHome, 'skills', 'lumira', 'SKILL.md'), 'dummy');
+    mkdirSync(join(claudeHome, 'skills', 'other-skill'), { recursive: true });
+    writeFileSync(join(claudeHome, 'skills', 'other-skill', 'SKILL.md'), 'keep me');
+
+    const settingsPath = join(claudeHome, 'settings.json');
+    writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'npx lumira@latest' } }));
+
+    uninstall({ settingsPath, homeOverride: tmpHome });
+
+    expect(existsSync(join(claudeHome, 'skills', 'lumira'))).toBe(false);
+    expect(existsSync(join(claudeHome, 'skills', 'other-skill', 'SKILL.md'))).toBe(true);
+  });
 });
