@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-07
+
 ### Added
 - **`display.paceDelta` toggle** — pace delta now has its own visibility flag, independent of `display.rateLimits`. Default true; off in the `minimal` preset. Lets users show the pace signal without the raw 5h/7d percentages, or vice versa.
   - **Migration note for users who set `display.rateLimits: false`**: in v1.0.x, that toggle also implicitly hid the pace segment. With independent gating, pace will now reappear unless you also set `"paceDelta": false` in your config.
@@ -386,7 +388,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/cativo23/lumira/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/cativo23/lumira/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/cativo23/lumira/compare/v0.9.5...v1.0.0
 [0.9.5]: https://github.com/cativo23/lumira/compare/v0.9.4...v0.9.5
