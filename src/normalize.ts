@@ -158,9 +158,11 @@ export function normalize(input: RawInput): NormalizedInput {
     }
   } else if (claude) {
     // Modern Claude Code (≥ 2.1.x) nests cache fields under current_usage.
-    // Fall back to the legacy top-level path for payloads without current_usage.
-    const { cached: nestedCached } = getCacheFields(claude.context_window?.current_usage);
-    cached = nestedCached ?? claude.context_window?.cache_read_input_tokens;
+    // Pre-2.1.x payloads exposed cache_read_input_tokens at the top level of
+    // context_window, but those versions are no longer in use. Reading only from
+    // current_usage keeps tokens.cached consistent with cacheHitRate: both are
+    // undefined for legacy payloads (no per-turn denominator, no cached count).
+    ({ cached } = getCacheFields(claude.context_window?.current_usage));
   }
 
   // Per-turn cache denominator (Claude only): fresh input + cache_read + cache_creation
