@@ -61,7 +61,7 @@ export function parseStateMd(content: string): GsdState {
 }
 
 /** Walk up from `cwd` looking for `.planning/STATE.md`; stop at home or filesystem root. */
-function findStateMd(cwd: string): string | null {
+export function findStateMd(cwd: string): string | null {
   const home = homedir();
   let current = resolve(cwd);
   for (let i = 0; i < STATE_WALK_MAX; i++) {
