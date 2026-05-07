@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.1] - 2026-05-07
+## [1.1.2] - 2026-05-07
+
+### Fixed
+- **Release workflow bundle-size ceiling synced** — v1.1.1 tag failed to publish because the bundle-size ceiling was duplicated between `ci.yml` and `release.yml`, and the v1.1.0 → v1.1.1 PR only bumped the former. v1.1.2 reissues the same content as v1.1.1 with the release-workflow ceiling now matched. Skip v1.1.1.
 
 ### Changed
 - **Cache hit rate widget switched to alarm mode** — only renders when `cacheHitRate < 90%`. Anthropic's prompt cache pins this near 99% in healthy steady-state sessions, so an always-on 99% reading was wallpaper, not signal. Now mirrors the hide-when-healthy pattern used by rate-limits (≥50%) and agent-count (≥1). Color tiers updated to reflect "degrees of degradation": yellow 70–89%, orange 40–69%, blinkRed <40%.
@@ -393,8 +396,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.1.1...HEAD
-[1.1.1]: https://github.com/cativo23/lumira/compare/v1.1.0...v1.1.1
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/cativo23/lumira/compare/v1.1.0...v1.1.2
 [1.1.0]: https://github.com/cativo23/lumira/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/cativo23/lumira/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/cativo23/lumira/compare/v0.9.5...v1.0.0
