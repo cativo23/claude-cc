@@ -142,4 +142,60 @@ describe('renderLine1', () => {
     const out = stripAnsi(renderLine1(makeCtx({ tokenSpeed: 142, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, tokenSpeed: false } } }), c));
     expect(out).not.toContain('tok/s');
   });
+
+  describe('cubes (agent name) widget', () => {
+    const cube = NERD_ICONS.cubes;
+
+    function withAgents(agents: { id: string; type: string; status: 'running' | 'completed' | 'error' }[]): RenderContext {
+      return makeCtx({
+        transcript: {
+          ...EMPTY_TRANSCRIPT,
+          agents: agents.map(a => ({ ...a, startTime: new Date() })),
+        },
+      });
+    }
+
+    it('shows input.agentName when present (subagent session via --agent flag)', () => {
+      const out = stripAnsi(renderLine1(makeCtx({}, { agent: { name: 'pepito' } } as Partial<ClaudeCodeInput>), c));
+      expect(out).toContain(`${cube} pepito`);
+    });
+
+    it('shows the running named subagent type when input.agentName is empty and exactly one named is running', () => {
+      const out = stripAnsi(renderLine1(withAgents([{ id: 'a1', type: 'pepito', status: 'running' }]), c));
+      expect(out).toContain(`${cube} pepito`);
+    });
+
+    it('does not show the cube when only generic agents (general-purpose) are running', () => {
+      const out = stripAnsi(renderLine1(withAgents([{ id: 'a1', type: 'general-purpose', status: 'running' }]), c));
+      expect(out).not.toContain(cube);
+    });
+
+    it('does not show the cube when zero agents are running', () => {
+      const out = stripAnsi(renderLine1(withAgents([{ id: 'a1', type: 'pepito', status: 'completed' }]), c));
+      expect(out).not.toContain(cube);
+    });
+
+    it('does not show the cube when more than one named agent is running (ambiguous)', () => {
+      const out = stripAnsi(renderLine1(withAgents([
+        { id: 'a1', type: 'pepito', status: 'running' },
+        { id: 'a2', type: 'feature-dev:code-reviewer', status: 'running' },
+      ]), c));
+      expect(out).not.toContain(cube);
+    });
+
+    it('input.agentName takes priority over a running named subagent', () => {
+      const ctx = withAgents([{ id: 'a1', type: 'pepito', status: 'running' }]);
+      ctx.input = { ...ctx.input, agentName: 'jarvis' };
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain(`${cube} jarvis`);
+      expect(out).not.toContain('pepito');
+    });
+
+    it('hides the cube when display.agent is false even if a named subagent is running', () => {
+      const ctx = withAgents([{ id: 'a1', type: 'pepito', status: 'running' }]);
+      ctx.config = { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, agent: false } };
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain(cube);
+    });
+  });
 });

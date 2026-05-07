@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseTranscript, extractToolTarget, normalizeTodoStatus } from '../../src/parsers/transcript.js';
+import { tmpdir } from 'node:os';
+import { parseTranscript, extractToolTarget, normalizeTodoStatus, _clearTranscriptCache } from '../../src/parsers/transcript.js';
 
 const FIXTURES = join(import.meta.dirname, '..', 'fixtures');
 
@@ -132,4 +134,87 @@ describe('normalizeTodoStatus', () => {
   it('normalizes completed/done', () => { expect(normalizeTodoStatus('completed')).toBe('completed'); expect(normalizeTodoStatus('done')).toBe('completed'); });
   it('normalizes in_progress variants', () => { expect(normalizeTodoStatus('in_progress')).toBe('in_progress'); expect(normalizeTodoStatus('running')).toBe('in_progress'); });
   it('defaults to pending', () => { expect(normalizeTodoStatus('whatever')).toBe('pending'); expect(normalizeTodoStatus(undefined)).toBe('pending'); });
+});
+
+describe('parseTranscript + subagents/ dir integration', () => {
+  let workDir: string;
+
+  beforeEach(() => {
+    _clearTranscriptCache();
+    workDir = mkdtempSync(join(tmpdir(), 'lumira-transcript-int-'));
+  });
+  afterEach(() => {
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  function writeMain(name: string, lines: object[]): string {
+    const p = join(workDir, `${name}.jsonl`);
+    writeFileSync(p, lines.map(l => JSON.stringify(l)).join('\n') + '\n');
+    return p;
+  }
+  function writeSubagent(jsonlPath: string, id: string, lastLine: object, meta?: object) {
+    const sessionId = jsonlPath.replace(/\.jsonl$/, '').split('/').pop()!;
+    const dir = join(workDir, sessionId, 'subagents');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `agent-${id}.jsonl`), JSON.stringify(lastLine) + '\n');
+    if (meta) writeFileSync(join(dir, `agent-${id}.meta.json`), JSON.stringify(meta));
+  }
+
+  it('overrides main-JSONL agents with subagent-dir results when the dir is populated', async () => {
+    // Main JSONL has an Agent dispatch with subagent_type=general-purpose
+    // and a matching tool_result (so the main-JSONL parser would mark it
+    // completed). The subagents/ dir for the same session has a richer
+    // record with a named type ("pepito") — that must win.
+    const mainPath = writeMain('sess-int', [
+      { timestamp: '2026-05-07T18:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu1', name: 'Agent', input: { subagent_type: 'general-purpose', description: 'd' } }] } },
+      { timestamp: '2026-05-07T18:00:30Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } },
+    ]);
+    writeSubagent(mainPath, 'real',
+      { agentId: 'real', message: { role: 'assistant', stop_reason: 'end_turn' } },
+      { agentType: 'pepito', description: 'real description' },
+    );
+    const result = await parseTranscript(mainPath);
+    expect(result.agents).toHaveLength(1);
+    expect(result.agents[0].id).toBe('real');
+    expect(result.agents[0].type).toBe('pepito');
+  });
+
+  it('falls back to main-JSONL agents when the subagent dir is empty', async () => {
+    const mainPath = writeMain('sess-fallback', [
+      { timestamp: '2026-05-07T18:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu2', name: 'Agent', input: { subagent_type: 'general-purpose', description: 'fallback' } }] } },
+    ]);
+    // create empty subagents/ dir to confirm "empty == no override"
+    mkdirSync(join(workDir, 'sess-fallback', 'subagents'), { recursive: true });
+    const result = await parseTranscript(mainPath);
+    expect(result.agents).toHaveLength(1);
+    expect(result.agents[0].type).toBe('general-purpose');
+  });
+
+  it('invalidates the cache when only the subagent dir changes', async () => {
+    // Cache key must include the dir's fingerprint — otherwise a quiet
+    // subagent transitioning to end_turn would be invisible until the main
+    // JSONL is also touched.
+    const mainPath = writeMain('sess-cache', [
+      { timestamp: '2026-05-07T18:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu3', name: 'Bash', input: { command: 'ls' } }] } },
+    ]);
+    writeSubagent(mainPath, 'a',
+      { agentId: 'a', message: { role: 'assistant', stop_reason: 'tool_use' } },
+      { agentType: 'pepito' },
+    );
+    // Push the agent file's mtime back so the next stat result differs after
+    // we rewrite it (filesystems with second-resolution mtimes otherwise see
+    // both writes as the same timestamp).
+    const agentJsonl = join(workDir, 'sess-cache', 'subagents', 'agent-a.jsonl');
+    const past = (Date.now() - 5000) / 1000;
+    utimesSync(agentJsonl, past, past);
+
+    const first = await parseTranscript(mainPath);
+    expect(first.agents[0].status).toBe('running');
+
+    // Mutate ONLY the subagent file. The main JSONL is unchanged.
+    writeFileSync(agentJsonl, JSON.stringify({ agentId: 'a', message: { role: 'assistant', stop_reason: 'end_turn' } }) + '\n');
+
+    const second = await parseTranscript(mainPath);
+    expect(second.agents[0].status).toBe('completed');
+  });
 });
