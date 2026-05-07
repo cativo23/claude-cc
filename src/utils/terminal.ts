@@ -17,7 +17,10 @@ function getTermColsFromProcTree(): number {
         } catch {}
       }
       const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-      pid = parseInt(stat.split(' ')[3], 10);
+      // comm field (index 1) is wrapped in parens and can contain spaces.
+      // Parse everything after the last ')' to correctly locate ppid (field index 3).
+      const tail = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+      pid = parseInt(tail[1], 10); // tail[0]=state, tail[1]=ppid
     }
   } catch {}
   return 0;
