@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-05-06
+
+### Fixed
+- **`getQuotaColor` now guards non-finite inputs** — `NaN`, `Infinity`, and `-Infinity` all return `'blinkRed'` via an explicit `Number.isFinite` check. Previously `-Infinity < 50` evaluated to `true`, silently returning `'green'` for an invalid input.
+- **`gsd` body Status checked independently of Phase line** — the `else if` that skipped the body `Status:` fallback when a `Phase: N of M` line was present is now a standalone `if`. Transcripts with a Phase line but no frontmatter `status` now correctly pick up the body value.
+- **`powerline.ts` diamond width** — removed dead `+ 0` arithmetic in the diamond segment width calculation.
+- **`text.ts` last-resort truncation adds ANSI reset** — `fitSegments` now appends `\x1b[0m]` after a hard-truncated segment to prevent color bleed into adjacent output.
+- **`normalize.ts` cast removal** — `(input as { cwd?: string }).cwd` replaced with `input.cwd`; `RawInput` already declares `cwd?: string` on both union members.
+- **`ThinkingEffort` type synced with `VALID_EFFORT_LEVELS`** — `'xhigh'` added to the union in `types.ts` to match the set in `normalize.ts`.
+- **`transcript.ts` effort regex** — added `xhigh` to the alternation and scoped the match to `JSON.stringify(entry)` instead of the raw JSONL line.
+- **`config.ts` argv regex** — `[= ]?` changed to `=?` for `--preset` and `--icons` flags; `[= ]` changed to `=` for `--powerline-style`. Since argv is already shell-tokenized, the space form could never match.
+- **`cache.ts` Windows uid fallback** — `process.getuid?.() ?? 'default'` replaced with a `getUid()` helper that uses `getuid()` on POSIX and falls back to `userInfo().username` (with try/catch for containers where the UID has no `/etc/passwd` entry) on Windows.
+- **`monokai.ts` intentional duplicate colors documented** — `red === magenta` and `brightBlue === cyan` are expected in Monokai's palette; comments make this explicit.
+
+### Tests
+- **False-confidence assertions tightened** — theme test asserts Dracula-specific cyan escape `\x1b[38;2;139;233;253m`; integration workspace fallback asserts specific basename; powerline-line3 both-segments test asserts `'Edit'` and `'1/1'` independently.
+- **`displayWidth()` replaces `.length`** in terminal width assertions across `line1`–`line2` tests — byte length is wrong for ANSI-wrapped strings.
+- **`ClaudeCodeInput` explicit type** replaces `as any` cast in `line3` and `line4` test helpers — AGENTS.md forbids `as any`.
+- **`getQuotaColor` boundary coverage** — exact 49/50 (green→yellow), 69/70 (yellow→orange), 84/85 (orange→blinkRed) transitions tested; `Infinity` and `-Infinity` cases added (the latter actually validates the guard, as old code returned `'green'` for `-Infinity`).
+- **MCP parser uses injection seam** — `vi.mock('node:fs')` replaced with a `McpReader` interface + optional `reader` parameter; `makeReader` throws on unregistered paths, eliminating silent false-passes.
+
 ## [0.9.1] - 2026-05-06
 
 ### Fixed
