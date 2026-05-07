@@ -34,6 +34,13 @@ function buildToolsPart(tools: ToolEntry[], c: Colors, ic: IconSet): string {
   return parts.join(' ');
 }
 
+function buildAgentsPart(agents: import('../types.js').AgentEntry[], c: Colors, ic: IconSet): string {
+  const running = agents.filter(a => a.status === 'running').length;
+  if (running < 1) return '';
+  const label = running === 1 ? '1 agent' : `${running} agents`;
+  return c.yellow(`${ic.bolt}${label}`);
+}
+
 function buildTodosPart(todos: TodoEntry[], c: Colors, ic: IconSet): string {
   if (todos.length === 0) return '';
 
@@ -54,12 +61,11 @@ function buildTodosPart(todos: TodoEntry[], c: Colors, ic: IconSet): string {
 }
 
 export function renderLine3(ctx: RenderContext, c: Colors): string {
-  const { transcript: { tools, todos }, config: { display }, icons } = ctx;
+  const { transcript: { tools, todos, agents }, config: { display }, icons } = ctx;
   const toolsPart = display.tools === false ? '' : buildToolsPart(tools, c, icons);
+  const agentsPart = display.agents === false ? '' : buildAgentsPart(agents, c, icons);
   const todosPart = display.todos === false ? '' : buildTodosPart(todos, c, icons);
 
-  if (!toolsPart && !todosPart) return '';
-  if (!toolsPart) return todosPart;
-  if (!todosPart) return toolsPart;
-  return toolsPart + SEP + todosPart;
+  const parts = [toolsPart, agentsPart, todosPart].filter(Boolean);
+  return parts.join(SEP);
 }

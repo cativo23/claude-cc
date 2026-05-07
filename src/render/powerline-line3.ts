@@ -50,6 +50,15 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette): Powerline
     }
   }
 
+  // Agents segment — running agent count. Priority 70 (between tools and todos).
+  if (display.agents !== false) {
+    const runningAgents = ctx.transcript.agents.filter(a => a.status === 'running').length;
+    if (runningAgents >= 1) {
+      const label = runningAgents === 1 ? '1 agent' : `${runningAgents} agents`;
+      segments.push({ text: `${icons.bolt}${label}`, bg: palette.taskBg, fg: palette.fg, priority: 70 });
+    }
+  }
+
   // Todos segment — progress bar + counts. Mirrors classic line3 (pending, in-progress counts).
   if (display.todos !== false && todos.length > 0) {
     const total = todos.length;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderPowerlineLine2 } from '../../src/render/powerline-line2.js';
 import { createColors } from '../../src/render/colors.js';
 import { stripAnsi } from '../../src/render/colors.js';
@@ -33,6 +33,8 @@ function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
 const c = createColors('truecolor', null);
 
 describe('renderPowerlineLine2', () => {
+  afterEach(() => vi.useRealTimers());
+
   it('renders context bar segment in truecolor', () => {
     const ctx = makeCtx();
     const out = renderPowerlineLine2(ctx, 'truecolor', null, c);
@@ -136,8 +138,9 @@ describe('renderPowerlineLine2', () => {
         config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: true } },
       });
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
-      expect(out).toContain('cache');
+      // New format: N%⚡ (no 'cache' prefix)
       expect(out).toContain('75%');
+      expect(out).not.toContain('cache 75%');
     });
 
     it('burnRate segment appears next to cost when display.burnRate true', () => {
@@ -154,6 +157,35 @@ describe('renderPowerlineLine2', () => {
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
       // burnRate formatted as $/h or $/min — check for $/
       expect(out).toMatch(/\$.*\/[hm]/);
+    });
+
+    it('cache hit rate renders as N%⚡ in powerline segment (no "cache" prefix)', () => {
+      const patchedInput = { ...makeCtx().input, cacheHitRate: 85 };
+      const ctx = makeCtx({
+        input: patchedInput,
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('85%');
+      expect(out).not.toContain('cache 85%');
+    });
+
+    it('pace delta segment appears when fiveHour window has sufficient data', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      const resetsAt = nowSec + 3 * 3600; // 2h elapsed of a 5h window
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        rate_limits: { five_hour: { used_percentage: 60, resets_at: resetsAt } },
+      };
+      const ctx = makeCtx({ input: normalize(rawInput) });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      // delta = 60 - 40 = +20%
+      expect(out).toContain('+20%');
     });
   });
 

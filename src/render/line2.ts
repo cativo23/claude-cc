@@ -1,9 +1,10 @@
 import { fitSegments, displayWidth } from './text.js';
-import { getQuotaColor, detectColorMode, type Colors } from './colors.js';
+import { getQuotaColor, getPaceColor, getCacheHitColor, detectColorMode, type Colors } from './colors.js';
 import { QUOTA_CRITICAL } from '../types.js';
 import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
+import { computePaceDelta, formatPaceDelta } from './pace.js';
 import type { RenderContext } from '../types.js';
 
 export function formatCountdown(resetsAt: number): string {
@@ -65,9 +66,10 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     if (parts.length > 0) leftParts.push(`${icons.comment} ${parts.join(' ')}`);
   }
 
-  // Cache metrics (hit rate)
+  // Cache metrics (hit rate) — colored by quality tier
   if (display.cacheMetrics && input.cacheHitRate != null) {
-    leftParts.push(c.dim(`cache ${input.cacheHitRate}%`));
+    const cacheColorFn = c[getCacheHitColor(input.cacheHitRate)];
+    leftParts.push(cacheColorFn(`${input.cacheHitRate}%${icons.lightning}`));
   }
 
   // Cost + burn rate (Claude only — Qwen doesn't send cost data)
@@ -129,6 +131,24 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
         criticalInsertAt++; // keep relative order between 5h and 7d when both critical
       } else {
         leftParts.push(limitStr);
+      }
+    }
+
+    // Pace delta — shows how far ahead/behind of expected quota burn rate.
+    // Gate on fiveHour window being present and computePaceDelta returning a result.
+    const fiveHourWin = input.rateLimits?.fiveHour;
+    if (fiveHourWin && Number.isFinite(fiveHourWin.usedPercentage)) {
+      const pace = computePaceDelta(fiveHourWin.usedPercentage, fiveHourWin.resetsAt);
+      if (pace != null) {
+        const paceStr = formatPaceDelta(pace);
+        if (paceStr === 'on pace') {
+          leftParts.push(c.green('on pace'));
+        } else {
+          const paceIcon = pace.delta > 1 ? icons.car : pace.delta < -1 ? icons.turtle : '';
+          const paceColorFn = c[getPaceColor(pace.delta)];
+          const iconPrefix = paceIcon ? `${paceIcon}` : '';
+          leftParts.push(paceColorFn(`${iconPrefix}${paceStr}`));
+        }
       }
     }
   }

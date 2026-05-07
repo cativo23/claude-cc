@@ -275,8 +275,9 @@ describe('renderLine2', () => {
     };
     // 100000 / (31000 + 100000) = 76%
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
-    expect(out).toContain('cache');
+    // New format: N%⚡ (no 'cache' prefix)
     expect(out).toContain('76%');
+    expect(out).not.toContain('cache 76%');
   });
 
   it('reads cache hit rate from nested current_usage (modern 2.1.x payload)', () => {
@@ -291,8 +292,9 @@ describe('renderLine2', () => {
       },
     };
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
-    // 80000 / (50000 + 80000 + 20000) = 53%
-    expect(out).toContain('cache 53%');
+    // 80000 / (50000 + 80000 + 20000) = 53% — new format: N%⚡ (no 'cache' prefix)
+    expect(out).toContain('53%');
+    expect(out).not.toContain('cache 53%');
   });
 
   it('hides cache metrics for legacy payloads without current_usage (no denominator after #79)', () => {
@@ -359,6 +361,150 @@ describe('renderLine2', () => {
     // High-priority segment (context bar) survives; low-priority rate limit drops.
     expect(out).toMatch(/\d+%/); // context % is present
     expect(out).not.toContain('75%(5h)'); // rate-limit segment got dropped
+  });
+
+  // ── Cache hit rate widget ───────────────────────────────────────────────────
+
+  it('renders cache hit rate as N%⚡ (no "cache" prefix)', () => {
+    const inputOverride = {
+      context_window: {
+        ...baseInput.context_window,
+        current_usage: { input_tokens: 10000, cache_read_input_tokens: 90000 },
+      },
+    };
+    // 90000 / (10000 + 90000) = 90%
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    expect(out).toContain('90%');
+    expect(out).not.toContain('cache 90%');
+  });
+
+  it('cache hit rate is green when >=70%', () => {
+    const inputOverride = {
+      context_window: {
+        ...baseInput.context_window,
+        current_usage: { input_tokens: 10000, cache_read_input_tokens: 90000 },
+      },
+    };
+    const out = renderLine2(makeCtx({}, inputOverride), c);
+    // green = \x1b[32m
+    expect(out).toMatch(/\x1b\[32m90%/);
+  });
+
+  it('cache hit rate is yellow when 40-69%', () => {
+    const inputOverride = {
+      context_window: {
+        ...baseInput.context_window,
+        current_usage: { input_tokens: 60000, cache_read_input_tokens: 40000 },
+      },
+    };
+    // 40000 / 100000 = 40%
+    const out = renderLine2(makeCtx({}, inputOverride), c);
+    // yellow = \x1b[33m
+    expect(out).toMatch(/\x1b\[33m40%/);
+  });
+
+  it('cache hit rate is orange when <40%', () => {
+    const inputOverride = {
+      context_window: {
+        ...baseInput.context_window,
+        current_usage: { input_tokens: 70000, cache_read_input_tokens: 20000 },
+      },
+    };
+    // 20000 / 90000 ≈ 22%
+    const out = renderLine2(makeCtx({}, inputOverride), c);
+    // orange = \x1b[38;5;208m
+    expect(out).toMatch(/\x1b\[38;5;208m22%/);
+  });
+
+  it('hides cache hit rate when cacheMetrics display is off', () => {
+    const inputOverride = {
+      context_window: {
+        ...baseInput.context_window,
+        current_usage: { input_tokens: 10000, cache_read_input_tokens: 90000 },
+      },
+    };
+    const ctx = makeCtx(
+      { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: false } } },
+      inputOverride,
+    );
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toMatch(/\d+%⚡/);
+  });
+
+  // ── Pace delta widget ───────────────────────────────────────────────────────
+
+  it('shows pace delta ahead marker when burning quota faster than elapsed time', () => {
+    // Pin "now" so computePaceDelta has a defined window.
+    const pinnedNow = 1_700_000_000_000;
+    vi.useFakeTimers({ now: pinnedNow });
+    const nowSec = pinnedNow / 1000;
+    // 2 hours elapsed of a 5h window → resetsAt = now + 3h
+    const resetsAt = nowSec + 3 * 3600;
+    // 60% used but only 40% elapsed → delta = +20 (ahead of pace)
+    const inputOverride = {
+      rate_limits: { five_hour: { used_percentage: 60, resets_at: resetsAt } },
+    };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    expect(out).toContain('+20%');
+  });
+
+  it('shows pace delta behind marker when burning quota slower than elapsed time', () => {
+    const pinnedNow = 1_700_000_000_000;
+    vi.useFakeTimers({ now: pinnedNow });
+    const nowSec = pinnedNow / 1000;
+    // 2 hours elapsed → resetsAt = now + 3h
+    const resetsAt = nowSec + 3 * 3600;
+    // 20% used but 40% elapsed → delta = -20 (behind pace)
+    const inputOverride = {
+      rate_limits: { five_hour: { used_percentage: 20, resets_at: resetsAt } },
+    };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    expect(out).toContain('-20%');
+  });
+
+  it('shows "on pace" when delta is within ±1%', () => {
+    const pinnedNow = 1_700_000_000_000;
+    vi.useFakeTimers({ now: pinnedNow });
+    const nowSec = pinnedNow / 1000;
+    const resetsAt = nowSec + 3 * 3600;
+    // 40% used, 40% elapsed → delta = 0
+    const inputOverride = {
+      rate_limits: { five_hour: { used_percentage: 40, resets_at: resetsAt } },
+    };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    expect(out).toContain('on pace');
+  });
+
+  it('hides pace delta when rateLimits display is off', () => {
+    const pinnedNow = 1_700_000_000_000;
+    vi.useFakeTimers({ now: pinnedNow });
+    const nowSec = pinnedNow / 1000;
+    const resetsAt = nowSec + 3 * 3600;
+    const inputOverride = {
+      rate_limits: { five_hour: { used_percentage: 60, resets_at: resetsAt } },
+    };
+    const ctx = makeCtx(
+      { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, rateLimits: false } } },
+      inputOverride,
+    );
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('+');
+    expect(out).not.toContain('on pace');
+  });
+
+  it('hides pace delta when insufficient data (< 5 min elapsed)', () => {
+    const pinnedNow = 1_700_000_000_000;
+    vi.useFakeTimers({ now: pinnedNow });
+    const nowSec = pinnedNow / 1000;
+    // Only 2 minutes elapsed → computePaceDelta returns null
+    const resetsAt = nowSec + (5 * 3600 - 120);
+    const inputOverride = {
+      rate_limits: { five_hour: { used_percentage: 10, resets_at: resetsAt } },
+    };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    expect(out).not.toContain('on pace');
+    // No +/- delta markers appear (context bar %-suffix is still present, that's fine)
+    expect(out).not.toMatch(/[+-]\d+%/);
   });
 });
 

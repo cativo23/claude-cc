@@ -106,6 +106,28 @@ export function getContextColor(
   return 'blinkRed';
 }
 
+/**
+ * Color for the pace delta value (how far ahead/behind of expected quota burn).
+ * Green when on-pace or behind (delta ≤ 0), escalating through yellow/orange/blinkRed
+ * as the ahead-of-pace burn rate increases.
+ */
+export function getPaceColor(delta: number): ColorName {
+  if (delta <= 0) return 'green';
+  if (delta <= 15) return 'yellow';
+  if (delta <= 30) return 'orange';
+  return 'blinkRed';
+}
+
+/**
+ * Color for the cache hit rate percentage.
+ * Green when cache is working well (≥70%), yellow for moderate (40–69%), orange for poor (<40%).
+ */
+export function getCacheHitColor(pct: number): ColorName {
+  if (pct >= 70) return 'green';
+  if (pct >= 40) return 'yellow';
+  return 'orange';
+}
+
 export function getQuotaColor(pct: number): ColorName {
   if (!Number.isFinite(pct)) return 'blinkRed'; // NaN/Infinity → maximum urgency, caller should gate upstream
   if (pct < 50) return 'green';
