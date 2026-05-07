@@ -32,8 +32,11 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette): Powerline
         return `◐ ${t.name}${target}`;
       }).join(' ');
       segments.push({ text: label, bg: palette.taskBg, fg: palette.fg, priority: 100 });
-    } else if (completed.length > 0) {
-      // Group by name, show top 3.
+    }
+
+    if (completed.length > 0) {
+      // Group by name, show top 3. Show at priority 80 alongside running (100),
+      // or at 100 when running is empty — mirrors classic line3 behaviour.
       const groups = new Map<string, number>();
       for (const t of completed) groups.set(t.name, (groups.get(t.name) ?? 0) + 1);
       const label = Array.from(groups.entries())
@@ -41,20 +44,25 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette): Powerline
         .slice(0, 3)
         .map(([name, count]) => `${icons.checkmark} ${name}${count > 1 ? ` ×${count}` : ''}`)
         .join(' ');
-      if (label) segments.push({ text: label, bg: palette.versionBg, fg: palette.fg, priority: 100 });
+      if (label) {
+        const priority = running.length > 0 ? 80 : 100;
+        segments.push({ text: label, bg: palette.versionBg, fg: palette.fg, priority });
+      }
     }
   }
 
-  // Todos segment — progress bar + counts.
+  // Todos segment — progress bar + counts. Mirrors classic line3 (pending, in-progress counts).
   if (display.todos !== false && todos.length > 0) {
     const total = todos.length;
     const done = todos.filter(t => t.status === 'completed').length;
     const inProg = todos.filter(t => t.status === 'in_progress').length;
+    const pending = todos.filter(t => t.status === 'pending').length;
     const SEGS = 8;
     const filled = Math.round((done / total) * SEGS);
     const bar = icons.barFull.repeat(filled) + icons.barEmpty.repeat(SEGS - filled);
     let label = `${bar} ${done}/${total}`;
     if (inProg > 0) label += ` ◐ ${inProg}`;
+    if (pending > 0) label += ` ○ ${pending}`;
     segments.push({ text: label, bg: palette.branchCleanBg, fg: palette.fg, priority: 80 });
   }
 

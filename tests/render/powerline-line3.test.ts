@@ -75,4 +75,35 @@ describe('renderPowerlineLine3', () => {
     expect(plain).toContain('1/1'); // todo progress segment rendered
     expect(out.endsWith('\x1b[0m')).toBe(true);
   });
+
+  it('shows completed tools alongside running tools', () => {
+    const ctx = makeCtx({
+      transcript: {
+        ...EMPTY_TRANSCRIPT,
+        tools: [
+          { id: '1', name: 'Read', status: 'running', startTime: new Date() },
+          { id: '2', name: 'Edit', status: 'completed', startTime: new Date(), endTime: new Date() },
+        ],
+      },
+    });
+    const plain = stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null));
+    expect(plain).toContain('Read');   // running tool shown
+    expect(plain).toContain('Edit');   // completed tool also shown
+    expect(plain).toContain('◐');      // running indicator
+  });
+
+  it('shows pending todo count (○ N) when pending todos exist', () => {
+    const ctx = makeCtx({
+      transcript: {
+        ...EMPTY_TRANSCRIPT,
+        todos: [
+          { id: '1', content: 'Done', status: 'completed' },
+          { id: '2', content: 'Pending A', status: 'pending' },
+          { id: '3', content: 'Pending B', status: 'pending' },
+        ],
+      },
+    });
+    const plain = stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null));
+    expect(plain).toContain('○ 2'); // pending count
+  });
 });
