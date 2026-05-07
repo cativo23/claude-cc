@@ -2,10 +2,25 @@ import { totalmem, freemem, platform } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import type { MemoryInfo } from '../types.js';
 
-export function getMemoryInfo(): MemoryInfo | null {
+export interface MemoryReader {
+  platform: () => string;
+  totalmem: () => number;
+  freemem: () => number;
+  /** Reads `vm_stat` output on darwin. May throw — caller catches. */
+  vmStat: () => string;
+}
+
+const defaultReader: MemoryReader = {
+  platform,
+  totalmem,
+  freemem,
+  vmStat: () => execFileSync('vm_stat', [], { encoding: 'utf8', timeout: 2000 }),
+};
+
+export function getMemoryInfo(reader: MemoryReader = defaultReader): MemoryInfo | null {
   try {
-    if (platform() === 'darwin') {
-      const output = execFileSync('vm_stat', [], { encoding: 'utf8', timeout: 2000 });
+    if (reader.platform() === 'darwin') {
+      const output = reader.vmStat();
       const psMatch = output.match(/page size of (\d+) bytes/);
       const ps = psMatch ? parseInt(psMatch[1], 10) : 4096;
       const active = output.match(/Pages active:\s+(\d+)/);
@@ -13,12 +28,13 @@ export function getMemoryInfo(): MemoryInfo | null {
       const compressed = output.match(/Pages occupied by compressor:\s+(\d+)/);
       if (!active || !wired) return null;
       const usedBytes = (parseInt(active[1], 10) + parseInt(wired[1], 10) + (compressed ? parseInt(compressed[1], 10) : 0)) * ps;
-      const totalBytes = totalmem();
+      const totalBytes = reader.totalmem();
+      if (totalBytes <= 0) return null;
       return { usedBytes, totalBytes, percentage: Math.min(100, Math.max(0, Math.round((usedBytes / totalBytes) * 100))) };
     }
-    const totalBytes = totalmem();
+    const totalBytes = reader.totalmem();
     if (totalBytes <= 0) return null;
-    const usedBytes = totalBytes - freemem();
+    const usedBytes = totalBytes - reader.freemem();
     return { usedBytes, totalBytes, percentage: Math.min(100, Math.max(0, Math.round((usedBytes / totalBytes) * 100))) };
   } catch { return null; }
 }
