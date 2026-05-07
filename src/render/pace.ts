@@ -1,0 +1,51 @@
+export interface PaceDelta {
+  delta: number;          // usedPct - elapsedPct (positive = ahead, negative = behind)
+  timeToExhaustion: number | null;  // minutes remaining at current burn rate (null if behind pace)
+}
+
+export function computePaceDelta(
+  usedPercentage: number,
+  resetsAt: number | undefined,
+  nowSec?: number,  // injectable for testing, defaults to Date.now()/1000
+): PaceDelta | null {
+  const now = nowSec ?? Date.now() / 1000;
+
+  if (resetsAt === undefined || resetsAt <= now) return null;
+
+  const totalWindowSec = 5 * 3600;
+  const remainingSec = resetsAt - now;
+  const elapsedSec = totalWindowSec - remainingSec;
+
+  if (elapsedSec < 300) return null; // insufficient data — less than 5 min elapsed
+
+  const elapsedPct = (elapsedSec / totalWindowSec) * 100;
+  const delta = usedPercentage - elapsedPct;
+
+  let timeToExhaustion: number | null = null;
+  if (delta > 0 && usedPercentage > 0) {
+    // burn rate = usedPercentage / elapsedSec (pct per second)
+    // time to exhaust remaining (100 - usedPercentage) pct at that rate
+    timeToExhaustion = (100 - usedPercentage) / (usedPercentage / elapsedSec) / 60;
+  }
+
+  return { delta, timeToExhaustion };
+}
+
+export function formatPaceDelta(pace: PaceDelta): string {
+  const rounded = Math.round(pace.delta);
+
+  if (pace.delta > -1 && pace.delta < 1) return 'on pace';
+
+  if (pace.delta > 0) {
+    let suffix = '';
+    if (pace.timeToExhaustion != null) {
+      const mins = Math.round(pace.timeToExhaustion);
+      suffix = mins >= 60
+        ? ` (~${Math.round(mins / 60)}h)`
+        : ` (~${mins}min)`;
+    }
+    return `+${rounded}%${suffix}`;
+  }
+
+  return `${rounded}%`;
+}

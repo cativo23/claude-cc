@@ -218,6 +218,7 @@ export interface DisplayToggles {
   memory: boolean;
   cacheMetrics: boolean;
   mcp: boolean;
+  agents: boolean;
   health: boolean;
   /**
    * Percentage at which the context bar turns orange and shows the fire icon. Default 70. Clamped [0,100].
@@ -270,6 +271,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   memory: true,
   cacheMetrics: true,
   mcp: true,
+  agents: true,
   health: false,
   contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
   contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,

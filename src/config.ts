@@ -110,11 +110,12 @@ interface PresetDef {
 const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
   full: {
     layout: 'multiline',
-    display: {}, // all defaults (everything on)
+    display: { agents: true }, // all defaults (everything on)
   },
   balanced: {
     layout: 'auto',
     display: {
+      agents: true,
       burnRate: false,
       duration: false,
       tokenSpeed: false,
@@ -130,6 +131,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
   minimal: {
     layout: 'singleline',
     display: {
+      agents: false,
       tokens: false,
       burnRate: false,
       duration: false,
