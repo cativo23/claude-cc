@@ -140,7 +140,8 @@ import type { NormalizedInput } from './normalize.js';
 export interface RenderContext {
   input: NormalizedInput;
   git: GitStatus;
-  transcript: TranscriptData;
+  /** Renderers must not mutate transcript data — it may be the frozen EMPTY_TRANSCRIPT singleton. */
+  transcript: Readonly<TranscriptData>;
   tokenSpeed: number | null;
   memory: MemoryInfo | null;
   gsd: GsdInfo | null;
