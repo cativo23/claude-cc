@@ -28,8 +28,9 @@ const MAX_AGENTS = 10;
 // Generic dispatch types Claude Code attaches to anonymous Agent calls. The
 // list is hard-coded today; extend it when Claude Code adds new generic
 // types so the statusline doesn't accidentally surface their names as if
-// they were user-named subagents. Exported so tests can assert membership
-// directly without re-encoding the values.
+// they were user-named subagents. Exported as part of the public API;
+// callers should prefer `isNamedAgentType` for membership checks rather
+// than reaching into the set directly.
 export const GENERIC_AGENT_TYPES: ReadonlySet<string> = new Set(['general-purpose', 'unknown']);
 
 /**
@@ -214,14 +215,16 @@ async function readBoundaryJsonLines(filePath: string, fileSize: number): Promis
   let fd;
   try { fd = await open(filePath, 'r'); } catch { return { first: null, last: null }; }
   try {
-    const headSize = Math.min(BOUNDARY_CHUNK_SIZE, fileSize);
-    const headBuf = Buffer.alloc(headSize);
-    await fd.read(headBuf, 0, headSize, 0);
+    // We're on the chunked path, so fileSize > LARGE_FILE_THRESHOLD >
+    // BOUNDARY_CHUNK_SIZE — head and tail windows are always exactly
+    // BOUNDARY_CHUNK_SIZE bytes, never clamped by file size.
+    const chunkSize = BOUNDARY_CHUNK_SIZE;
+    const headBuf = Buffer.alloc(chunkSize);
+    await fd.read(headBuf, 0, chunkSize, 0);
     const head = headBuf.toString('utf8');
 
-    const tailSize = Math.min(BOUNDARY_CHUNK_SIZE, fileSize);
-    const tailBuf = Buffer.alloc(tailSize);
-    await fd.read(tailBuf, 0, tailSize, fileSize - tailSize);
+    const tailBuf = Buffer.alloc(chunkSize);
+    await fd.read(tailBuf, 0, chunkSize, fileSize - chunkSize);
     const tail = tailBuf.toString('utf8');
 
     // The tail window starts at an arbitrary byte offset; if that byte
@@ -234,12 +237,13 @@ async function readBoundaryJsonLines(filePath: string, fileSize: number): Promis
     const first = parseFirstJson(head);
     const last = parseLastJson(tailFromBoundary);
     if (log.enabled) {
-      // When a single first/last line exceeds the boundary chunk size,
-      // JSON.parse fails silently and we fall back to mtime / "running".
-      // Surface that in debug logs so users tracking down a stuck agent
-      // can spot it.
-      if (first === null) log('warn — first-line parse missed (likely >', BOUNDARY_CHUNK_SIZE, 'bytes):', filePath);
-      if (last === null) log('warn — last-line parse missed (likely >', BOUNDARY_CHUNK_SIZE, 'bytes):', filePath);
+      // When a single first/last line is bigger than the chunk window,
+      // JSON.parse fails on every fragment we see and we fall back to
+      // mtime / "running". A fully corrupt file produces the same
+      // signal — the suffix "(no valid JSON in head/tail window)"
+      // covers both interpretations without overcommitting to either.
+      if (first === null) log('warn — first-line parse missed (no valid JSON in head window):', filePath);
+      if (last === null) log('warn — last-line parse missed (no valid JSON in tail window):', filePath);
     }
     return { first, last };
   } catch { return { first: null, last: null }; }

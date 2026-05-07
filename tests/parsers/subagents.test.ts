@@ -8,6 +8,7 @@ import {
   isNamedAgentType,
   getSubagentsDirState,
   subagentsDirStateEqual,
+  GENERIC_AGENT_TYPES,
 } from '../../src/parsers/subagents.js';
 
 let workDir: string;
@@ -379,6 +380,18 @@ describe('isNamedAgentType', () => {
     // and the GENERIC_AGENT_TYPES set should be updated.
     expect(isNamedAgentType('General-Purpose')).toBe(true);
     expect(isNamedAgentType('UNKNOWN')).toBe(true);
+  });
+});
+
+describe('GENERIC_AGENT_TYPES', () => {
+  it('contains the canonical anonymous dispatch types', () => {
+    // Pinning the exported contract so a future addition to the set
+    // doesn't silently change behaviour without updating this test.
+    expect(GENERIC_AGENT_TYPES.has('general-purpose')).toBe(true);
+    expect(GENERIC_AGENT_TYPES.has('unknown')).toBe(true);
+  });
+  it('is in agreement with isNamedAgentType for every member', () => {
+    for (const t of GENERIC_AGENT_TYPES) expect(isNamedAgentType(t)).toBe(false);
   });
 });
 
