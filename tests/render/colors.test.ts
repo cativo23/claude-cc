@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createColors, stripAnsi, detectColorMode, getContextColor, getQuotaColor } from '../../src/render/colors.js';
+import { createColors, stripAnsi, detectColorMode, getContextColor, getQuotaColor, getPaceColor, getCacheHitColor } from '../../src/render/colors.js';
 
 describe('stripAnsi', () => {
   it('removes ANSI escape codes', () => {
@@ -115,4 +115,24 @@ describe('getQuotaColor', () => {
   it('returns blinkRed for NaN', () => { expect(getQuotaColor(NaN)).toBe('blinkRed'); });
   it('returns blinkRed for Infinity', () => { expect(getQuotaColor(Infinity)).toBe('blinkRed'); });
   it('returns blinkRed for -Infinity — guard prevents false green', () => { expect(getQuotaColor(-Infinity)).toBe('blinkRed'); });
+});
+
+describe('getPaceColor', () => {
+  it('returns green at delta = 0 (exactly on pace)', () => { expect(getPaceColor(0)).toBe('green'); });
+  it('returns green for negative delta (behind pace — healthy)', () => { expect(getPaceColor(-10)).toBe('green'); });
+  it('returns yellow at delta = 1 (lower warning boundary)', () => { expect(getPaceColor(1)).toBe('yellow'); });
+  it('returns yellow at delta = 15 (upper warning boundary)', () => { expect(getPaceColor(15)).toBe('yellow'); });
+  it('returns orange at delta = 16 (lower escalation boundary)', () => { expect(getPaceColor(16)).toBe('orange'); });
+  it('returns orange at delta = 30 (upper escalation boundary)', () => { expect(getPaceColor(30)).toBe('orange'); });
+  it('returns blinkRed at delta = 31 (critical boundary)', () => { expect(getPaceColor(31)).toBe('blinkRed'); });
+  it('returns blinkRed for very high delta', () => { expect(getPaceColor(80)).toBe('blinkRed'); });
+});
+
+describe('getCacheHitColor', () => {
+  it('returns green at 100% (perfect cache)', () => { expect(getCacheHitColor(100)).toBe('green'); });
+  it('returns green at 70% (lower green boundary)', () => { expect(getCacheHitColor(70)).toBe('green'); });
+  it('returns yellow at 69% (upper yellow boundary)', () => { expect(getCacheHitColor(69)).toBe('yellow'); });
+  it('returns yellow at 40% (lower yellow boundary)', () => { expect(getCacheHitColor(40)).toBe('yellow'); });
+  it('returns orange at 39% (upper orange boundary)', () => { expect(getCacheHitColor(39)).toBe('orange'); });
+  it('returns orange at 0% (no cache hits)', () => { expect(getCacheHitColor(0)).toBe('orange'); });
 });

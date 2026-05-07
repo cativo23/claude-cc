@@ -4,7 +4,7 @@ import { stripAnsi } from '../../src/render/colors.js';
 import { resolveIcons } from '../../src/render/icons.js';
 import { normalize } from '../../src/normalize.js';
 import { DEFAULT_CONFIG, DEFAULT_DISPLAY, EMPTY_GIT, EMPTY_TRANSCRIPT } from '../../src/types.js';
-import type { RenderContext } from '../../src/types.js';
+import type { AgentEntry, RenderContext } from '../../src/types.js';
 
 function makeCtx(overrides: Partial<RenderContext> = {}): RenderContext {
   const rawInput = {
@@ -105,5 +105,48 @@ describe('renderPowerlineLine3', () => {
     });
     const plain = stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null));
     expect(plain).toContain('○ 2'); // pending count
+  });
+});
+
+const runningAgent = (id: string): AgentEntry => ({
+  id, type: 'general-purpose', status: 'running', startTime: new Date(),
+});
+
+const completedAgent = (id: string): AgentEntry => ({
+  id, type: 'general-purpose', status: 'completed', startTime: new Date(), endTime: new Date(),
+});
+
+describe('renderPowerlineLine3 — agent count', () => {
+  it('returns empty when no agents running', () => {
+    const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, agents: [completedAgent('a1')] } });
+    expect(renderPowerlineLine3(ctx, 'truecolor', null)).toBe('');
+  });
+
+  it('shows "1 agent" (singular) when exactly one running', () => {
+    const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1')] } });
+    const out = stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null));
+    expect(out).toContain('1 agent');
+    expect(out).not.toContain('agents');
+  });
+
+  it('shows "N agents" (plural) when multiple running', () => {
+    const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1'), runningAgent('a2')] } });
+    const out = stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null));
+    expect(out).toContain('2 agents');
+  });
+
+  it('only counts running agents, not completed ones', () => {
+    const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1'), completedAgent('a2')] } });
+    const out = stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null));
+    expect(out).toContain('1 agent');
+    expect(out).not.toContain('agents');
+  });
+
+  it('hides agent count when display.agents is false', () => {
+    const ctx = makeCtx({
+      transcript: { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1'), runningAgent('a2')] },
+      config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, agents: false } },
+    });
+    expect(stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null))).not.toContain('agent');
   });
 });

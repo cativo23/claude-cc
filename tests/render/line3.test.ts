@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { renderLine3 } from '../../src/render/line3.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '../../src/types.js';
-import type { ClaudeCodeInput, ToolEntry, TodoEntry, RenderContext } from '../../src/types.js';
+import type { ClaudeCodeInput, ToolEntry, TodoEntry, AgentEntry, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
 import { normalize } from '../../src/normalize.js';
 
@@ -110,5 +110,47 @@ describe('renderLine3', () => {
     const todos = [todo('1', 'Task', 'completed')];
     const transcript = { ...EMPTY_TRANSCRIPT, tools, todos };
     expect(renderLine3(makeCtx({ transcript, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, tools: false, todos: false } } }), c)).toBe('');
+  });
+});
+
+const runningAgent = (id: string): AgentEntry => ({
+  id, type: 'general-purpose', status: 'running', startTime: new Date(),
+});
+
+const completedAgent = (id: string): AgentEntry => ({
+  id, type: 'general-purpose', status: 'completed', startTime: new Date(), endTime: new Date(),
+});
+
+describe('renderLine3 — agent count', () => {
+  it('returns empty when no agents running', () => {
+    const transcript = { ...EMPTY_TRANSCRIPT, agents: [completedAgent('a1')] };
+    expect(renderLine3(makeCtx({ transcript }), c)).toBe('');
+  });
+
+  it('shows "1 agent" (singular) when exactly one running', () => {
+    const transcript = { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1')] };
+    const out = stripAnsi(renderLine3(makeCtx({ transcript }), c));
+    expect(out).toContain('1 agent');
+    expect(out).not.toContain('agents');
+  });
+
+  it('shows "N agents" (plural) when multiple running', () => {
+    const transcript = { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1'), runningAgent('a2'), runningAgent('a3')] };
+    const out = stripAnsi(renderLine3(makeCtx({ transcript }), c));
+    expect(out).toContain('3 agents');
+  });
+
+  it('only counts running agents, not completed ones', () => {
+    const transcript = { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1'), completedAgent('a2'), completedAgent('a3')] };
+    const out = stripAnsi(renderLine3(makeCtx({ transcript }), c));
+    expect(out).toContain('1 agent');
+    expect(out).not.toContain('agents');
+  });
+
+  it('hides agent count when display.agents is false', () => {
+    const transcript = { ...EMPTY_TRANSCRIPT, agents: [runningAgent('a1'), runningAgent('a2')] };
+    const config = { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, agents: false } };
+    const out = stripAnsi(renderLine3(makeCtx({ transcript, config }), c));
+    expect(out).not.toContain('agent');
   });
 });
