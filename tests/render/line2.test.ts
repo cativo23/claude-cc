@@ -179,6 +179,20 @@ describe('renderLine2', () => {
     expect(ratePos).toBeLessThan(costPos); // critical rate beats cost
   });
 
+  it('context tokens (94k/200k) appear before critical rate-limit segment', () => {
+    // context bar + context tokens are grouped; rate limits come after, even when critical.
+    const inputOverride = {
+      context_window: { used_percentage: 47, remaining_percentage: 53, context_window_size: 200000, total_input_tokens: 94000, total_output_tokens: 0 },
+      rate_limits: { five_hour: { used_percentage: 89 } },
+    };
+    const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+    const tokensPos = out.indexOf('94k/200k');
+    const ratePos = out.indexOf('89%(5h)');
+    expect(tokensPos).toBeGreaterThan(-1);
+    expect(ratePos).toBeGreaterThan(-1);
+    expect(tokensPos).toBeLessThan(ratePos); // context tokens before rate limit
+  });
+
   it('keeps non-critical rate-limit (<85%) at the end of the line — original order', () => {
     const out = stripAnsi(renderLine2(makeCtx(
       {},
