@@ -4,6 +4,7 @@ import { fitSegments, truncField } from './text.js';
 import { formatGitChanges, getActiveTodo, SEP } from './shared.js';
 import { hyperlink } from './hyperlink.js';
 import { formatDuration } from '../utils/format.js';
+import { isNamedAgentType } from '../parsers/subagents.js';
 import type { Colors } from './colors.js';
 import type { RenderContext } from '../types.js';
 
@@ -92,9 +93,7 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     //      under the live ⚡N agents widget on line 3 to avoid noise.
     let agentName = input.agentName;
     if (!agentName) {
-      const named = transcript.agents.filter(a =>
-        a.status === 'running' && a.type && a.type !== 'general-purpose' && a.type !== 'unknown'
-      );
+      const named = transcript.agents.filter(a => a.status === 'running' && isNamedAgentType(a.type));
       if (named.length === 1) agentName = named[0].type;
     }
     if (agentName) {

@@ -1,14 +1,13 @@
-import { createReadStream, existsSync, realpathSync } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
-import { homedir, tmpdir } from 'node:os';
 import type { TranscriptData, ToolEntry, AgentEntry, TodoEntry, TodoStatus, ThinkingEffort } from '../types.js';
 import { EMPTY_TRANSCRIPT } from '../types.js';
 import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js';
 import { sanitizeTermString } from '../normalize.js';
-import { isUnderAllowedRoot } from '../utils/path.js';
+import { isUnderAllowedRoot, LUMIRA_ALLOWED_ROOTS } from '../utils/path.js';
 import { debug } from '../utils/debug.js';
-import { parseSubagentsDir } from './subagents.js';
+import { parseSubagentsDir, getSubagentsDirState, subagentsDirStateEqual, type SubagentsDirState } from './subagents.js';
 
 const log = debug('transcript');
 
@@ -25,7 +24,7 @@ const log = debug('transcript');
 // iteration order is insertion order, which gives us a free LRU: re-insert
 // on hit to refresh recency, drop the first key when size > cap.
 export const TRANSCRIPT_CACHE_CAP = 10;
-type TranscriptCacheEntry = { result: TranscriptData; mtime: MtimeState };
+type TranscriptCacheEntry = { result: TranscriptData; mtime: MtimeState; subagentsDir: SubagentsDirState | null };
 const transcriptCache = new Map<string, TranscriptCacheEntry>();
 
 // Shallow clone of TranscriptData so callers can't mutate the cached arrays.
@@ -123,17 +122,10 @@ export function extractToolTarget(toolName: string, input: Record<string, unknow
 // under an allowed root pointing at /etc/passwd) is tracked separately;
 // the threat is narrow because `transcript_path` arrives from Claude Code
 // itself, not arbitrary external input.
-function realpathSafe(p: string): string {
-  try { return realpathSync(p); } catch { return resolve(p); }
-}
-const ALLOWED_ROOTS: readonly string[] = [
-  ...new Set([
-    resolve(homedir()),
-    resolve(tmpdir()),
-    realpathSafe(homedir()),
-    realpathSafe(tmpdir()),
-  ]),
-];
+// `realpathSafe` and `LUMIRA_ALLOWED_ROOTS` previously lived here; both are
+// now in `src/utils/path.ts` so other parsers (e.g. `subagents.ts`) share the
+// same canonicalisation and allow-list semantics. See `path.ts` for caveats
+// about the string-level (non-symlink-following) nature of the check.
 
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
   const result: TranscriptData = { ...EMPTY_TRANSCRIPT, tools: [], agents: [], todos: [] };
@@ -146,15 +138,24 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   }
 
   const resolved = resolve(transcriptPath);
-  if (!isUnderAllowedRoot(resolved, ALLOWED_ROOTS)) {
+  if (!isUnderAllowedRoot(resolved, LUMIRA_ALLOWED_ROOTS)) {
     log('skip — path outside allowed roots:', resolved);
     transcriptCache.delete(resolved);
     return result;
   }
 
   const currentMtime = getMtimeState(resolved);
+  // The subagents/ dir lives outside the main JSONL's stat scope, so a quiet
+  // subagent's progress (or a `stop_reason: end_turn` flush) wouldn't change
+  // anything the cache can see. Fold a cheap fingerprint of the dir into the
+  // cache key so updates there force a re-parse even when the parent JSONL
+  // is unchanged.
+  const currentSubagentsState = await getSubagentsDirState(resolved);
   const cached = transcriptCache.get(resolved);
-  if (currentMtime && cached && isMtimeFresh(resolved, cached.mtime)) {
+  if (
+    currentMtime && cached && isMtimeFresh(resolved, cached.mtime)
+    && subagentsDirStateEqual(cached.subagentsDir, currentSubagentsState)
+  ) {
     log('cache hit:', resolved);
     touchCache(resolved, cached);
     return cloneShallow(cached.result);
@@ -298,10 +299,13 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   // pairing heuristic. When absent (older Claude Code, layout change), fall
   // back to whatever main-JSONL parsing produced.
   const subagentDirAgents = await parseSubagentsDir(resolved);
-  if (subagentDirAgents.length > 0) result.agents = subagentDirAgents;
+  if (subagentDirAgents.length > 0) {
+    if (log.enabled) log('subagents-dir override:', subagentDirAgents.length, 'agents replace', result.agents.length, 'from main JSONL');
+    result.agents = subagentDirAgents;
+  }
 
   if (currentMtime) {
-    touchCache(resolved, { result, mtime: currentMtime });
+    touchCache(resolved, { result, mtime: currentMtime, subagentsDir: currentSubagentsState });
   }
   if (log.enabled) {
     log('parsed', resolved, {
