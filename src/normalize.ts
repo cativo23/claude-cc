@@ -211,7 +211,7 @@ export function normalize(input: RawInput): NormalizedInput {
 
   // Cache hit rate (Claude only) — denominator is the current turn's total input
   // (fresh + cache_read + cache_creation), not the cumulative session total.
-  const cacheHitRate = (cached != null && cached > 0 && cacheTurnDenominator && platform === 'claude-code')
+  const cacheHitRate = (cached != null && cacheTurnDenominator && platform === 'claude-code')
     ? Math.min(100, Math.round((cached / cacheTurnDenominator) * 100))
     : undefined;
 

@@ -360,6 +360,16 @@ describe('cacheHitRate normalization', () => {
     const input = { ...claudeInput, context_window: { ...claudeInput.context_window, cache_read_input_tokens: 5000000, total_input_tokens: 957000 } };
     expect(normalize(input).cacheHitRate).toBeUndefined();
   });
+  it('returns 0 cacheHitRate when cache_read is 0 but denominator is positive (legit no cache hits this turn)', () => {
+    const input = {
+      ...claudeInput,
+      context_window: {
+        ...claudeInput.context_window,
+        current_usage: { input_tokens: 50000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+      },
+    };
+    expect(normalize(input).cacheHitRate).toBe(0);
+  });
   it('returns undefined cacheHitRate when current_usage has no per-turn token fields', () => {
     // current_usage present but only output_tokens — no fresh/read/creation → denominator = 0.
     const input = {
