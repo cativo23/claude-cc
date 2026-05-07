@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **`display.paceDelta` toggle** — pace delta now has its own visibility flag, independent of `display.rateLimits`. Default true (preserves prior behavior); off in the `minimal` preset. Lets users show the pace signal without the raw 5h/7d percentages, or vice versa.
+- **`display.paceDelta` toggle** — pace delta now has its own visibility flag, independent of `display.rateLimits`. Default true; off in the `minimal` preset. Lets users show the pace signal without the raw 5h/7d percentages, or vice versa.
+  - **Migration note for users who set `display.rateLimits: false`**: in v1.0.x, that toggle also implicitly hid the pace segment. With independent gating, pace will now reappear unless you also set `"paceDelta": false` in your config.
 
 ### Fixed
 - **Powerline countdown intentionally absent — now documented** — added a code comment explaining that the pace delta segment communicates time-to-exhaustion in powerline mode, replacing the classic-mode countdown signal.
@@ -385,7 +386,15 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/cativo23/lumira/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/cativo23/lumira/compare/v0.9.5...v1.0.0
+[0.9.5]: https://github.com/cativo23/lumira/compare/v0.9.4...v0.9.5
+[0.9.4]: https://github.com/cativo23/lumira/compare/v0.9.3...v0.9.4
+[0.9.3]: https://github.com/cativo23/lumira/compare/v0.9.2...v0.9.3
+[0.9.2]: https://github.com/cativo23/lumira/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/cativo23/lumira/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/cativo23/lumira/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/cativo23/lumira/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/cativo23/lumira/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/cativo23/lumira/compare/v0.7.0...v0.7.1
