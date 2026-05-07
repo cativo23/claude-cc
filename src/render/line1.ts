@@ -83,8 +83,23 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     right.push(c.gray(`${icons.tree} ${truncField(input.worktreeName, 15)}`));
   }
 
-  if (display.agent && input.agentName) {
-    right.push(c.gray(`${icons.cubes} ${truncField(input.agentName, 15)}`));
+  if (display.agent) {
+    // Show the cubes-icon agent name when:
+    //   1) the statusline is rendering inside a subagent session (input.agentName
+    //      comes from Claude Code's stdin payload), or
+    //   2) the parent session has exactly one *named* subagent currently
+    //      running. Anonymous (general-purpose / unknown) agents stay collapsed
+    //      under the live ⚡N agents widget on line 3 to avoid noise.
+    let agentName = input.agentName;
+    if (!agentName) {
+      const named = transcript.agents.filter(a =>
+        a.status === 'running' && a.type && a.type !== 'general-purpose' && a.type !== 'unknown'
+      );
+      if (named.length === 1) agentName = named[0].type;
+    }
+    if (agentName) {
+      right.push(c.gray(`${icons.cubes} ${truncField(agentName, 15)}`));
+    }
   }
 
   if (display.sessionName && input.sessionName) {
