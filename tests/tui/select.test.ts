@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { interactiveSelect } from '../../src/tui/select.js';
 import { createMockStdin, createMockStdout } from './_mock-stdin.js';
 
@@ -196,5 +196,43 @@ describe('interactiveSelect — abort and resize', () => {
     // After cleanup, there should be no more listeners on 'resize' / 'end'
     expect(opts.stdout.listenerCount('resize')).toBe(0);
     expect(opts.stdin.listenerCount('end')).toBe(0);
+  });
+});
+
+describe('interactiveSelect — SIGINT handling', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('Promise resolves with null when SIGINT fires while select is active', async () => {
+    // Prevent process.kill from actually terminating the test worker.
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const stdin = createMockStdin(true);
+    const stdout = createMockStdout();
+
+    const promise = interactiveSelect({
+      title: 'pick',
+      options: [{ label: 'a', value: 'a' }],
+      initial: 'a',
+      preview: () => '',
+      stdin,
+      stdout,
+    });
+
+    // Wait for the Promise to be suspended inside the keypress listener.
+    await new Promise((r) => setImmediate(r));
+
+    // Simulate SIGINT arriving while select is waiting.
+    process.emit('SIGINT');
+
+    // The Promise must settle (resolve null) — not hang.
+    const result = await Promise.race([
+      promise,
+      new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 500)),
+    ]);
+
+    expect(result).toBeNull();
+    expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT');
   });
 });
