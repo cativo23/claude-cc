@@ -306,16 +306,16 @@ describe('parseSubagentsDir', () => {
     expect(agents[0].endTime?.toISOString()).toBe(endTs);
   });
 
-  it('falls back gracefully when the FIRST JSONL line exceeds the head chunk window (>16 KB)', async () => {
-    // A first line larger than the 16 KB head buffer can't be JSON.parse'd
+  it('falls back gracefully when the FIRST JSONL line exceeds the head chunk window (>64 KB)', async () => {
+    // A first line larger than the 64 KB head buffer can't be JSON.parse'd
     // by parseFirstJson — extractTimestamp returns null and startTime
     // falls back to mtime. The last line (small) is still parseable so
     // status detection still works.
     const { jsonlPath, subagentsDir } = makeSession();
     const endTs = '2026-05-07T18:10:00.000Z';
-    const huge = JSON.stringify({ agentId: 'fat-first', timestamp: '2026-05-07T18:00:00.000Z', message: { content: 'x'.repeat(20_000) } });
+    const huge = JSON.stringify({ agentId: 'fat-first', timestamp: '2026-05-07T18:00:00.000Z', message: { content: 'x'.repeat(70_000) } });
     const last = JSON.stringify({ agentId: 'fat-first', timestamp: endTs, message: { role: 'assistant', stop_reason: 'end_turn' } });
-    const pad = 'p'.repeat(50_000);
+    const pad = 'p'.repeat(200_000);
     writeRawAgent(subagentsDir, 'fat-first', `${huge}\n${pad}\n${last}\n`);
     const agents = await parseSubagentsDir(jsonlPath);
     expect(agents[0].status).toBe('completed');
@@ -324,20 +324,63 @@ describe('parseSubagentsDir', () => {
     expect(Number.isFinite(agents[0].startTime.getTime())).toBe(true);
   });
 
-  it('marks a completed agent as running when the LAST JSONL line exceeds the tail chunk window (>16 KB)', async () => {
+  it('marks a completed agent as running when the LAST JSONL line exceeds the tail chunk window (>64 KB)', async () => {
     // Documents the only known semantic regression of the chunked-read
-    // path: a closing assistant message bigger than 16 KB hides its
+    // path: a closing assistant message bigger than 64 KB hides its
     // stop_reason from the tail-window parser, so the agent appears
-    // permanently "running". If this assumption ever breaks (Claude Code
-    // routinely emits huge close-out messages), this test fails and we
-    // revisit the chunk size or restore full-read with a streaming parser.
+    // permanently "running". The previous 16 KB chunk hit this in
+    // production for a long Opus review (~18 KB last line); the 64 KB
+    // chunk gives ~3.5× headroom but the failure mode itself remains
+    // possible if Claude Code routinely emits huge close-out messages.
     const { jsonlPath, subagentsDir } = makeSession();
     const first = JSON.stringify({ agentId: 'fat-last', timestamp: '2026-05-07T18:00:00.000Z', message: { role: 'user', content: [{ type: 'text', text: 'go' }] } });
-    const huge = JSON.stringify({ agentId: 'fat-last', timestamp: '2026-05-07T18:10:00.000Z', message: { role: 'assistant', stop_reason: 'end_turn', text: 'x'.repeat(30_000) } });
-    const pad = 'p'.repeat(50_000);
+    const huge = JSON.stringify({ agentId: 'fat-last', timestamp: '2026-05-07T18:10:00.000Z', message: { role: 'assistant', stop_reason: 'end_turn', content: [{ type: 'tool_use', id: 'x', name: 'Y', input: { v: 'x'.repeat(80_000) } }] } });
+    const pad = 'p'.repeat(200_000);
     writeRawAgent(subagentsDir, 'fat-last', `${first}\n${pad}\n${huge}\n`);
     const agents = await parseSubagentsDir(jsonlPath);
-    // stop_reason is unreachable → status sticks to running.
+    // stop_reason is unreachable AND content carries a tool_use block →
+    // even the text-only finalization heuristic can't rescue it. The
+    // agent appears running. Documented regression.
+    expect(agents[0].status).toBe('running');
+  });
+
+  it('marks an agent completed when last assistant message is text-only and stop_reason is null/missing', async () => {
+    // Claude Code occasionally finalises a subagent's JSONL with
+    // stop_reason: null on the closing assistant message even though the
+    // agent has obviously finished — the text body is right there. The
+    // tell-apart from a "running, waiting on tool" line is whether the
+    // content has a tool_use block; running agents always do. This test
+    // pins the heuristic that rescues those zombies.
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeAgent(subagentsDir, 'null-sr', {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        stop_reason: null,
+        content: [{ type: 'text', text: 'final response, no tool_use, just text' }],
+      },
+    });
+    const agents = await parseSubagentsDir(jsonlPath);
+    expect(agents[0].status).toBe('completed');
+  });
+
+  it('keeps an agent running when last assistant content has a tool_use block, regardless of stop_reason', async () => {
+    // Inverse guard for the heuristic above — a tool_use block in the
+    // last assistant content is the signal of a running agent waiting
+    // on a tool result.
+    const { jsonlPath, subagentsDir } = makeSession();
+    writeAgent(subagentsDir, 'tool-wait', {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        stop_reason: 'tool_use',
+        content: [
+          { type: 'text', text: "I'll run a bash command." },
+          { type: 'tool_use', id: 'tool-x', name: 'Bash', input: { command: 'sleep 30' } },
+        ],
+      },
+    });
+    const agents = await parseSubagentsDir(jsonlPath);
     expect(agents[0].status).toBe('running');
   });
 

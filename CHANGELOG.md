@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-05-07
+
+### Fixed
+- **Zombie subagents from oversized last lines** — long Opus reviewer subagents emitted closing assistant messages around 17 KB, which exceeded the 16 KB tail-chunk window the boundary reader used on large files. The last line failed to parse, `stop_reason` was unreachable, and the agent stuck on `running` indefinitely. Bumped `BOUNDARY_CHUNK_SIZE` to 64 KB and `LARGE_FILE_THRESHOLD` to 256 KB; peak buffer for a 10-agent miss is now ~1.3 MB.
+- **Zombie subagents from `stop_reason: null` finalisations** — Claude Code occasionally writes the closing assistant message with `stop_reason: null` (text-only content, no `tool_use`) for short subagents that completed normally. Added a tell-apart heuristic: if the last assistant content carries no `tool_use` block, the agent is treated as completed regardless of `stop_reason`. Running agents waiting on a tool always have a `tool_use` block in their last assistant message, so the inverse direction is preserved.
+
 ## [1.2.0] - 2026-05-07
 
 ### Added
@@ -410,7 +416,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/cativo23/lumira/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/cativo23/lumira/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/cativo23/lumira/compare/v1.1.0...v1.1.2
 [1.1.0]: https://github.com/cativo23/lumira/compare/v1.0.1...v1.1.0

@@ -191,11 +191,13 @@ interface JsonlBoundaryLines {
 // than slurped whole. Subagent transcripts can grow into the megabytes
 // when the agent runs many tool calls — buffering all of them on every
 // cache miss caused real memory pressure in the wild.
-const LARGE_FILE_THRESHOLD = 64 * 1024;
-// Window we read at each end of a large file. 16 KB is comfortably bigger
-// than any single JSONL line we've observed (Claude Code wraps very long
-// content), and small enough to keep a 10-agent miss under 320 KB peak.
-const BOUNDARY_CHUNK_SIZE = 16 * 1024;
+const LARGE_FILE_THRESHOLD = 256 * 1024;
+// Window we read at each end of a large file. 64 KB is comfortably bigger
+// than any single JSONL line we've observed in the wild (an Opus reviewer's
+// multi-thousand-word closing message clocked at ~18 KB; we leave headroom
+// for unusually large summaries). Small enough to keep a 10-agent miss
+// under ~1.3 MB peak buffer use.
+const BOUNDARY_CHUNK_SIZE = 64 * 1024;
 
 // Extracts both the first and last well-formed JSON objects from a JSONL
 // file. We need the first line's timestamp for `startTime` (file mtime
@@ -277,6 +279,28 @@ function extractStopReason(lastLine: unknown): string | null {
   return typeof sr === 'string' ? sr : null;
 }
 
+// Claude Code occasionally finalises a subagent's JSONL with `stop_reason:
+// null` (or absent) on the closing assistant message even though the agent
+// has clearly finished — observed for short reviewer subagents that returned
+// their full response inline. The reliable on-disk tell-apart from a "still
+// waiting on a tool" line is whether the assistant's content includes a
+// `tool_use` block: a running agent's last assistant message always carries
+// the tool_use it's waiting on; a finished agent's last message is text-only.
+function isFinalAssistantTextOnly(lastLine: unknown): boolean {
+  if (!lastLine || typeof lastLine !== 'object') return false;
+  const d = lastLine as { type?: unknown; message?: { content?: unknown } };
+  if (d.type !== 'assistant') return false;
+  const content = d.message?.content;
+  if (!Array.isArray(content) || content.length === 0) return false;
+  for (const block of content) {
+    if (block && typeof block === 'object') {
+      const t = (block as { type?: unknown }).type;
+      if (t !== 'text') return false;
+    }
+  }
+  return true;
+}
+
 // JSONL lines carry an ISO `timestamp` field. Prefer it for endTime over the
 // file's mtime: mtime can drift due to OS-level flush buffering, especially
 // for short-lived agents that finish faster than the journal commit window.
@@ -318,12 +342,13 @@ async function readAgentDetails(c: AgentCandidate): Promise<AgentEntry> {
   const { first, last } = await readBoundaryJsonLines(c.jsonlFile, c.size);
   const stopReason = extractStopReason(last);
   const interrupted = wasInterruptedByUser(last);
+  const finalTextOnly = isFinalAssistantTextOnly(last);
 
   const meta = await readMeta(c.metaFile);
   const agentType = sanitizeTermString(typeof meta?.agentType === 'string' ? meta.agentType : 'unknown');
   const description = typeof meta?.description === 'string' ? sanitizeTermString(meta.description) : undefined;
 
-  const status: ToolStatus = (stopReason === 'end_turn' || interrupted) ? 'completed' : 'running';
+  const status: ToolStatus = (stopReason === 'end_turn' || interrupted || finalTextOnly) ? 'completed' : 'running';
 
   // startTime: prefer the first JSONL line's embedded ISO timestamp (the
   // dispatch moment) over the file mtime. mtime tracks the *last* write,
