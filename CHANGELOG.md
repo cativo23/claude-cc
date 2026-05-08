@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-07
+
+### Added
+- **Subagents-dir live state** — reads per-subagent transcripts from `<session>/subagents/agent-<id>.jsonl` (Claude Code ≥ 2.1.x layout) as the primary source of agent status, surfacing background subagents whose parent `tool_use` stays buffered in the main JSONL. Status is derived from explicit on-disk markers only: `stop_reason: "end_turn"` for normal completion, the `[Request interrupted by user…]` marker for user kills; everything else is treated as running (no mtime grace window — its false negatives on long-tool agents outweighed the zombies it would otherwise prevent). Falls back to main-JSONL parsing when the dir is absent.
+- **Cubes-icon widget on line 1 surfaces named subagents** — when exactly one *named* subagent (i.e. not `general-purpose` / `unknown`) is running, line 1 shows `⬚ <type>` next to the version, mirroring how Claude Code's `agent.name` widget already renders for `--agent`-launched sessions. Multiple-named-running stays collapsed under the line 3 `⚡N agents` count to avoid arbitrary picks. Closes the workaround documented in anthropics/claude-code#14306.
+- New shared `realpathSafe` and `LUMIRA_ALLOWED_ROOTS` exports in `utils/path.ts` so the path canonicalisation + allow-list check is consistent across the transcript and subagents parsers.
+
+### Fixed
+- **`Task` → `Agent` tool name accepted** — Claude Code 2.1.x renamed the subagent dispatch tool. The transcript parser now matches both names so the live agent count widget works on every installed version (#121).
+- **Zombie agents no longer resurrect** — when Claude Code re-emits a `tool_use` after its matching `tool_result` (observed when a subagent dispatch fails with "Agent type not found" and is retried), the parser now treats the first completion as authoritative. Previously left the `⚡N agents` widget stuck on indefinitely.
+
+### Changed
+- Bundle-size ceiling raised from 384 KB → 440 KB to fit the new subagents parser (~+36 KB). `ci.yml` and `release.yml` bumped in lockstep.
+
 ## [1.1.2] - 2026-05-07
 
 ### Fixed
@@ -396,7 +410,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/cativo23/lumira/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/cativo23/lumira/compare/v1.1.0...v1.1.2
 [1.1.0]: https://github.com/cativo23/lumira/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/cativo23/lumira/compare/v1.0.0...v1.0.1
