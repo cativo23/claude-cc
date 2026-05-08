@@ -1,13 +1,13 @@
-import { createReadStream, existsSync, realpathSync } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
-import { homedir, tmpdir } from 'node:os';
 import type { TranscriptData, ToolEntry, AgentEntry, TodoEntry, TodoStatus, ThinkingEffort } from '../types.js';
 import { EMPTY_TRANSCRIPT } from '../types.js';
 import { isMtimeFresh, getMtimeState, type MtimeState } from '../utils/cache.js';
 import { sanitizeTermString } from '../normalize.js';
-import { isUnderAllowedRoot } from '../utils/path.js';
+import { isUnderAllowedRoot, LUMIRA_ALLOWED_ROOTS } from '../utils/path.js';
 import { debug } from '../utils/debug.js';
+import { scanSubagentsDir, readSubagentDetails, subagentsDirStateEqual, type SubagentsDirState } from './subagents.js';
 
 const log = debug('transcript');
 
@@ -24,7 +24,7 @@ const log = debug('transcript');
 // iteration order is insertion order, which gives us a free LRU: re-insert
 // on hit to refresh recency, drop the first key when size > cap.
 export const TRANSCRIPT_CACHE_CAP = 10;
-type TranscriptCacheEntry = { result: TranscriptData; mtime: MtimeState };
+type TranscriptCacheEntry = { result: TranscriptData; mtime: MtimeState; subagentsDir: SubagentsDirState | null };
 const transcriptCache = new Map<string, TranscriptCacheEntry>();
 
 // Shallow clone of TranscriptData so callers can't mutate the cached arrays.
@@ -122,17 +122,10 @@ export function extractToolTarget(toolName: string, input: Record<string, unknow
 // under an allowed root pointing at /etc/passwd) is tracked separately;
 // the threat is narrow because `transcript_path` arrives from Claude Code
 // itself, not arbitrary external input.
-function realpathSafe(p: string): string {
-  try { return realpathSync(p); } catch { return resolve(p); }
-}
-const ALLOWED_ROOTS: readonly string[] = [
-  ...new Set([
-    resolve(homedir()),
-    resolve(tmpdir()),
-    realpathSafe(homedir()),
-    realpathSafe(tmpdir()),
-  ]),
-];
+// `realpathSafe` and `LUMIRA_ALLOWED_ROOTS` previously lived here; both are
+// now in `src/utils/path.ts` so other parsers (e.g. `subagents.ts`) share the
+// same canonicalisation and allow-list semantics. See `path.ts` for caveats
+// about the string-level (non-symlink-following) nature of the check.
 
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
   const result: TranscriptData = { ...EMPTY_TRANSCRIPT, tools: [], agents: [], todos: [] };
@@ -144,16 +137,30 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     return result;
   }
 
+  // path.resolve, NOT realpathSafe — symlink resolution is deliberately not
+  // done here (and not in subagents.ts either). See `src/utils/path.ts`
+  // header for the string-level threat model rationale.
   const resolved = resolve(transcriptPath);
-  if (!isUnderAllowedRoot(resolved, ALLOWED_ROOTS)) {
+  if (!isUnderAllowedRoot(resolved, LUMIRA_ALLOWED_ROOTS)) {
     log('skip — path outside allowed roots:', resolved);
     transcriptCache.delete(resolved);
     return result;
   }
 
   const currentMtime = getMtimeState(resolved);
+  // The subagents/ dir lives outside the main JSONL's stat scope, so a quiet
+  // subagent's progress (or a `stop_reason: end_turn` flush) wouldn't change
+  // anything the cache can see. A single `scanSubagentsDir` produces both
+  // the cache fingerprint AND the per-file candidates we'll feed to
+  // `readSubagentDetails` on a miss — eliminates the double readdir+stat
+  // pass that an independent fingerprint call would force.
+  const subagentsScan = await scanSubagentsDir(resolved);
+  const currentSubagentsState = subagentsScan.state;
   const cached = transcriptCache.get(resolved);
-  if (currentMtime && cached && isMtimeFresh(resolved, cached.mtime)) {
+  if (
+    currentMtime && cached && isMtimeFresh(resolved, cached.mtime)
+    && subagentsDirStateEqual(cached.subagentsDir, currentSubagentsState)
+  ) {
     log('cache hit:', resolved);
     touchCache(resolved, cached);
     return cloneShallow(cached.result);
@@ -202,22 +209,32 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
         for (const block of content) {
           if (block.type === 'tool_use' && block.id && block.name) {
-            toolMap.set(block.id, { id: block.id, name: sanitizeTermString(block.name), target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
+            // Claude Code occasionally re-emits a tool_use after its tool_result
+            // has already landed (observed when a subagent dispatch fails with
+            // "Agent type not found"). Treat the first completion as final —
+            // never downgrade completed/error back to running on re-registration.
+            const existingTool = toolMap.get(block.id);
+            if (!existingTool || existingTool.status === 'running') {
+              toolMap.set(block.id, { id: block.id, name: sanitizeTermString(block.name), target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
+            }
 
             // Claude Code ≥ 2.1.x renamed the subagent dispatch tool from
             // `Task` to `Agent`. Both shapes carry the same fields
             // (subagent_type, description, model, prompt). Accept either so the
             // live agent count widget works on both versions.
             if (block.name === 'Task' || block.name === 'Agent') {
-              const inp = block.input || {};
-              agentMap.set(block.id, {
-                id: block.id,
-                type: sanitizeTermString(inp.subagent_type || 'unknown'),
-                model: typeof inp.model === 'string' ? sanitizeTermString(inp.model) : inp.model,
-                description: typeof inp.description === 'string' ? sanitizeTermString(inp.description) : inp.description,
-                status: 'running',
-                startTime: timestamp,
-              });
+              const existingAgent = agentMap.get(block.id);
+              if (!existingAgent || existingAgent.status === 'running') {
+                const inp = block.input || {};
+                agentMap.set(block.id, {
+                  id: block.id,
+                  type: sanitizeTermString(inp.subagent_type || 'unknown'),
+                  model: typeof inp.model === 'string' ? sanitizeTermString(inp.model) : inp.model,
+                  description: typeof inp.description === 'string' ? sanitizeTermString(inp.description) : inp.description,
+                  status: 'running',
+                  startTime: timestamp,
+                });
+              }
             }
 
             if (block.name === 'TodoWrite' && block.input?.todos && Array.isArray(block.input.todos)) {
@@ -278,8 +295,22 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = todos;
   result.thinkingEffort = thinkingEffort;
+
+  // The subagents/ dir alongside the main JSONL is Claude Code's own
+  // per-subagent transcript store. It records every agent that ran in this
+  // session — including quiet/background ones whose tool_use entry stays
+  // buffered in the parent JSONL — and exposes a definitive completion
+  // marker via stop_reason. When present, prefer it over the main-JSONL
+  // pairing heuristic. When absent (older Claude Code, layout change), fall
+  // back to whatever main-JSONL parsing produced.
+  const subagentDirAgents = await readSubagentDetails(subagentsScan.candidates);
+  if (subagentDirAgents.length > 0) {
+    if (log.enabled) log('subagents-dir override:', subagentDirAgents.length, 'agents replace', result.agents.length, 'from main JSONL');
+    result.agents = subagentDirAgents;
+  }
+
   if (currentMtime) {
-    touchCache(resolved, { result, mtime: currentMtime });
+    touchCache(resolved, { result, mtime: currentMtime, subagentsDir: currentSubagentsState });
   }
   if (log.enabled) {
     log('parsed', resolved, {
