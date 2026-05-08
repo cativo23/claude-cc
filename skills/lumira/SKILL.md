@@ -1,66 +1,69 @@
 ---
 name: lumira
-description: Configure the lumira statusline HUD via natural language
+description: Use when the user wants to configure the lumira statusline — change preset, theme, icons, powerline style, layout, or toggle widgets like cost, tokens, cache metrics, MCP, agents, or context-bar thresholds.
+allowed-tools: Read, Write
+license: MIT
 ---
 
 # /lumira — Statusline Configuration Skill
 
-You are configuring **lumira**, a terminal statusline/HUD for Claude Code.
+You configure **lumira**, a terminal statusline/HUD for Claude Code and Qwen Code.
 
-## Config File
+Your job: read the user's current config, translate their natural-language request into a **minimal JSON patch**, merge into the existing config, and write the result.
 
-Location: `~/.config/lumira/config.json`
+## Workflow
 
-Read the current config before making changes. If the file doesn't exist, create it with just the fields the user wants to change.
+1. **Read** `~/.config/lumira/config.json`. If missing or invalid JSON, treat the current config as `{}`.
+2. **Interpret** the user's request against the catalog below. Reject unknown keys/values explicitly — do not silently drop them.
+3. **Merge** changes into the existing object. Never overwrite unrelated fields.
+4. **Write** the merged JSON back to the file.
+5. **Tell the user** to restart their Claude Code (or Qwen Code) session for changes to take effect.
 
-## Available Settings
+## Configuration catalog
 
-### Presets (`preset`)
-- `"full"` — all widgets, multi-line layout
-- `"balanced"` — essential widgets, auto layout (hides burn rate, duration, token speed, lines changed, session name, style, version, memory)
-- `"minimal"` — compact single-line (model, branch, directory, context bar, cost)
+### Top-level fields
 
-### Layout (`layout`)
-Internal render mode. Prefer setting `preset` instead.
-- `"multiline"` — full multi-line renderer
-- `"singleline"` — compact single-line renderer
-- `"auto"` — switches based on terminal width
+| Field | Type | Allowed values | Notes |
+|---|---|---|---|
+| `preset` | string | `"full"` \| `"balanced"` \| `"minimal"` | Sets `layout` + a bundle of `display.*` defaults |
+| `layout` | string | `"multiline"` \| `"singleline"` \| `"auto"` | Internal render mode. Prefer `preset` |
+| `icons` | string | `"nerd"` \| `"emoji"` \| `"none"` | Default `"nerd"` (requires Nerd Font) |
+| `theme` | string | `"dracula"` \| `"nord"` \| `"tokyo-night"` \| `"catppuccin"` \| `"monokai"` \| `"gruvbox"` \| `"solarized"` | Requires `colors.mode: "truecolor"` to take effect |
+| `style` | string | `"classic"` \| `"powerline"` | Visual style for line 1 |
+| `powerline.style` | string | `"arrow"` \| `"flame"` \| `"slant"` \| `"round"` \| `"diamond"` \| `"compatible"` \| `"plain"` \| `"auto"` | Separator preset; only meaningful when `style: "powerline"` |
+| `colors.mode` | string | `"auto"` \| `"named"` \| `"256"` \| `"truecolor"` | Color depth |
+| `gsd` | boolean | `true` \| `false` | Show GSD task info section |
 
-### Icons (`icons`)
-- `"nerd"` — Nerd Font icons (default, requires a Nerd Font)
-- `"emoji"` — Unicode emoji icons
-- `"none"` — no icons, ASCII fallbacks
+### Presets — what they do
 
-### Theme (`theme`)
-Named color themes (requires truecolor terminal):
-- `"dracula"`, `"nord"`, `"tokyo-night"`, `"catppuccin"`, `"monokai"`
+- **`full`** → `layout: "multiline"`, every widget on.
+- **`balanced`** → `layout: "auto"`, hides `burnRate`, `duration`, `tokenSpeed`, `linesChanged`, `sessionName`, `style`, `version`, `memory`, `contextTokens`, `cacheMetrics`.
+- **`minimal`** → `layout: "singleline"`, hides nearly everything except `model`, `branch`, `directory`, `contextBar`, `cost`.
 
-### Display Toggles (`display`)
-Each is a boolean (`true`/`false`):
-`model`, `branch`, `gitChanges`, `directory`, `contextBar`, `contextTokens`, `tokens`, `cost`, `burnRate`, `duration`, `tokenSpeed`, `rateLimits`, `tools`, `todos`, `vim`, `effort`, `worktree`, `agent`, `sessionName`, `style`, `version`, `linesChanged`, `memory`
+### Display toggles (`display.*`, booleans)
 
-### Colors (`colors.mode`)
-- `"auto"` — detect from terminal
-- `"named"` — basic ANSI
-- `"256"` — 256-color
-- `"truecolor"` — 24-bit RGB
+Valid keys (anything else must be rejected):
 
-### GSD Integration (`gsd`)
-- `true` — show GSD task info
-- `false` — hide GSD section
+`model`, `branch`, `gitChanges`, `directory`, `contextBar`, `contextTokens`, `tokens`, `cost`, `burnRate`, `duration`, `tokenSpeed`, `rateLimits`, `paceDelta`, `tools`, `todos`, `vim`, `effort`, `worktree`, `agent`, `agents`, `sessionName`, `style`, `version`, `linesChanged`, `memory`, `cacheMetrics`, `mcp`, `health`
 
-## Platform Support
+### Display thresholds (`display.*`, numeric)
 
-Lumira auto-detects the caller's platform:
+| Field | Default | Range | Notes |
+|---|---|---|---|
+| `contextWarningThreshold` | 70 | 0–100 | Context bar turns orange + 🔥 at this % |
+| `contextCriticalThreshold` | 85 | 0–100 | Context bar turns red/blink + 💀. **Must be strictly greater than warning** |
 
-- **Claude Code** — renders per your configured `layout` / `preset`.
-- **Qwen Code** — renders compact single-line output automatically, regardless of `layout`. Qwen Code only displays the first line of statusline commands, so lumira always uses the single-line renderer (which fits model, branch, context bar, cost, cached tokens, and thoughts into one line).
+If the pair is invalid, the runtime silently falls back to defaults. You should reject invalid pairs upfront and tell the user why.
 
-No configuration needed. One `config.json` serves both CLIs.
+## Platform detection
 
-## Example Configs
+Lumira auto-detects the caller (Claude Code vs Qwen Code) at runtime. Qwen Code always renders single-line regardless of `layout` because it only displays the first line. **One `config.json` serves both** — never tell the user to maintain a separate config for Qwen.
 
-Minimal with emoji icons:
+## Few-shot examples
+
+User intent → minimal JSON patch (assume existing config is preserved unless explicitly changed).
+
+**"hacelo minimal con emoji"**
 ```json
 {
   "preset": "minimal",
@@ -68,16 +71,17 @@ Minimal with emoji icons:
 }
 ```
 
-Full with Dracula theme:
+**"powerline con flame y theme dracula"**
 ```json
 {
-  "preset": "full",
+  "style": "powerline",
+  "powerline": { "style": "flame" },
   "theme": "dracula",
   "colors": { "mode": "truecolor" }
 }
 ```
 
-Custom — hide cost and tokens, keep everything else:
+**"hide cost and tokens, keep everything else"** (patch only the toggles requested)
 ```json
 {
   "display": {
@@ -87,10 +91,50 @@ Custom — hide cost and tokens, keep everything else:
 }
 ```
 
+**"avisame antes con el contexto: alarma al 60% y crítico al 80%"**
+```json
+{
+  "display": {
+    "contextWarningThreshold": 60,
+    "contextCriticalThreshold": 80
+  }
+}
+```
+
+**"show me cache hit rate and MCP servers"**
+```json
+{
+  "display": {
+    "cacheMetrics": true,
+    "mcp": true
+  }
+}
+```
+
+**"full preset pero sin burn rate"** (preset + override)
+```json
+{
+  "preset": "full",
+  "display": {
+    "burnRate": false
+  }
+}
+```
+
 ## Rules
 
-1. Always read the existing config first
-2. Merge changes — don't overwrite the entire file
-3. Preset sets defaults; explicit display toggles override preset
-4. Theme requires `colors.mode: "truecolor"` to take effect
-5. After writing, tell the user to restart their Claude Code session
+1. **Read first, write minimal.** Always load existing config before patching. Only emit fields the user actually asked to change.
+2. **Validate before writing.** Reject unknown preset / icon / theme / style / powerline-style / display-toggle names with a clear message. Clamp threshold numbers to [0, 100] and enforce `warning < critical`.
+3. **Preset then overlay.** When the user provides both a preset and explicit `display.*` toggles, write both — at runtime the explicit toggles win over preset defaults.
+4. **Themes need truecolor.** When applying a theme, also set `colors.mode: "truecolor"` if it isn't already.
+5. **Restart instruction is mandatory.** End every successful change with a one-line reminder to restart the session.
+6. **Language match.** Respond in the user's language (Spanish → Spanish, English → English).
+
+## Anti-patterns (do NOT do)
+
+- ❌ Overwriting the whole config file with just the new fields — destroys unrelated settings.
+- ❌ Inventing display toggle names that aren't in the list above.
+- ❌ Using the removed `"qwen"` preset — it was deprecated and silently rewrites to `"minimal"`. Direct the user to `"minimal"` instead.
+- ❌ Setting a `theme` without ensuring `colors.mode: "truecolor"` (the theme will appear broken).
+- ❌ Forgetting the restart reminder.
+- ❌ Setting `contextWarningThreshold >= contextCriticalThreshold` — runtime falls back to defaults and your "change" is invisible.
