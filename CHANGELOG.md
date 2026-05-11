@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.2.2] - 2026-05-08
-
-### Fixed
-- **Powerline-line1 widget parity gap** — `display.linesChanged`, `.worktree`, `.agent`, `.sessionName`, and `.style` were all honored by classic line1 but silently dropped by the powerline render. Users with these toggles enabled in `~/.config/lumira/config.json` got no rendering in powerline mode. Added the 5 segments with priorities 18–24 (drop after `tokenSpeed` when narrow; `style` drops first), palette assignments matching their semantic category (`linesChanged` and `sessionName` on `branchCleanBg`, `worktree` on `dirBg`, `agent` on `taskBg`). `linesChanged` renders as a single `+N -M` segment in powerline (vs classic's two-color spans, which the segment model can't express).
-
 ## [1.2.1] - 2026-05-07
 
 ### Fixed
