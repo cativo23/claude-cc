@@ -434,6 +434,179 @@ describe('renderPowerlineLine1', () => {
     });
   });
 
+  // ── Parity widgets (linesChanged / worktree / agent / sessionName / style)
+  // Classic line1 has rendered these for several releases; powerline-line1
+  // silently dropped them until v1.2.2. Tests pin both shapes (toggle on +
+  // value present → segment appears; toggle off → not).
+
+  describe('linesChanged segment', () => {
+    it('renders +N -M when added or removed > 0', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0, total_lines_added: 16, total_lines_removed: 4 },
+          }),
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('+16 -4');
+    });
+
+    it('renders segment when only lines are removed (added = 0)', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0, total_lines_added: 0, total_lines_removed: 7 },
+          }),
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('+0 -7');
+    });
+
+    it('omits segment when both added and removed are 0', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0, total_lines_added: 0, total_lines_removed: 0 },
+          }),
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toMatch(/\+0 -0/);
+    });
+
+    it('omits segment when display.linesChanged is false', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0, total_lines_added: 99, total_lines_removed: 99 },
+          }),
+        },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, linesChanged: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('+99');
+    });
+  });
+
+  describe('worktree segment', () => {
+    it('renders worktree name when present', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, worktree: { name: 'feat-x' } }) },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('feat-x');
+    });
+
+    it('omits segment when worktreeName is undefined', () => {
+      const ctx = makeCtx();
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('feat-');
+    });
+
+    it('omits segment when display.worktree is false', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, worktree: { name: 'feat-x' } }) },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktree: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('feat-x');
+    });
+  });
+
+  describe('agent segment', () => {
+    it('renders explicit input.agentName', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, agent: { name: 'code-reviewer' } }) },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('code-reviewer');
+    });
+
+    it('renders single named running subagent from transcript', () => {
+      const ctx = makeCtx({
+        transcript: { ...EMPTY_TRANSCRIPT, agents: [{ id: 'a1', type: 'code-reviewer', status: 'running' }] },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('code-reviewer');
+    });
+
+    it('omits segment when multiple named agents are running (collapses to line 3)', () => {
+      const ctx = makeCtx({
+        transcript: {
+          ...EMPTY_TRANSCRIPT,
+          agents: [
+            { id: 'a1', type: 'code-reviewer', status: 'running' },
+            { id: 'a2', type: 'security-auditor', status: 'running' },
+          ],
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('code-reviewer');
+      expect(out).not.toContain('security-auditor');
+    });
+
+    it('omits segment when display.agent is false', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, agent: { name: 'code-reviewer' } }) },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, agent: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('code-reviewer');
+    });
+  });
+
+  describe('sessionName segment', () => {
+    it('renders session name when present', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, session_name: 'main-flow' }) },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('main-flow');
+    });
+
+    it('omits segment when display.sessionName is false', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, session_name: 'main-flow' }) },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, sessionName: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('main-flow');
+    });
+  });
+
+  describe('style segment', () => {
+    it('renders output style name when present', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, output_style: { name: 'jarvis' } }) },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('jarvis');
+    });
+
+    it('omits segment when display.style is false', () => {
+      const ctx = makeCtx({
+        input: { ...normalize({ model: 'Claude', session_id: 't', context_window: { used_percentage: 10, remaining_percentage: 90 }, cost: { total_cost_usd: 0, total_duration_ms: 0 }, output_style: { name: 'jarvis' } }) },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, style: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('jarvis');
+    });
+  });
+
   // ── Segment priorities / eviction ───────────────────────────────────
 
   describe('segment priority ordering', () => {
@@ -559,6 +732,30 @@ describe('renderPowerlineLine1', () => {
       const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
       expect(out).toContain('55 tok/s');
       expect(out).toContain('60% mem');
+    });
+
+    it('renders all five parity widgets together (linesChanged + worktree + agent + sessionName + style)', () => {
+      const ctx = makeCtx({
+        cols: 250,
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            session_name: 'main-flow',
+            output_style: { name: 'jarvis' },
+            agent: { name: 'code-reviewer' },
+            worktree: { name: 'feat-x' },
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0, total_lines_added: 21, total_lines_removed: 14 },
+          }),
+        },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('+21 -14');
+      expect(out).toContain('feat-x');
+      expect(out).toContain('code-reviewer');
+      expect(out).toContain('main-flow');
+      expect(out).toContain('jarvis');
     });
   });
 });
