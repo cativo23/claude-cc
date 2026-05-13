@@ -13,10 +13,22 @@ import { computePaceDelta, formatPaceDelta } from './pace.js';
 import type { RenderContext } from '../types.js';
 import {
   type PowerlinePalette,
+  type RGB,
   derivePowerlinePalette,
   DEFAULT_POWERLINE_PALETTE,
   type ThemePalette,
 } from '../themes.js';
+
+// Maps cache hit rate to a powerline bg slot, mirroring the 3-tier thresholds
+// from getCacheHitColor in colors.ts. Yellow tier (>=70) keeps versionBg as
+// the visual baseline since the segment is already inside the <90% alarm-mode
+// gate. Orange (>=40) and blinkRed (<40) escalate to the warm/critical slots
+// already used by cost and >=85% rate-limits respectively.
+function getCacheHitBg(rate: number, palette: PowerlinePalette): RGB {
+  if (rate >= 70) return palette.versionBg;
+  if (rate >= 40) return palette.taskBg;
+  return palette.branchDirtyBg;
+}
 
 // Line 2 powerline palette — reuses PowerlinePalette bg slots with semantic remapping:
 //   modelBg    → context bar segment
@@ -122,8 +134,10 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
   }
 
   // Cache metrics (hit rate) — alarm-mode: only when <90%. See line2.ts for why.
+  // Bg escalates with degradation: versionBg (70-89), taskBg (40-69), branchDirtyBg (<40).
   if (display.cacheMetrics && input.cacheHitRate != null && input.cacheHitRate < 90) {
-    segments.push({ text: `${input.cacheHitRate}%${icons.lightning}`, bg: palette.versionBg, fg: palette.fg, priority: 50 });
+    const bg = getCacheHitBg(input.cacheHitRate, palette);
+    segments.push({ text: `${input.cacheHitRate}%${icons.lightning}`, bg, fg: palette.fg, priority: 50 });
   }
 
   // MCP servers

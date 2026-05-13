@@ -137,10 +137,14 @@ describe('renderPowerlineLine2', () => {
         input: patchedInput,
         config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, cacheMetrics: true } },
       });
-      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      const out = stripAnsi(raw);
       // New format: N%⚡ (no 'cache' prefix)
       expect(out).toContain('75%');
       expect(out).not.toContain('cache 75%');
+      // Lock yellow-tier bg: 75% sits in the [70, 90) range and must keep
+      // DEFAULT_POWERLINE_PALETTE.versionBg as its background, matching pre-escalation behavior.
+      expect(raw).toContain('\x1b[48;2;64;64;72m');
     });
 
     it('burnRate segment appears next to cost when display.burnRate true', () => {
@@ -196,6 +200,72 @@ describe('renderPowerlineLine2', () => {
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
       // delta = 60 - 40 = +20%
       expect(out).toContain('+20%');
+    });
+  });
+
+  describe('cache color escalation', () => {
+    // DEFAULT_POWERLINE_PALETTE values (theme=null path).
+    // The escape format is \x1b[48;2;R;G;Bm — produced by powerline.ts:61-62.
+    const bg = (rgb: { r: number; g: number; b: number }) => `\x1b[48;2;${rgb.r};${rgb.g};${rgb.b}m`;
+    const VERSION_BG = { r: 64, g: 64, b: 72 };
+    const TASK_BG = { r: 128, g: 96, b: 24 };
+    const BRANCH_DIRTY_BG = { r: 160, g: 40, b: 40 };
+
+    function cacheCtx(rate: number) {
+      const base = makeCtx();
+      // Disable every other display toggle so the only bg escape in the
+      // output belongs to the cache segment. Otherwise `cost` (taskBg) and
+      // `mcp` (taskBg) would make orange-tier assertions pass spuriously.
+      return makeCtx({
+        input: { ...base.input, cacheHitRate: rate },
+        config: {
+          ...DEFAULT_CONFIG,
+          display: {
+            ...DEFAULT_DISPLAY,
+            cacheMetrics: true,
+            contextBar: false,
+            contextTokens: false,
+            cost: false,
+            burnRate: false,
+            tokens: false,
+            rateLimits: false,
+            paceDelta: false,
+            mcp: false,
+            vim: false,
+            effort: false,
+          },
+        },
+      });
+    }
+
+    it('yellow tier lower boundary (70%) renders with versionBg', () => {
+      const raw = renderPowerlineLine2(cacheCtx(70), 'truecolor', null, c);
+      expect(raw).toContain(bg(VERSION_BG));
+      expect(stripAnsi(raw)).toContain('70%');
+    });
+
+    it('orange tier upper boundary (69%) escalates to taskBg', () => {
+      const raw = renderPowerlineLine2(cacheCtx(69), 'truecolor', null, c);
+      expect(raw).toContain(bg(TASK_BG));
+      expect(stripAnsi(raw)).toContain('69%');
+    });
+
+    it('orange tier lower boundary (40%) renders with taskBg', () => {
+      const raw = renderPowerlineLine2(cacheCtx(40), 'truecolor', null, c);
+      expect(raw).toContain(bg(TASK_BG));
+      expect(stripAnsi(raw)).toContain('40%');
+    });
+
+    it('blinkRed tier upper boundary (39%) escalates to branchDirtyBg', () => {
+      const raw = renderPowerlineLine2(cacheCtx(39), 'truecolor', null, c);
+      expect(raw).toContain(bg(BRANCH_DIRTY_BG));
+      expect(stripAnsi(raw)).toContain('39%');
+    });
+
+    it('blinkRed tier deep (30%) renders with branchDirtyBg', () => {
+      const raw = renderPowerlineLine2(cacheCtx(30), 'truecolor', null, c);
+      expect(raw).toContain(bg(BRANCH_DIRTY_BG));
+      expect(stripAnsi(raw)).toContain('30%');
     });
   });
 
