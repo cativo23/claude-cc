@@ -119,17 +119,30 @@ export function getPaceColor(delta: number): ColorName {
 }
 
 /**
- * Color for the cache hit rate widget. Rendered only when below the alarm
- * threshold (≥90% is hidden as healthy steady-state), so the tiers reflect
- * degrees of "something is wrong" rather than degrees of healthy.
- *   70–89%: yellow (mild concern — TTL expiry, fresh content arrived)
- *   40–69%: orange (caching not engaging)
- *    <40%:  blinkRed (cache likely broken)
+ * Cache hit rate severity tier — the single source of truth for the cache
+ * widget's threshold boundaries. Rendered only when below the alarm threshold
+ * (≥90% is hidden as healthy steady-state), so the tiers reflect degrees of
+ * "something is wrong" rather than degrees of healthy.
+ *   70–89%: mild     (TTL expiry, fresh content arrived — yellow / versionBg)
+ *   40–69%: moderate (caching not engaging — orange / taskBg)
+ *    <40%:  critical (cache likely broken — blinkRed / branchDirtyBg)
+ * Both classic-mode fg (getCacheHitColor) and powerline-mode bg (the helper
+ * in powerline-line2.ts) consume this so the boundaries cannot drift apart.
  */
+export type CacheHitTier = 'mild' | 'moderate' | 'critical';
+
+export function getCacheHitTier(pct: number): CacheHitTier {
+  if (pct >= 70) return 'mild';
+  if (pct >= 40) return 'moderate';
+  return 'critical';
+}
+
 export function getCacheHitColor(pct: number): ColorName {
-  if (pct >= 70) return 'yellow';
-  if (pct >= 40) return 'orange';
-  return 'blinkRed';
+  switch (getCacheHitTier(pct)) {
+    case 'mild': return 'yellow';
+    case 'moderate': return 'orange';
+    case 'critical': return 'blinkRed';
+  }
 }
 
 export function getQuotaColor(pct: number): ColorName {
