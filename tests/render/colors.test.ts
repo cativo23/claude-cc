@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createColors, stripAnsi, detectColorMode, getContextColor, getQuotaColor, getPaceColor, getCacheHitColor } from '../../src/render/colors.js';
+import { createColors, stripAnsi, detectColorMode, getContextColor, getQuotaColor, getPaceColor, getCacheHitColor, getCacheHitTier } from '../../src/render/colors.js';
 
 describe('stripAnsi', () => {
   it('removes ANSI escape codes', () => {
@@ -128,9 +128,23 @@ describe('getPaceColor', () => {
   it('returns blinkRed for very high delta', () => { expect(getPaceColor(80)).toBe('blinkRed'); });
 });
 
+describe('getCacheHitTier', () => {
+  // SSOT for cache severity thresholds — both getCacheHitColor (classic fg)
+  // and the powerline bg mapper consume this. Boundary tests pin both edges
+  // of every tier so a future threshold tweak fails loudly.
+  it('returns mild at 89% (just below alarm gate)', () => { expect(getCacheHitTier(89)).toBe('mild'); });
+  it('returns mild at 70% (lower mild boundary)', () => { expect(getCacheHitTier(70)).toBe('mild'); });
+  it('returns moderate at 69% (upper moderate boundary)', () => { expect(getCacheHitTier(69)).toBe('moderate'); });
+  it('returns moderate at 40% (lower moderate boundary)', () => { expect(getCacheHitTier(40)).toBe('moderate'); });
+  it('returns critical at 39% (upper critical boundary)', () => { expect(getCacheHitTier(39)).toBe('critical'); });
+  it('returns critical at 0% (cache fully broken)', () => { expect(getCacheHitTier(0)).toBe('critical'); });
+});
+
 describe('getCacheHitColor', () => {
   // Alarm-mode tiers: ≥90% is hidden by the renderer entirely; the colors below
   // describe degrees of "cache is degrading" for the visible-warning range.
+  // The threshold logic itself is pinned by getCacheHitTier above; this suite
+  // verifies the tier→ColorName mapping has not regressed.
   it('returns yellow at 89% (mild concern, just below alarm threshold)', () => { expect(getCacheHitColor(89)).toBe('yellow'); });
   it('returns yellow at 70% (lower yellow boundary)', () => { expect(getCacheHitColor(70)).toBe('yellow'); });
   it('returns orange at 69% (upper orange boundary)', () => { expect(getCacheHitColor(69)).toBe('orange'); });

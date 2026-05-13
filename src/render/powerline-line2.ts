@@ -7,7 +7,7 @@ import {
 import { QUOTA_CRITICAL } from '../types.js';
 import { buildContextBar, formatQwenMetrics } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
-import { detectColorMode, getPaceColor, type ColorMode, type Colors } from './colors.js';
+import { detectColorMode, getCacheHitTier, getPaceColor, type ColorMode, type Colors } from './colors.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
 import type { RenderContext } from '../types.js';
@@ -19,15 +19,16 @@ import {
   type ThemePalette,
 } from '../themes.js';
 
-// Maps cache hit rate to a powerline bg slot, mirroring the 3-tier thresholds
-// from getCacheHitColor in colors.ts. Yellow tier (>=70) keeps versionBg as
-// the visual baseline since the segment is already inside the <90% alarm-mode
-// gate. Orange (>=40) and blinkRed (<40) escalate to the warm/critical slots
-// already used by cost and >=85% rate-limits respectively.
+// Maps the cache severity tier (SSOT in colors.ts) to a powerline bg slot.
+// `mild` keeps versionBg as the visual baseline since the segment is already
+// inside the <90% alarm-mode gate; `moderate` and `critical` escalate to the
+// warm/critical slots already used by cost and >=85% rate-limits respectively.
 function getCacheHitBg(rate: number, palette: PowerlinePalette): RGB {
-  if (rate >= 70) return palette.versionBg;
-  if (rate >= 40) return palette.taskBg;
-  return palette.branchDirtyBg;
+  switch (getCacheHitTier(rate)) {
+    case 'mild': return palette.versionBg;
+    case 'moderate': return palette.taskBg;
+    case 'critical': return palette.branchDirtyBg;
+  }
 }
 
 // Line 2 powerline palette — reuses PowerlinePalette bg slots with semantic remapping:
