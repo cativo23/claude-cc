@@ -414,4 +414,100 @@ describe('renderPowerlineLine2', () => {
       expect(out).toContain('\u{F007F}'); // battery_60 glyph for 60% (5h)
     });
   });
+
+  describe('quota projection warning (7d)', () => {
+    function ctxWith7dProjection(usedPercentage: number, elapsedSec: number, toggles: Partial<typeof DEFAULT_DISPLAY> = {}) {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      const resetsAt = nowSec + (7 * 24 * 3600 - elapsedSec);
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        rate_limits: { seven_day: { used_percentage: usedPercentage, resets_at: resetsAt } },
+      };
+      return makeCtx({
+        input: normalize(rawInput),
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, ...toggles } },
+      });
+    }
+
+    it('appends ⚠ ~Xh projection inside the 7d segment when it will exhaust before reset', () => {
+      // 1d elapsed of 7d, 50% used → TTE = 24h → ⚠ ~24h (24h is NOT <12h boundary).
+      const ctx = ctxWith7dProjection(50, 86400);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('50%(7d)');
+      expect(out).toContain('⚠ ~24h');
+    });
+
+    it('uses 🔥 critical icon when projection < 12h', () => {
+      // 6h elapsed of 7d, 60% used → TTE = 4h → 🔥
+      const ctx = ctxWith7dProjection(60, 6 * 3600);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('🔥 ~4h');
+    });
+
+    it('hides projection when display.quotaProjection toggle is off', () => {
+      const ctx = ctxWith7dProjection(50, 86400, { quotaProjection: false });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('50%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('no projection when sevenDay has no resetsAt', () => {
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        rate_limits: { seven_day: { used_percentage: 70 } }, // no resets_at
+      };
+      const ctx = makeCtx({ input: normalize(rawInput) });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('70%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('hides projection when 7d will NOT exhaust before reset', () => {
+      // 6d elapsed of 7d, 60% used → TTE ≈ 4d, remaining 1d → false
+      const ctx = ctxWith7dProjection(60, 518400);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('60%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('respects 1h minElapsed guard for 7d (no projection at 30min elapsed)', () => {
+      const ctx = ctxWith7dProjection(60, 1800);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('60%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('does NOT add projection to 5h segment — pace delta carries that signal', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      const resetsAt = nowSec + (5 * 3600 - 3600);
+      const rawInput = {
+        model: 'Claude Sonnet 4.6',
+        session_id: 'test',
+        context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+        cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+        rate_limits: { five_hour: { used_percentage: 60, resets_at: resetsAt } },
+      };
+      const ctx = makeCtx({ input: normalize(rawInput) });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('60%(5h)');
+      const fhPos = out.indexOf('60%(5h)');
+      const segmentTail = out.slice(fhPos, fhPos + 40);
+      expect(segmentTail).not.toContain('⚠ ~');
+      expect(segmentTail).not.toContain('🔥 ~');
+    });
+  });
 });

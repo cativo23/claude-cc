@@ -540,6 +540,134 @@ describe('renderLine2', () => {
     // No +/- delta markers appear (context bar %-suffix is still present, that's fine)
     expect(out).not.toMatch(/[+-]\d+%/);
   });
+
+  // ── Quota projection (7d) ───────────────────────────────────────────────────
+
+  describe('quota projection warning (7d)', () => {
+    it('shows ⚠ ~24h projection when burn rate will exhaust 7d quota before reset', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 1d elapsed of 7d, 50% used → TTE = 24h. Remaining = 6d. willExhaustBefore=true. 24h >= 12h → ⚠
+      const resetsAt = nowSec + (7 * 24 * 3600 - 86400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 50, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).toContain('50%(7d)');
+      expect(out).toContain('⚠ ~24h');
+    });
+
+    it('uses 🔥 critical icon when projection < 12h', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 6h elapsed of 7d, 60% used → TTE = 4h. Remaining ≈ 6.75d. willExhaustBefore=true. 4h < 12h → 🔥
+      const resetsAt = nowSec + (7 * 24 * 3600 - 6 * 3600);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 60, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).toContain('🔥 ~4h');
+    });
+
+    it('coexists with countdown when >= 70% — both signals appear', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 1d elapsed of 7d, 75% used → TTE = 25/(75/86400) ≈ 28800s = 8h. Remaining 6d. willExhaustBefore=true. 8h < 12h → 🔥
+      const resetsAt = nowSec + (7 * 24 * 3600 - 86400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 75, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).toContain('75%(7d)');
+      // Countdown still appears (>=70% gate)
+      expect(out).toMatch(/\d+d\d+h|\d+h\d+m/);
+      // Projection appears after countdown
+      expect(out).toContain('🔥 ~8h');
+      // Order: countdown comes BEFORE projection in the segment text
+      const countdownPos = out.search(/\d+d\d+h|\d+h\d+m/);
+      const projPos = out.indexOf('🔥');
+      expect(countdownPos).toBeGreaterThan(-1);
+      expect(projPos).toBeGreaterThan(countdownPos);
+    });
+
+    it('hides projection when display.quotaProjection toggle is off', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      const resetsAt = nowSec + (7 * 24 * 3600 - 86400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 50, resets_at: resetsAt } },
+      };
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, quotaProjection: false } } },
+        inputOverride,
+      );
+      const out = stripAnsi(renderLine2(ctx, c));
+      expect(out).toContain('50%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('hides projection when 7d will NOT exhaust before reset', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 6d elapsed of 7d, 60% used → low burn → TTE ≈ 4d. Remaining 1d. 4d > 1d → false.
+      const resetsAt = nowSec + (7 * 24 * 3600 - 518400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 60, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).toContain('60%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('no projection when sevenDay has no resetsAt (no crash)', () => {
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 70 } }, // no resets_at
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).toContain('70%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('respects 1h minElapsed guard for 7d (no projection at 30min elapsed)', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 30min elapsed of 7d window — below the 3600 minElapsed for the 7d caller
+      const resetsAt = nowSec + (7 * 24 * 3600 - 1800);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 60, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).toContain('60%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    it('does NOT add projection to 5h segment — pace delta carries that signal', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      const resetsAt = nowSec + (5 * 3600 - 3600);
+      const inputOverride = {
+        rate_limits: { five_hour: { used_percentage: 60, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).toContain('60%(5h)');
+      // 5h segment must not carry projection icons (pace delta already communicates TTE)
+      const fhPos = out.indexOf('60%(5h)');
+      const segmentTail = out.slice(fhPos, fhPos + 40);
+      expect(segmentTail).not.toContain('⚠ ~');
+      expect(segmentTail).not.toContain('🔥 ~');
+    });
+  });
 });
 
 describe('formatCountdown', () => {

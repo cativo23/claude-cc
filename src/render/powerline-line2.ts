@@ -10,7 +10,11 @@ import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { detectColorMode, getCacheHitTier, getPaceColor, type ColorMode, type Colors } from './colors.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
+import { computeQuotaProjection, formatProjectionWarning } from './quota-projection.js';
 import type { RenderContext } from '../types.js';
+
+const SEVEN_DAY_WINDOW_SEC = 7 * 24 * 3600;
+const SEVEN_DAY_MIN_ELAPSED_SEC = 3600; // 1h floor — see quota-projection.ts
 import {
   type PowerlinePalette,
   type RGB,
@@ -87,7 +91,24 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       if (!win || !Number.isFinite(win.usedPercentage) || win.usedPercentage < 50) continue;
       const critical = win.usedPercentage >= QUOTA_CRITICAL;
       const bg = critical ? palette.branchDirtyBg : palette.taskBg;
-      segments.push({ text: `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`, bg, fg: palette.fg, priority: critical ? 85 : 40 });
+      let text = `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`;
+      // 7d quota projection — same gate as classic line2. The warning rides
+      // inside the existing segment (no new powerline cell) so it inherits the
+      // segment's bg and survives/falls together under fitSegments eviction.
+      if (label === '7d' && display.quotaProjection) {
+        const proj = computeQuotaProjection(
+          win.usedPercentage,
+          win.resetsAt,
+          SEVEN_DAY_WINDOW_SEC,
+          undefined,
+          SEVEN_DAY_MIN_ELAPSED_SEC,
+        );
+        if (proj && proj.willExhaustBefore) {
+          const warning = formatProjectionWarning(proj);
+          if (warning) text += ` ${warning}`;
+        }
+      }
+      segments.push({ text, bg, fg: palette.fg, priority: critical ? 85 : 40 });
     }
   }
 

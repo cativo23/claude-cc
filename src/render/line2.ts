@@ -5,7 +5,11 @@ import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
+import { computeQuotaProjection, formatProjectionWarning } from './quota-projection.js';
 import type { RenderContext } from '../types.js';
+
+const SEVEN_DAY_WINDOW_SEC = 7 * 24 * 3600;
+const SEVEN_DAY_MIN_ELAPSED_SEC = 3600; // 1h floor — see quota-projection.ts
 
 export function formatCountdown(resetsAt: number): string {
   const resetsAtMs = resetsAt < 1e12 ? resetsAt * 1000 : resetsAt;
@@ -128,6 +132,23 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       if (win.usedPercentage >= 70 && win.resetsAt) {
         const countdown = formatCountdown(win.resetsAt);
         if (countdown) limitStr += c.dim(` ${countdown}`);
+      }
+      // 7d quota projection — extrapolates current burn rate and warns when the
+      // quota would be hit before the window resets. Only attached to 7d: the 5h
+      // segment carries the same signal via pace delta, so duplicating here
+      // would add noise without information.
+      if (label === '7d' && display.quotaProjection) {
+        const proj = computeQuotaProjection(
+          win.usedPercentage,
+          win.resetsAt,
+          SEVEN_DAY_WINDOW_SEC,
+          undefined,
+          SEVEN_DAY_MIN_ELAPSED_SEC,
+        );
+        if (proj && proj.willExhaustBefore) {
+          const warning = formatProjectionWarning(proj);
+          if (warning) limitStr += ` ${warning}`;
+        }
       }
       if (win.usedPercentage >= QUOTA_CRITICAL) {
         leftParts.splice(criticalInsertAt, 0, limitStr);
