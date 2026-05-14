@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-05-13
+
+### Fixed
+- **Powerline cache hit rate now escalates color with severity** — the cache segment rendered with `palette.versionBg` regardless of urgency, so a degraded 39% reading looked identical to a still-healthy 85% one. Classic mode already escalated via `getCacheHitColor` on the foreground; powerline now does the same on the background: `mild` keeps `versionBg` (the segment already sits inside the <90% alarm-mode gate), `moderate` (40–69%) escalates to `taskBg`, `critical` (<40%) to `branchDirtyBg`. Mirrors the rate-limit escalation pattern at `powerline-line2.ts:73-77`. (#124, closes #120)
+
+### Changed
+- **Cache hit threshold logic lifted into a shared SSOT** — extracted `getCacheHitTier()` in `colors.ts` returning `'mild' | 'moderate' | 'critical'`. Both `getCacheHitColor` (classic fg) and the new powerline bg mapper consume it, eliminating the duplicated 70/40 boundaries that produced #120 in the first place. TypeScript exhaustiveness on both switches catches future tier extensions at compile time.
+
 ## [1.2.2] - 2026-05-08
 
 ### Fixed
@@ -421,7 +429,9 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/cativo23/lumira/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/cativo23/lumira/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/cativo23/lumira/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/cativo23/lumira/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/cativo23/lumira/compare/v1.1.0...v1.1.2
