@@ -77,6 +77,7 @@ Inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud); takes a dif
 - **Git status** — branch + staged/modified/untracked counts, 5s TTL cache. Branch turns red on dirty repos in powerline mode.
 - **Rate limits** — 5h/7d usage as a battery glyph (Nerd Font level fill, or 🔋/🪫 in emoji mode) with color tier and reset countdown. Threshold-gated at 50% to stay invisible while you have margin.
 - **Pace delta** — `usedPct − elapsedPct` of the 5h window. Turtle when behind pace (healthy), car with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed. Toggle independently via `display.paceDelta`.
+- **7d quota projection** — when the current burn rate would exhaust the 7d quota before the window resets, the 7d segment grows a warning: `⚠ ~24h`, `⚠ ~2d`, `⚠ Tue`, or `🔥 ~8h` (critical icon under 12h). Default on. Toggle via `display.quotaProjection`; off in the `minimal` preset. Different from pace delta — pace looks backwards at the 5h window's actual vs proportional burn, projection looks forwards at the 7d window's exhaustion ETA.
 - **Active agents** — live count of running subagents (`⚡N agents`) plus types parsed from the transcript. Toggle via `display.agents`.
 - **Cache hit rate** — prompt cache efficiency for the current turn (`87%⚡`). Alarm-mode: hidden while ≥90% (Anthropic's prompt cache pins this near 99% in healthy steady state, so an always-on number is wallpaper, not signal). Surfaces as yellow/orange/blinkRed only when the cache is actually degrading. Same hide-when-healthy pattern as rate-limits and agent count.
 - **GSD integration** — current task and update notifications (opt-in).
@@ -245,6 +246,7 @@ Create `~/.config/lumira/config.json`:
     "tokenSpeed": true,
     "rateLimits": true,
     "paceDelta": true,
+    "quotaProjection": true,
     "tools": true,
     "todos": true,
     "mcp": true,

@@ -206,6 +206,7 @@ export interface DisplayToggles {
   tokenSpeed: boolean;
   rateLimits: boolean;
   paceDelta: boolean;
+  quotaProjection: boolean;
   tools: boolean;
   todos: boolean;
   vim: boolean;
@@ -260,6 +261,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   tokenSpeed: true,
   rateLimits: true,
   paceDelta: true,
+  quotaProjection: true,
   tools: true,
   todos: true,
   vim: true,

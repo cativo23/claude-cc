@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **7d quota projection warning** — the 7d rate-limit segment now extrapolates the current burn rate and appends a warning when the quota would be hit before the window resets: `⚠ ~24h`, `⚠ ~2d`, `⚠ Tue`, or `🔥 ~8h` (critical icon under 12h). Renders in both classic and powerline modes; coexists with the existing reset countdown (e.g. `75%(7d) 144h00m 🔥 ~8h`). Default-on; off in the `minimal` preset. Gated by `display.quotaProjection`. Different from pace delta: pace looks at the 5h window's actual vs proportional burn; projection looks at the 7d window's exhaustion ETA. New module `src/render/quota-projection.ts` exposes `computeQuotaProjection` and `formatProjectionWarning` as a window-agnostic helper with an injectable `minElapsedSec` floor — the 7d caller pins it to 3600 (1h) so early-session bursts don't trigger projections the steady-state rate won't sustain. Weekday names use `'en-US'` locale to keep snapshots reproducible. Closes #118.
+
 ## [1.2.3] - 2026-05-13
 
 ### Fixed
