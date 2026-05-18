@@ -543,5 +543,17 @@ describe('renderPowerlineLine2', () => {
       expect(out).not.toContain('⚠ ~');
       expect(out).not.toContain('🔥 ~');
     });
+
+    // The projection signal is independent of `display.rateLimits` (mirrors
+    // pace-delta). Users who hide rate-limit badges still benefit from the
+    // exhaustion warning.
+    it('renders standalone projection even when display.rateLimits is off (independent toggles)', () => {
+      // 1d elapsed of 7d, 60% used → would normally attach, but rateLimits is
+      // off so the badge is suppressed. Warning must surface standalone.
+      const ctx = ctxWith7dProjection(60, 86400, { rateLimits: false });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('60%(7d)');
+      expect(out).toContain('⚠ ~');
+    });
   });
 });

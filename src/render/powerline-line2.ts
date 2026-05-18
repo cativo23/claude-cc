@@ -80,6 +80,8 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
   // 7d projection — computed once, surfaced inside the 7d segment when the
   // badge is visible (≥50%), or as a standalone segment when it isn't. Mirrors
   // classic line2: badge filter hides noise, projection surfaces signal.
+  // Independent of `display.rateLimits` — mirrors paceDelta below; users who
+  // hide rate-limit badges still benefit from the exhaustion warning.
   let sevenDayProjWarning = '';
   if (display.quotaProjection && input.rateLimits?.sevenDay) {
     const sd = input.rateLimits.sevenDay;
@@ -98,6 +100,14 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
   }
   let sevenDayWarningAttachedToBadge = false;
 
+  // Colour the projection inline (only when it rides inside the 7d badge
+  // segment). The standalone segment expresses severity via bg colour
+  // (branchDirtyBg for 🔥, taskBg for ⚠), so it does not need an inline wrap.
+  const colorProjectionInline = (warning: string): string => {
+    const isCritical = warning.startsWith('🔥');
+    return (isCritical ? c.red : c.yellow)(warning);
+  };
+
   // Rate limits — urgency expressed via priority (critical survives eviction longer).
   // Loop order (5h then 7d) is always preserved; priority is the eviction knob only.
   // Note: countdown timer (line2.ts:127) is intentionally omitted in powerline mode.
@@ -115,9 +125,10 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       let text = `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`;
       // 7d quota projection — rides inside the existing segment (no new
       // powerline cell) so it inherits the segment's bg and survives/falls
-      // together under fitSegments eviction.
+      // together under fitSegments eviction. The inline severity colour keeps
+      // the warning's urgency visible across the segment background.
       if (label === '7d' && sevenDayProjWarning) {
-        text += ` ${sevenDayProjWarning}`;
+        text += ` ${colorProjectionInline(sevenDayProjWarning)}`;
         sevenDayWarningAttachedToBadge = true;
       }
       segments.push({ text, bg, fg: palette.fg, priority: critical ? 85 : 40 });

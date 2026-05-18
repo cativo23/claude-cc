@@ -106,8 +106,11 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
 
   // 7d quota projection — computed once, surfaced two ways depending on whether
   // the 7d badge is visible. The badge filter (≥50%) hides noise; the projection
-  // surfaces signal — they are independent concerns wired together previously by
-  // accident. Below 50% the warning still renders, just standalone.
+  // surfaces signal — they are independent concerns. The projection is also
+  // independent of `display.rateLimits`: a user who hides the rate-limit family
+  // still benefits from the exhaustion warning. This mirrors `paceDelta` below
+  // (line ~165), which is also independent of `display.rateLimits` for the same
+  // reason.
   let sevenDayProjWarning = '';
   if (display.quotaProjection && input.rateLimits?.sevenDay) {
     const sd = input.rateLimits.sevenDay;
@@ -125,6 +128,15 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
   let sevenDayWarningAttachedToBadge = false;
+
+  // Colour the projection by its severity tier. 🔥 (sub-12h, critical) escalates
+  // to red; ⚠ (warning) to yellow. Inferred from the format icon prefix — the
+  // icon is the tier indicator the format function already chose. See the
+  // follow-up tech-debt issue tracking a typed severity field.
+  const colorProjection = (warning: string): string => {
+    const isCritical = warning.startsWith('🔥');
+    return (isCritical ? c.red : c.yellow)(warning);
+  };
 
   // Rate limits (only show if >=50%)
   //
@@ -158,9 +170,11 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       // 7d quota projection — extrapolates current burn rate and warns when the
       // quota would be hit before the window resets. Only attached to 7d: the 5h
       // segment carries the same signal via pace delta, so duplicating here
-      // would add noise without information.
+      // would add noise without information. The warning is coloured by its own
+      // severity (red/yellow) so it carries the same urgency whether attached
+      // here or rendered standalone below.
       if (label === '7d' && sevenDayProjWarning) {
-        limitStr += ` ${sevenDayProjWarning}`;
+        limitStr += ` ${colorProjection(sevenDayProjWarning)}`;
         sevenDayWarningAttachedToBadge = true;
       }
       if (win.usedPercentage >= QUOTA_CRITICAL) {
@@ -172,13 +186,13 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     }
   }
 
-  // 7d projection — standalone fallback when the badge is hidden (<50%) but the
-  // burn rate predicts exhaustion. This is the most actionable window for the
-  // warning: the user can still change behaviour. 🔥 (sub-12h) carries red, ⚠
-  // carries yellow — colour is inferred from the format icon, no extra API.
+  // 7d projection — standalone fallback. Fires when the warning was computed
+  // but not attached to a badge — either because the badge is suppressed by the
+  // <50% filter, or because `display.rateLimits` is off (independent toggle, see
+  // colorProjection block above). This is the most actionable window for the
+  // warning: the user can still change behaviour.
   if (sevenDayProjWarning && !sevenDayWarningAttachedToBadge) {
-    const isCritical = sevenDayProjWarning.startsWith('🔥');
-    leftParts.push((isCritical ? c.red : c.yellow)(sevenDayProjWarning));
+    leftParts.push(colorProjection(sevenDayProjWarning));
   }
 
   // Pace delta — shows how far ahead/behind of expected quota burn rate.
