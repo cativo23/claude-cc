@@ -104,6 +104,28 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   // Qwen metrics (shared helper)
   leftParts.push(...formatQwenMetrics(input, c, icons));
 
+  // 7d quota projection — computed once, surfaced two ways depending on whether
+  // the 7d badge is visible. The badge filter (≥50%) hides noise; the projection
+  // surfaces signal — they are independent concerns wired together previously by
+  // accident. Below 50% the warning still renders, just standalone.
+  let sevenDayProjWarning = '';
+  if (display.quotaProjection && input.rateLimits?.sevenDay) {
+    const sd = input.rateLimits.sevenDay;
+    if (Number.isFinite(sd.usedPercentage)) {
+      const proj = computeQuotaProjection(
+        sd.usedPercentage,
+        sd.resetsAt,
+        SEVEN_DAY_WINDOW_SEC,
+        undefined,
+        SEVEN_DAY_MIN_ELAPSED_SEC,
+      );
+      if (proj && proj.willExhaustBefore) {
+        sevenDayProjWarning = formatProjectionWarning(proj);
+      }
+    }
+  }
+  let sevenDayWarningAttachedToBadge = false;
+
   // Rate limits (only show if >=50%)
   //
   // Critical-tier (>=85%) segments are inserted *after the context bar* instead
@@ -137,18 +159,9 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       // quota would be hit before the window resets. Only attached to 7d: the 5h
       // segment carries the same signal via pace delta, so duplicating here
       // would add noise without information.
-      if (label === '7d' && display.quotaProjection) {
-        const proj = computeQuotaProjection(
-          win.usedPercentage,
-          win.resetsAt,
-          SEVEN_DAY_WINDOW_SEC,
-          undefined,
-          SEVEN_DAY_MIN_ELAPSED_SEC,
-        );
-        if (proj && proj.willExhaustBefore) {
-          const warning = formatProjectionWarning(proj);
-          if (warning) limitStr += ` ${warning}`;
-        }
+      if (label === '7d' && sevenDayProjWarning) {
+        limitStr += ` ${sevenDayProjWarning}`;
+        sevenDayWarningAttachedToBadge = true;
       }
       if (win.usedPercentage >= QUOTA_CRITICAL) {
         leftParts.splice(criticalInsertAt, 0, limitStr);
@@ -157,6 +170,15 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
         leftParts.push(limitStr);
       }
     }
+  }
+
+  // 7d projection — standalone fallback when the badge is hidden (<50%) but the
+  // burn rate predicts exhaustion. This is the most actionable window for the
+  // warning: the user can still change behaviour. 🔥 (sub-12h) carries red, ⚠
+  // carries yellow — colour is inferred from the format icon, no extra API.
+  if (sevenDayProjWarning && !sevenDayWarningAttachedToBadge) {
+    const isCritical = sevenDayProjWarning.startsWith('🔥');
+    leftParts.push((isCritical ? c.red : c.yellow)(sevenDayProjWarning));
   }
 
   // Pace delta — shows how far ahead/behind of expected quota burn rate.

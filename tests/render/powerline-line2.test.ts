@@ -509,5 +509,39 @@ describe('renderPowerlineLine2', () => {
       expect(segmentTail).not.toContain('⚠ ~');
       expect(segmentTail).not.toContain('🔥 ~');
     });
+
+    // ── Standalone projection segment (badge-decoupled) ────────────────────
+    //
+    // Mirrors line2.ts: when usedPercentage < 50 the 7d badge is suppressed,
+    // but a projection that predicts exhaustion before reset must still
+    // surface — as a dedicated powerline segment.
+
+    it.each([
+      { label: '⚠ warning tier renders standalone when below 50%', usedPct: 20, elapsedSec: 86400, expectedWarning: '⚠ ~4d' },
+      { label: '🔥 critical tier renders standalone when below 50%', usedPct: 40, elapsedSec: 10800, expectedWarning: '🔥 ~4h' },
+    ])('$label', ({ usedPct, elapsedSec, expectedWarning }) => {
+      const ctx = ctxWith7dProjection(usedPct, elapsedSec);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain(`${usedPct}%(7d)`);
+      expect(out).toContain(expectedWarning);
+    });
+
+    it('attaches projection to 7d segment when usedPercentage >= 50 (no duplicate standalone)', () => {
+      const ctx = ctxWith7dProjection(50, 86400);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('50%(7d)');
+      expect(out).toContain('⚠ ~24h');
+      const matches = out.match(/⚠ ~/g) ?? [];
+      expect(matches.length).toBe(1);
+    });
+
+    it('does not render standalone when projection does not predict exhaustion (below 50%)', () => {
+      // 6d elapsed of 7d, 10% used → TTE far exceeds remaining → no warning
+      const ctx = ctxWith7dProjection(10, 518400);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('10%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
   });
 });
