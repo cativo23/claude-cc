@@ -137,14 +137,17 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
 
   // 7d projection standalone — surfaces when the badge is hidden (<50%) but
   // the burn rate predicts exhaustion. 🔥 (sub-12h) escalates to branchDirtyBg
-  // with high priority (80) to survive eviction; ⚠ uses taskBg at priority 50.
+  // with priority 86 — one above the 5h critical (85). The 5h critical has a
+  // redundant carrier in paceDelta, but standalone 🔥 has no other surface; if
+  // narrow-cols eviction must drop one, the more actionable signal stays. ⚠
+  // (non-imminent) sits at priority 50 and yields to short-window urgency.
   if (sevenDayProjWarning && !sevenDayWarningAttachedToBadge) {
     const isCritical = sevenDayProjWarning.startsWith('🔥');
     segments.push({
       text: sevenDayProjWarning,
       bg: isCritical ? palette.branchDirtyBg : palette.taskBg,
       fg: palette.fg,
-      priority: isCritical ? 80 : 50,
+      priority: isCritical ? 86 : 50,
     });
   }
 
