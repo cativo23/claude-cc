@@ -638,4 +638,78 @@ describe('renderPowerlineLine2', () => {
       expect(out).toContain('🔥 ~4h');
     });
   });
+
+  describe('apiLatency widget', () => {
+    // DEFAULT_POWERLINE_PALETTE bg values (theme=null path).
+    const bg = (rgb: { r: number; g: number; b: number }) => `\x1b[48;2;${rgb.r};${rgb.g};${rgb.b}m`;
+    const DIR_BG = { r: 48, g: 72, b: 128 };    // healthy + notable
+    const TASK_BG = { r: 128, g: 96, b: 24 };   // warn
+    const BRANCH_DIRTY_BG = { r: 160, g: 40, b: 40 }; // critical
+
+    function apiLatencyCtx(apiDurationMs: number | undefined, durationMs = 60000, toggleOn = true): RenderContext {
+      const base = makeCtx();
+      const patchedInput = {
+        ...base.input,
+        durationMs,
+        apiDurationMs,
+      };
+      return makeCtx({
+        input: patchedInput,
+        config: {
+          ...DEFAULT_CONFIG,
+          display: {
+            ...DEFAULT_DISPLAY,
+            apiLatency: toggleOn,
+            // Disable segments that share bg slots so assertions are unambiguous.
+            contextBar: false,
+            contextTokens: false,
+            cost: false,
+            burnRate: false,
+            tokens: false,
+            rateLimits: false,
+            paceDelta: false,
+            cacheMetrics: false,
+            mcp: false,
+            vim: false,
+            effort: false,
+          },
+        },
+      });
+    }
+
+    it('should_emit_segment_with_priority_65_text_API_N_percent', () => {
+      // 15000ms / 60000ms = 25%
+      const ctx = apiLatencyCtx(15000, 60000);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('API 25%');
+    });
+
+    it('should_omit_segment_when_disabled', () => {
+      const ctx = apiLatencyCtx(15000, 60000, false);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('API ');
+    });
+
+    it('should_omit_segment_when_apiDurationMs_is_undefined', () => {
+      const ctx = apiLatencyCtx(undefined, 60000);
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('API ');
+    });
+
+    it.each([
+      // healthy: <40% → dirBg
+      { label: 'healthy (25%) uses dirBg', apiMs: 15000, durationMs: 60000, expectedBg: DIR_BG },
+      // notable: 40-69% → dirBg
+      { label: 'notable (55%) uses dirBg', apiMs: 33000, durationMs: 60000, expectedBg: DIR_BG },
+      // warn: 70-89% → taskBg
+      { label: 'warn (80%) uses taskBg', apiMs: 48000, durationMs: 60000, expectedBg: TASK_BG },
+      // critical: >=90% → branchDirtyBg
+      { label: 'critical (90%) uses branchDirtyBg', apiMs: 54000, durationMs: 60000, expectedBg: BRANCH_DIRTY_BG },
+    ])('should_escalate_bg_through_tiers: $label', ({ apiMs, durationMs, expectedBg }) => {
+      const ctx = apiLatencyCtx(apiMs, durationMs);
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      expect(raw).toContain(bg(expectedBg));
+      expect(stripAnsi(raw)).toContain('API ');
+    });
+  });
 });

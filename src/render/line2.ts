@@ -1,6 +1,7 @@
 import { fitSegments, displayWidth } from './text.js';
-import { getQuotaColor, getPaceColor, getCacheHitColor, detectColorMode, type Colors } from './colors.js';
+import { getQuotaColor, getPaceColor, getCacheHitColor, getApiLatencyColor, detectColorMode, type Colors } from './colors.js';
 import { QUOTA_CRITICAL } from '../types.js';
+import { computeApiLatency, formatApiLatency } from './api-latency.js';
 import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
@@ -88,6 +89,19 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       if (burn) costPart += ` ${c.dim(burn)}`;
     }
     leftParts.push(costPart);
+  }
+
+  // API latency — ratio of API wait time to wall-clock session duration.
+  // Only rendered when both fields are present in the payload (old Claude Code
+  // versions omit total_api_duration_ms — gate on apiDurationMs != null so we
+  // never fabricate "API 0%" from an absent field).
+  if (display.apiLatency && input.apiDurationMs != null) {
+    const pct = computeApiLatency(input.durationMs, input.apiDurationMs);
+    if (pct != null) {
+      const text = formatApiLatency(pct);
+      const colorName = getApiLatencyColor(pct);
+      leftParts.push(colorName != null ? c[colorName](text) : text);
+    }
   }
 
   // MCP servers

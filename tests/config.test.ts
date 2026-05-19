@@ -51,6 +51,8 @@ describe('loadConfig', () => {
     expect(c.display.model).toBe(true);
     expect(c.display.cost).toBe(true);
     expect(c.display.contextBar).toBe(true);
+    // apiLatency stays on so balanced users see the v1.4.0 widget out of the box
+    expect(c.display.apiLatency).toBe(true);
   });
 
   it('preset minimal disables most toggles', () => {
@@ -66,6 +68,10 @@ describe('loadConfig', () => {
     expect(c.display.model).toBe(true);
     expect(c.display.branch).toBe(true);
     expect(c.display.cost).toBe(true);
+    // apiLatency is off in minimal — renderMinimal does not surface line2
+    // widgets, so the toggle matches the dead-toggle convention used by
+    // burnRate/rateLimits/paceDelta/etc. above.
+    expect(c.display.apiLatency).toBe(false);
   });
 
   it('user display overrides win over preset', () => {
@@ -85,6 +91,8 @@ describe('loadConfig', () => {
     expect(c.layout).toBe('multiline');
     expect(c.display.burnRate).toBe(true);
     expect(c.display.version).toBe(true);
+    // apiLatency is the v1.4.0 headline widget — on by default in full.
+    expect(c.display.apiLatency).toBe(true);
   });
   it('ignores invalid preset', () => {
     mkdirSync(dir, { recursive: true });
