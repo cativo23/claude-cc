@@ -154,7 +154,11 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       contextTokens: false,
       cacheMetrics: false,
       mcp: false,
-      apiLatency: true,
+      // apiLatency is renderered only by line2/powerline-line2 — set false here
+      // to match the established convention for widgets renderMinimal does not
+      // surface (see burnRate/rateLimits/paceDelta etc. above). Default
+      // remains true; users on full/balanced see the widget out of the box.
+      apiLatency: false,
     },
   },
 };

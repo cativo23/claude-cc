@@ -22,8 +22,12 @@ export function computeApiLatency(
   durationMs: number | undefined,
   apiDurationMs: number | undefined,
 ): number | null {
-  if (!durationMs) return null;
-  if (apiDurationMs === undefined) return null;
+  // Defend at the boundary against NaN/Infinity from malformed payloads — without
+  // Number.isFinite, NaN flows through Math.round + Math.min/max and renders
+  // "API NaN%" to the user. Matches the defensive pattern at colors.ts:149 and
+  // line2.ts:175 for rate-limit usedPercentage.
+  if (!durationMs || !Number.isFinite(durationMs)) return null;
+  if (apiDurationMs === undefined || !Number.isFinite(apiDurationMs)) return null;
   const raw = (apiDurationMs / durationMs) * 100;
   return Math.max(0, Math.min(100, Math.round(raw)));
 }

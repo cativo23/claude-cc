@@ -35,6 +35,24 @@ describe('computeApiLatency', () => {
     // 30500ms / 60000ms = 50.833... → rounds to 51
     expect(computeApiLatency(60000, 30500)).toBe(51);
   });
+
+  // Defensive against malformed payloads — without Number.isFinite, NaN
+  // flows through the math and renders "API NaN%" to the user.
+  it('should_return_null_when_durationMs_is_NaN', () => {
+    expect(computeApiLatency(NaN, 30000)).toBeNull();
+  });
+
+  it('should_return_null_when_apiDurationMs_is_NaN', () => {
+    expect(computeApiLatency(60000, NaN)).toBeNull();
+  });
+
+  it('should_return_null_when_durationMs_is_Infinity', () => {
+    expect(computeApiLatency(Infinity, 30000)).toBeNull();
+  });
+
+  it('should_return_null_when_apiDurationMs_is_Infinity', () => {
+    expect(computeApiLatency(60000, Infinity)).toBeNull();
+  });
 });
 
 describe('formatApiLatency', () => {
