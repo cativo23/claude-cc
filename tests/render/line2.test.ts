@@ -667,6 +667,113 @@ describe('renderLine2', () => {
       expect(segmentTail).not.toContain('⚠ ~');
       expect(segmentTail).not.toContain('🔥 ~');
     });
+
+    // ── Standalone projection (badge-decoupled) ────────────────────────────
+    //
+    // When usedPercentage < 50 the 7d badge is suppressed as noise, but the
+    // projection may still predict exhaustion before reset. Without surfacing
+    // the warning standalone the most actionable signal (early-window
+    // unsustainable burn) is silenced. These tests lock the decoupled
+    // behaviour.
+
+    it.each([
+      // 1d elapsed of 7d, 20% used → TTE = 4d, willExhaust=true, ⚠ tier (≥12h)
+      { label: '⚠ warning tier renders yellow standalone when below 50%', usedPct: 20, elapsedSec: 86400, expectedWarning: '⚠ ~4d' },
+      // 3h elapsed of 7d, 40% used → TTE = 4.5h, 🔥 tier (sub-12h), badge hidden
+      { label: '🔥 critical tier renders red standalone when below 50%', usedPct: 40, elapsedSec: 10800, expectedWarning: '🔥 ~4h' },
+    ])('$label', ({ usedPct, elapsedSec, expectedWarning }) => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      const resetsAt = nowSec + (7 * 24 * 3600 - elapsedSec);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: usedPct, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      // Badge is hidden (below 50% gate)
+      expect(out).not.toContain(`${usedPct}%(7d)`);
+      // Warning still renders standalone
+      expect(out).toContain(expectedWarning);
+    });
+
+    it('attaches projection to badge when usedPercentage >= 50 (no duplicate standalone)', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 1d elapsed of 7d, 50% used → ⚠ ~24h, badge visible
+      const resetsAt = nowSec + (7 * 24 * 3600 - 86400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 50, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      // Badge AND warning both present in the same segment
+      expect(out).toContain('50%(7d)');
+      expect(out).toContain('⚠ ~24h');
+      // Exactly one occurrence of the warning glyph (not duplicated standalone)
+      const matches = out.match(/⚠ ~/g) ?? [];
+      expect(matches.length).toBe(1);
+    });
+
+    it('does not render standalone when projection does not predict exhaustion (below 50%)', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 6d elapsed of 7d, 10% used → low burn, TTE > remaining → no warning
+      const resetsAt = nowSec + (7 * 24 * 3600 - 518400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 10, resets_at: resetsAt } },
+      };
+      const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
+      expect(out).not.toContain('10%(7d)');
+      expect(out).not.toContain('⚠ ~');
+      expect(out).not.toContain('🔥 ~');
+    });
+
+    // The projection signal is independent of `display.rateLimits` — mirrors
+    // the pace-delta pattern (line2.ts:165 has the same independence). A user
+    // who hides the rate-limit badges still benefits from the exhaustion
+    // warning when burn rate predicts they will not make it to reset.
+    it('renders standalone projection even when display.rateLimits is off (independent toggles)', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 1d elapsed of 7d, 60% used → would normally attach to badge, but
+      // rateLimits is off so the badge is suppressed. Warning must surface
+      // standalone instead.
+      const resetsAt = nowSec + (7 * 24 * 3600 - 86400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 60, resets_at: resetsAt } },
+      };
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, rateLimits: false } } },
+        inputOverride,
+      );
+      const out = stripAnsi(renderLine2(ctx, c));
+      // Badge suppressed by rateLimits=false
+      expect(out).not.toContain('60%(7d)');
+      // Projection still surfaces standalone — toggles are independent
+      expect(out).toContain('⚠ ~');
+    });
+
+    // I2 regression guard: the projection appended to a visible badge must
+    // carry the same severity color it carries when standalone. Otherwise
+    // crossing 49%→50% silently demotes the visual urgency of the warning.
+    it('colors the attached projection with severity color (red for 🔥, yellow for ⚠)', () => {
+      const pinnedNow = 1_700_000_000_000;
+      vi.useFakeTimers({ now: pinnedNow });
+      const nowSec = pinnedNow / 1000;
+      // 1d elapsed of 7d, 50% used → TTE = 24h → ⚠ ~24h, badge visible
+      const resetsAt = nowSec + (7 * 24 * 3600 - 86400);
+      const inputOverride = {
+        rate_limits: { seven_day: { used_percentage: 50, resets_at: resetsAt } },
+      };
+      const out = renderLine2(makeCtx({}, inputOverride), c);
+      // Match an ANSI open sequence (not a reset) directly preceding the
+      // warning glyph. `(?!0)` rejects the `\x1b[0m` reset that closes the
+      // badge — the warning must be wrapped in its OWN color open, not
+      // inherit blanket from the badge wrap.
+      expect(out).toMatch(/\x1b\[(?!0m)[\d;]+m⚠ ~24h/u);
+    });
   });
 });
 

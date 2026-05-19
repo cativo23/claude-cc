@@ -77,6 +77,37 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     }
   }
 
+  // 7d projection — computed once, surfaced inside the 7d segment when the
+  // badge is visible (≥50%), or as a standalone segment when it isn't. Mirrors
+  // classic line2: badge filter hides noise, projection surfaces signal.
+  // Independent of `display.rateLimits` — mirrors paceDelta below; users who
+  // hide rate-limit badges still benefit from the exhaustion warning.
+  let sevenDayProjWarning = '';
+  if (display.quotaProjection && input.rateLimits?.sevenDay) {
+    const sd = input.rateLimits.sevenDay;
+    if (Number.isFinite(sd.usedPercentage)) {
+      const proj = computeQuotaProjection(
+        sd.usedPercentage,
+        sd.resetsAt,
+        SEVEN_DAY_WINDOW_SEC,
+        undefined,
+        SEVEN_DAY_MIN_ELAPSED_SEC,
+      );
+      if (proj && proj.willExhaustBefore) {
+        sevenDayProjWarning = formatProjectionWarning(proj);
+      }
+    }
+  }
+  let sevenDayWarningAttachedToBadge = false;
+
+  // Colour the projection inline (only when it rides inside the 7d badge
+  // segment). The standalone segment expresses severity via bg colour
+  // (branchDirtyBg for 🔥, taskBg for ⚠), so it does not need an inline wrap.
+  const colorProjectionInline = (warning: string): string => {
+    const isCritical = warning.startsWith('🔥');
+    return (isCritical ? c.red : c.yellow)(warning);
+  };
+
   // Rate limits — urgency expressed via priority (critical survives eviction longer).
   // Loop order (5h then 7d) is always preserved; priority is the eviction knob only.
   // Note: countdown timer (line2.ts:127) is intentionally omitted in powerline mode.
@@ -92,24 +123,32 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       const critical = win.usedPercentage >= QUOTA_CRITICAL;
       const bg = critical ? palette.branchDirtyBg : palette.taskBg;
       let text = `${icons.battery(win.usedPercentage)} ${win.usedPercentage.toFixed(0)}%(${label})`;
-      // 7d quota projection — same gate as classic line2. The warning rides
-      // inside the existing segment (no new powerline cell) so it inherits the
-      // segment's bg and survives/falls together under fitSegments eviction.
-      if (label === '7d' && display.quotaProjection) {
-        const proj = computeQuotaProjection(
-          win.usedPercentage,
-          win.resetsAt,
-          SEVEN_DAY_WINDOW_SEC,
-          undefined,
-          SEVEN_DAY_MIN_ELAPSED_SEC,
-        );
-        if (proj && proj.willExhaustBefore) {
-          const warning = formatProjectionWarning(proj);
-          if (warning) text += ` ${warning}`;
-        }
+      // 7d quota projection — rides inside the existing segment (no new
+      // powerline cell) so it inherits the segment's bg and survives/falls
+      // together under fitSegments eviction. The inline severity colour keeps
+      // the warning's urgency visible across the segment background.
+      if (label === '7d' && sevenDayProjWarning) {
+        text += ` ${colorProjectionInline(sevenDayProjWarning)}`;
+        sevenDayWarningAttachedToBadge = true;
       }
       segments.push({ text, bg, fg: palette.fg, priority: critical ? 85 : 40 });
     }
+  }
+
+  // 7d projection standalone — surfaces when the badge is hidden (<50%) but
+  // the burn rate predicts exhaustion. 🔥 (sub-12h) escalates to branchDirtyBg
+  // with priority 86 — one above the 5h critical (85). The 5h critical has a
+  // redundant carrier in paceDelta, but standalone 🔥 has no other surface; if
+  // narrow-cols eviction must drop one, the more actionable signal stays. ⚠
+  // (non-imminent) sits at priority 50 and yields to short-window urgency.
+  if (sevenDayProjWarning && !sevenDayWarningAttachedToBadge) {
+    const isCritical = sevenDayProjWarning.startsWith('🔥');
+    segments.push({
+      text: sevenDayProjWarning,
+      bg: isCritical ? palette.branchDirtyBg : palette.taskBg,
+      fg: palette.fg,
+      priority: isCritical ? 86 : 50,
+    });
   }
 
   // Pace delta — how far ahead/behind of expected quota burn rate.
