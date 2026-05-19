@@ -586,14 +586,21 @@ describe('renderPowerlineLine2', () => {
       const BRANCH_DIRTY_BG = '\x1b[48;2;160;40;40m';
       const TASK_BG = '\x1b[48;2;128;96;24m';
 
-      // 3h elapsed of 7d, 40% used → TTE 4.5h → 🔥 ~4h standalone (<50% badge hidden)
+      // 3h elapsed of 7d, 40% used → TTE 4.5h → 🔥 ~4h standalone (<50% badge hidden).
+      // BRANCH_DIRTY_BG is unique to the standalone 🔥 in this context (no
+      // rate-limit segment ≥85%, no cacheMetrics <40%), so the assertion is
+      // strict without further toggle gating.
       const critCtx = ctxWith7dProjection(40, 10800);
       const critRaw = renderPowerlineLine2(critCtx, 'truecolor', null, c);
       expect(critRaw).toContain('🔥 ~4h');
       expect(critRaw).toContain(BRANCH_DIRTY_BG);
 
-      // 1d elapsed of 7d, 20% used → TTE 4d → ⚠ ~4d standalone (<50% badge hidden)
-      const warnCtx = ctxWith7dProjection(20, 86400);
+      // 1d elapsed of 7d, 20% used → TTE 4d → ⚠ ~4d standalone (<50% badge hidden).
+      // `cost: false` disables the cost segment (which also emits TASK_BG) so
+      // the assertion locks the standalone ⚠ segment's bg specifically. Without
+      // this gate the test would pass even if the standalone ⚠ used a
+      // different bg.
+      const warnCtx = ctxWith7dProjection(20, 86400, { cost: false });
       const warnRaw = renderPowerlineLine2(warnCtx, 'truecolor', null, c);
       expect(warnRaw).toContain('⚠ ~4d');
       expect(warnRaw).toContain(TASK_BG);
