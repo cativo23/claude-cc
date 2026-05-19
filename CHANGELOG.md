@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-19
+
+### Added
+- **API latency overhead widget** — line 2 now exposes the ratio of `cost.total_api_duration_ms` to `cost.total_duration_ms` as an integer percentage: `API 73%`. Distinguishes "the API is slow / network is the bottleneck" from "Claude is reasoning or running tools locally" — a signal no competing Claude Code statusline currently surfaces. Color escalates through severity tiers via a new SSOT `getApiLatencyTier` in `colors.ts`: dim (<40%, healthy) → default (40–69%, notable) → yellow (70–89%, warn) → orange (≥90%, critical, not blinkRed — this is a diagnostic signal, not an actionable emergency). Powerline mode escalates the segment background through the same tiers (`dirBg`/`taskBg`/`branchDirtyBg`) and sits at priority 65 between cost (70) and tokens (60). New `display.apiLatency` toggle is on by default in `full` and `balanced` — users who don't want the widget set `"display": { "apiLatency": false }` in their config. The `minimal` preset does not surface the widget (`renderMinimal` is opinionated). Defensive against malformed payloads with `Number.isFinite` guards on both timing fields. Closes #128.
+
 ## [1.3.1] - 2026-05-19
 
 ### Fixed
