@@ -25,6 +25,7 @@ export interface ClaudeCodeInput {
   cost: {
     total_cost_usd: number;
     total_duration_ms: number;
+    total_api_duration_ms?: number;
     total_lines_added?: number;
     total_lines_removed?: number;
   };
@@ -222,6 +223,7 @@ export interface DisplayToggles {
   mcp: boolean;
   agents: boolean;
   health: boolean;
+  apiLatency: boolean;
   /**
    * Percentage at which the context bar turns orange and shows the fire icon. Default 70. Clamped [0,100].
    * Setting this ≤ 50 collapses the yellow zone; the bar jumps green→orange directly at this value.
@@ -277,6 +279,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   mcp: true,
   agents: true,
   health: false,
+  apiLatency: true,
   contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
   contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };
@@ -344,7 +347,7 @@ export interface QwenInput {
   // Optional fields shared with ClaudeCodeInput (Qwen does not send these)
   session_name?: string;
   cwd?: string;
-  cost?: { total_cost_usd: number; total_duration_ms: number; total_lines_added?: number; total_lines_removed?: number };
+  cost?: { total_cost_usd: number; total_duration_ms: number; total_api_duration_ms?: number; total_lines_added?: number; total_lines_removed?: number };
   transcript_path?: string;
   output_style?: { name: string };
   agent?: { name: string };

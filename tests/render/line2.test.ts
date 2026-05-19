@@ -777,6 +777,74 @@ describe('renderLine2', () => {
   });
 });
 
+describe('apiLatency widget', () => {
+  function makeCtxWithApiLatency(apiDurationMs: number | undefined, durationMs = 60000, toggleOn = true): RenderContext {
+    const input = normalize({
+      ...baseInput,
+      cost: { ...baseInput.cost, total_duration_ms: durationMs, total_api_duration_ms: apiDurationMs as number },
+    });
+    const patchedInput = apiDurationMs === undefined
+      ? { ...normalize({ ...baseInput, cost: { ...baseInput.cost, total_duration_ms: durationMs } }), apiDurationMs: undefined }
+      : { ...input, apiDurationMs };
+    return {
+      input: patchedInput,
+      git: EMPTY_GIT,
+      transcript: EMPTY_TRANSCRIPT,
+      tokenSpeed: null,
+      memory: null,
+      gsd: null,
+      mcp: null,
+      cols: 120,
+      config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, apiLatency: toggleOn } },
+      icons: NERD_ICONS,
+    };
+  }
+
+  it('should_render_API_N_percent_when_toggle_on_and_field_present', () => {
+    // 15000ms / 60000ms = 25%
+    const ctx = makeCtxWithApiLatency(15000, 60000);
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).toContain('API 25%');
+  });
+
+  it('should_hide_when_display_apiLatency_is_false', () => {
+    const ctx = makeCtxWithApiLatency(15000, 60000, false);
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('API ');
+  });
+
+  it('should_hide_when_apiDurationMs_is_undefined', () => {
+    const ctx = makeCtxWithApiLatency(undefined, 60000);
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('API ');
+  });
+
+  it.each([
+    // healthy: <40% → dim (\x1b[2m)
+    { pct: 25, durationMs: 60000, apiMs: 15000, colorEsc: '\x1b[2m', label: 'healthy (25%) uses dim' },
+    // notable: 40-69% → no color (null)
+    { pct: 55, durationMs: 60000, apiMs: 33000, colorEsc: null, label: 'notable (55%) uses no color' },
+    // warn: 70-89% → yellow (\x1b[33m)
+    { pct: 80, durationMs: 60000, apiMs: 48000, colorEsc: '\x1b[33m', label: 'warn (80%) uses yellow' },
+    // critical: >=90% → orange (\x1b[38;5;208m)
+    { pct: 90, durationMs: 60000, apiMs: 54000, colorEsc: '\x1b[38;5;208m', label: 'critical (90%) uses orange' },
+  ])('should_apply_severity_color_at_each_tier_boundary: $label', ({ durationMs, apiMs, colorEsc }) => {
+    const ctx = makeCtxWithApiLatency(apiMs, durationMs);
+    const out = renderLine2(ctx, c);
+    if (colorEsc === null) {
+      // notable: no ANSI color should wrap the API text
+      const stripped = stripAnsi(out);
+      expect(stripped).toContain('API ');
+      // The text must not be wrapped in any of the alarm colors
+      expect(out).not.toMatch(/\x1b\[2mAPI /);
+      expect(out).not.toMatch(/\x1b\[33mAPI /);
+      expect(out).not.toMatch(/\x1b\[38;5;208mAPI /);
+    } else {
+      expect(out).toContain(colorEsc + 'API ');
+    }
+  });
+});
+
 describe('formatCountdown', () => {
   afterEach(() => vi.useRealTimers());
 

@@ -7,7 +7,8 @@ import {
 import { QUOTA_CRITICAL } from '../types.js';
 import { buildContextBar, formatQwenMetrics } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
-import { detectColorMode, getCacheHitTier, getPaceColor, type ColorMode, type Colors } from './colors.js';
+import { detectColorMode, getCacheHitTier, getApiLatencyTier, getPaceColor, type ColorMode, type Colors } from './colors.js';
+import { computeApiLatency, formatApiLatency } from './api-latency.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
 import { computeQuotaProjection, formatProjectionWarning } from './quota-projection.js';
@@ -31,6 +32,19 @@ function getCacheHitBg(rate: number, palette: PowerlinePalette): RGB {
   switch (getCacheHitTier(rate)) {
     case 'mild': return palette.versionBg;
     case 'moderate': return palette.taskBg;
+    case 'critical': return palette.branchDirtyBg;
+  }
+}
+
+// Maps the API latency tier (SSOT in colors.ts) to a powerline bg slot.
+// healthy/notable → dirBg (neutral; api is fast or only slightly slow)
+// warn            → taskBg (warm; api is dominating session time)
+// critical        → branchDirtyBg (hot; almost all time spent waiting on API)
+function getApiLatencyBg(pct: number, palette: PowerlinePalette): RGB {
+  switch (getApiLatencyTier(pct)) {
+    case 'healthy': return palette.dirBg;
+    case 'notable': return palette.dirBg;
+    case 'warn': return palette.taskBg;
     case 'critical': return palette.branchDirtyBg;
   }
 }
@@ -180,6 +194,18 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       if (burn) costText += ` ${burn}`;
     }
     segments.push({ text: costText, bg: palette.taskBg, fg: palette.fg, priority: 70 });
+  }
+
+  // API latency — ratio of API wait time to wall-clock session duration.
+  // Priority 65: between cost (70) and tokens/pace (60). Only rendered when
+  // both fields are present — old Claude Code versions omit total_api_duration_ms.
+  if (display.apiLatency && input.apiDurationMs != null) {
+    const pct = computeApiLatency(input.durationMs, input.apiDurationMs);
+    if (pct != null) {
+      const text = formatApiLatency(pct);
+      const bg = getApiLatencyBg(pct, palette);
+      segments.push({ text, bg, fg: palette.fg, priority: 65 });
+    }
   }
 
   // Tokens ↑↓ (cumulative input/output)

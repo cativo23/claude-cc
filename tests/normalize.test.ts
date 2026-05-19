@@ -415,6 +415,25 @@ describe('normalize — missing context_window', () => {
   });
 });
 
+describe('apiDurationMs normalization', () => {
+  it('should_populate_apiDurationMs_from_cost_total_api_duration_ms', () => {
+    const input = {
+      ...claudeInput,
+      cost: { ...claudeInput.cost, total_api_duration_ms: 43800 },
+    };
+    expect(normalize(input).apiDurationMs).toBe(43800);
+  });
+
+  it('should_leave_apiDurationMs_undefined_when_field_absent', () => {
+    // claudeInput.cost has no total_api_duration_ms
+    expect(normalize(claudeInput).apiDurationMs).toBeUndefined();
+  });
+
+  it('should_leave_apiDurationMs_undefined_for_qwen_input', () => {
+    expect(normalize(qwenInput).apiDurationMs).toBeUndefined();
+  });
+});
+
 describe('isQwenInput discriminant', () => {
   it('returns true for valid Qwen input', () => {
     expect(isQwenInput(qwenInput)).toBe(true);

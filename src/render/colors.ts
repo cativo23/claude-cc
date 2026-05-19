@@ -152,3 +152,36 @@ export function getQuotaColor(pct: number): ColorName {
   if (pct < QUOTA_CRITICAL) return 'orange';
   return 'blinkRed';
 }
+
+/**
+ * API latency severity tier — the single source of truth for the api-latency
+ * widget's threshold boundaries. Both classic-mode fg (getApiLatencyColor) and
+ * powerline-mode bg (the helper in powerline-line2.ts) consume this so the
+ * boundaries cannot drift apart.
+ *   <40%:  healthy  (API is fast — dim, low visual noise)
+ *   40-69%: notable  (API is slower than typical — default fg, worth noting)
+ *   70-89%: warn     (API dominating session — yellow)
+ *   >=90%:  critical (almost all time waiting on API — orange, diagnostic not emergency)
+ */
+export type ApiLatencyTier = 'healthy' | 'notable' | 'warn' | 'critical';
+
+export function getApiLatencyTier(pct: number): ApiLatencyTier {
+  if (pct < 40) return 'healthy';
+  if (pct < 70) return 'notable';
+  if (pct < 90) return 'warn';
+  return 'critical';
+}
+
+/**
+ * Color for the API latency value, consuming the SSOT tier.
+ * Returns null for 'notable' — the caller emits the text without any ANSI
+ * wrapper so it renders in the terminal's default foreground.
+ */
+export function getApiLatencyColor(pct: number): ColorName | null {
+  switch (getApiLatencyTier(pct)) {
+    case 'healthy': return 'dim';
+    case 'notable': return null;
+    case 'warn': return 'yellow';
+    case 'critical': return 'orange';
+  }
+}

@@ -126,6 +126,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       memory: false,
       contextTokens: false,
       cacheMetrics: false,
+      apiLatency: true,
     },
   },
   minimal: {
@@ -153,6 +154,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       contextTokens: false,
       cacheMetrics: false,
       mcp: false,
+      apiLatency: true,
     },
   },
 };

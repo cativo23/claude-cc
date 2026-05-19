@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createColors, stripAnsi, detectColorMode, getContextColor, getQuotaColor, getPaceColor, getCacheHitColor, getCacheHitTier } from '../../src/render/colors.js';
+import { createColors, stripAnsi, detectColorMode, getContextColor, getQuotaColor, getPaceColor, getCacheHitColor, getCacheHitTier, getApiLatencyTier, getApiLatencyColor } from '../../src/render/colors.js';
 
 describe('stripAnsi', () => {
   it('removes ANSI escape codes', () => {
@@ -151,4 +151,47 @@ describe('getCacheHitColor', () => {
   it('returns orange at 40% (lower orange boundary)', () => { expect(getCacheHitColor(40)).toBe('orange'); });
   it('returns blinkRed at 39% (upper red boundary — cache likely broken)', () => { expect(getCacheHitColor(39)).toBe('blinkRed'); });
   it('returns blinkRed at 0% (no cache hits)', () => { expect(getCacheHitColor(0)).toBe('blinkRed'); });
+});
+
+describe('getApiLatencyTier', () => {
+  // SSOT for API latency severity thresholds (40/70/90).
+  // Both getApiLatencyColor (classic fg) and the powerline bg mapper consume this.
+  it('should_return_healthy_below_40', () => { expect(getApiLatencyTier(0)).toBe('healthy'); });
+  it('should_return_healthy_at_39 (upper healthy boundary)', () => { expect(getApiLatencyTier(39)).toBe('healthy'); });
+  it('should_return_notable_at_40_to_69', () => {
+    expect(getApiLatencyTier(40)).toBe('notable');
+    expect(getApiLatencyTier(55)).toBe('notable');
+    expect(getApiLatencyTier(69)).toBe('notable');
+  });
+  it('should_return_warn_at_70_to_89', () => {
+    expect(getApiLatencyTier(70)).toBe('warn');
+    expect(getApiLatencyTier(80)).toBe('warn');
+    expect(getApiLatencyTier(89)).toBe('warn');
+  });
+  it('should_return_critical_at_90_and_above', () => {
+    expect(getApiLatencyTier(90)).toBe('critical');
+    expect(getApiLatencyTier(100)).toBe('critical');
+  });
+});
+
+describe('getApiLatencyColor', () => {
+  // Returns null for 'notable' (40-69%) — caller omits any color wrapper so
+  // the text renders in the terminal's default foreground, matching the spec's
+  // "default fg" intent without fabricating a ColorName for plain text.
+  it('should_return_dim_when_healthy (below 40)', () => {
+    expect(getApiLatencyColor(0)).toBe('dim');
+    expect(getApiLatencyColor(39)).toBe('dim');
+  });
+  it('should_return_null_when_notable (40–69) — default terminal fg, no ANSI wrap', () => {
+    expect(getApiLatencyColor(40)).toBeNull();
+    expect(getApiLatencyColor(69)).toBeNull();
+  });
+  it('should_return_yellow_when_warn (70–89)', () => {
+    expect(getApiLatencyColor(70)).toBe('yellow');
+    expect(getApiLatencyColor(89)).toBe('yellow');
+  });
+  it('should_return_orange_when_critical (>=90)', () => {
+    expect(getApiLatencyColor(90)).toBe('orange');
+    expect(getApiLatencyColor(100)).toBe('orange');
+  });
 });

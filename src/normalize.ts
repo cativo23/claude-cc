@@ -49,6 +49,9 @@ export interface NormalizedInput {
   /** Session duration in ms (Claude only) */
   durationMs?: number;
 
+  /** API wait time in ms (Claude only — populated only when field present in payload) */
+  apiDurationMs?: number;
+
   /** API performance metrics (Qwen only) */
   performance?: {
     requests: number;
@@ -235,6 +238,7 @@ export function normalize(input: RawInput): NormalizedInput {
     },
     cost: claude ? claude.cost?.total_cost_usd : undefined,
     durationMs: claude ? claude.cost?.total_duration_ms : undefined,
+    apiDurationMs: claude ? claude.cost?.total_api_duration_ms : undefined,
     performance,
     gitBranch: qwen && qwen.git?.branch ? sanitizeTermString(qwen.git.branch) : undefined,
     linesAdded,
