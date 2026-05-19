@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-05-19
+
+### Fixed
+- **7d projection warning now surfaces below 50% used** — the warning shipped in v1.3.0 was wired inside the rate-limits loop and inherited the 50% badge-visibility filter, so it was silenced precisely in the window where it is most actionable. At 20% used on day 1 of a 7-day window, linear extrapolation predicts hitting 100% on day 5 — the math fired, the format produced `⚠ ~4d`, but the renderer dropped it. Now computed once upfront and surfaced two ways: attached to the badge when visible (≥50%, behaviour unchanged), or as a standalone segment when not. (PR #132)
+- **Attached projection now carries severity color** — at ≥50% used, the warning concatenated to the 7d badge rendered uncolored because it sat outside the badge's color wrap. Crossing 49%→50% silently demoted the warning's visual urgency at the exact moment the badge appeared. Both classic (yellow/red ANSI wrap) and powerline (inline color escape) now apply the severity tier color to the attached projection. (PR #132)
+- **Powerline standalone 🔥 outranks 5h critical at narrow cols** — standalone critical projection priority bumped from 80 to 86 so it survives narrow-terminal eviction when a 5h critical (priority 85) is also present. The 5h critical has a redundant time-to-exhaust carrier via pace delta; the standalone 🔥 has no other surface. (PR #132)
+
+### Changed
+- **Standalone projection warning is now independent of `display.rateLimits`** — matches the existing `paceDelta` precedent. Users with `display.rateLimits: false` may now see a projection warning that was previously suppressed. The projection is a discrete alarm signal, not part of the rate-limit family display. (PR #132)
+
 ## [1.3.0] - 2026-05-14
 
 ### Added
