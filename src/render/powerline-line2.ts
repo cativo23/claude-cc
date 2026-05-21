@@ -66,8 +66,9 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
 
   // Context bar — always highest priority. plain=true so the bar cells inherit
   // the powerline segment bg; only %/icon/hint emit color escapes.
+  const pct = input.context.realUsedPercentage ?? input.context.usedPercentage;
   if (display.contextBar) {
-    const bar = buildContextBar(input.context.usedPercentage, c, {
+    const bar = buildContextBar(pct, c, {
       iconSet: icons,
       plain: true,
       cols: ctx.cols,
@@ -81,8 +82,7 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
   // total_input_tokens is cumulative across the session; current context size
   // is windowSize × usedPercentage / 100. Falls back to back-derivation for
   // legacy payloads without context_window_size. Mirrors line2.ts behaviour.
-  if (display.contextTokens && input.context.usedPercentage > 0) {
-    const pct = input.context.usedPercentage;
+  if (display.contextTokens && pct > 0) {
     const capacity = input.context.windowSize
       ?? (input.tokens.input > 0 ? Math.round(input.tokens.input / (pct / 100)) : 0);
     if (capacity > 0) {

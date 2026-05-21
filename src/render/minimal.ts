@@ -40,7 +40,8 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
     // `showHint: false` — the minimal preset targets tight single-line terminals,
     // where the /compact hint's ~10 trailing chars pushes truncation earlier. Users
     // on minimal can still read the blinking skull icon as an at-risk signal.
-    parts.push(buildContextBar(input.context.usedPercentage, c, {
+    const pct = input.context.realUsedPercentage ?? input.context.usedPercentage;
+    parts.push(buildContextBar(pct, c, {
       segments: 10,
       iconSet: icons,
       showHint: false,

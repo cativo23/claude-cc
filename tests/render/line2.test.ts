@@ -59,8 +59,9 @@ describe('renderLine2', () => {
       },
     };
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
-    // Must show 48% (real %) not 42% (input-only %)
-    expect(out).toContain('48%');
+    // Must show 49% (realUsedPercentage 48.5 rounds to 49) not 42% (input-only %)
+    // buildContextBar uses Math.round, so 48.5 → 49%
+    expect(out).toContain('49%');
     expect(out).not.toContain('42%');
   });
 
