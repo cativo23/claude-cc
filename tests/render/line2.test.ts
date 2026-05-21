@@ -41,7 +41,7 @@ describe('renderLine2', () => {
   });
 
   it('context bar uses realUsedPercentage when available (not usedPercentage)', () => {
-    // usedPercentage=42 but realUsedPercentage should be 48.5 once implemented
+    // usedPercentage=42 but realUsedPercentage=48.5 (red test — passes after Task 3 updates renderer)
     // (input 70k + output 12k + cache_read 10k + cache_creation 5k) / 200k * 100 = 48.5
     const inputOverride = {
       context_window: {
