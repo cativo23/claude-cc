@@ -6,3 +6,6 @@ coverage/
 
 # Local plans/specs from superpowers skill
 docs/superpowers/
+
+# Git worktrees
+.worktrees/
