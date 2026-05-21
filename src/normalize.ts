@@ -117,11 +117,6 @@ const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 type CurrentUsageObject = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
 
 /**
- * Extract cache fields from `context_window.current_usage` (modern ≥ 2.1.x payloads).
- * Returns `cached` (cache_read_input_tokens) and `denominator` (sum of all per-turn input
- * token categories). Returns empty object when `cu` is absent or not an object shape.
- */
-/**
  * Sum all four token categories from `context_window.current_usage` to compute
  * a real context usage total (input + output + cache_read + cache_creation).
  * Returns undefined when `cu` is absent or not an object shape.
@@ -136,6 +131,11 @@ function getRealUsageTotal(cu: unknown): number | undefined {
   return total;
 }
 
+/**
+ * Extract cache fields from `context_window.current_usage` (modern ≥ 2.1.x payloads).
+ * Returns `cached` (cache_read_input_tokens) and `denominator` (sum of all per-turn input
+ * token categories). Returns empty object when `cu` is absent or not an object shape.
+ */
 function getCacheFields(cu: unknown): { cached?: number; denominator?: number } {
   if (typeof cu !== 'object' || !cu) return {};
   const obj = cu as CurrentUsageObject;
