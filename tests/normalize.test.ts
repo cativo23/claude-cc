@@ -14,6 +14,10 @@ const qwenInput: QwenInput = JSON.parse(
   readFileSync(join(FIXTURES, 'qwen-input.json'), 'utf8')
 );
 
+const modernInput: ClaudeCodeInput = JSON.parse(
+  readFileSync(join(FIXTURES, 'sample-input-modern.json'), 'utf8')
+);
+
 describe('normalize', () => {
   describe('platform detection', () => {
     it('detects Claude Code input', () => {
@@ -122,6 +126,69 @@ describe('normalize', () => {
     it('window size is undefined for Claude', () => {
       const result = normalize(claudeInput);
       expect(result.context.windowSize).toBeUndefined();
+    });
+  });
+
+  describe('realUsedPercentage', () => {
+    it('modern payload calculates real percentage from all token categories', () => {
+      // (70000 + 12000 + 10000 + 5000) / 200000 * 100 = 48.5
+      expect(normalize(modernInput).context.realUsedPercentage).toBeCloseTo(48.5, 1);
+    });
+
+    it('legacy payload without full current_usage shape returns undefined', () => {
+      // sample-input.json has current_usage: { output_tokens: 25000 } only
+      // and no context_window_size — cannot compute real percentage
+      expect(normalize(claudeInput).context.realUsedPercentage).toBeUndefined();
+    });
+
+    it('Qwen payload returns undefined', () => {
+      expect(normalize(qwenInput).context.realUsedPercentage).toBeUndefined();
+    });
+
+    it('modern payload missing context_window_size returns undefined', () => {
+      const input = {
+        ...modernInput,
+        context_window: {
+          ...modernInput.context_window,
+          context_window_size: undefined as unknown as number,
+        },
+      };
+      expect(normalize(input).context.realUsedPercentage).toBeUndefined();
+    });
+
+    it('clamps to 100 when token sum exceeds window size', () => {
+      const input = {
+        ...modernInput,
+        context_window: {
+          ...modernInput.context_window,
+          context_window_size: 100000,
+          current_usage: {
+            input_tokens: 80000,
+            output_tokens: 30000,
+            cache_read_input_tokens: 20000,
+            cache_creation_input_tokens: 10000,
+          },
+        },
+      };
+      // 140000 / 100000 * 100 = 140 → clamped to 100
+      expect(normalize(input).context.realUsedPercentage).toBe(100);
+    });
+
+    it('all zeros in current_usage returns 0', () => {
+      const input = {
+        ...modernInput,
+        context_window: {
+          ...modernInput.context_window,
+          context_window_size: 200000,
+          current_usage: {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+          },
+        },
+      };
+      expect(normalize(input).context.realUsedPercentage).toBe(0);
     });
   });
 
