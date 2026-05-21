@@ -41,6 +41,7 @@ export interface NormalizedInput {
   context: {
     usedPercentage: number;
     windowSize?: number;
+    realUsedPercentage?: number;
   };
 
   /** Cost in USD (Claude only) */
@@ -116,6 +117,21 @@ const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 type CurrentUsageObject = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
 
 /**
+ * Sum all four token categories from `context_window.current_usage` to compute
+ * a real context usage total (input + output + cache_read + cache_creation).
+ * Returns undefined when `cu` is absent or not an object shape.
+ */
+function getRealUsageTotal(cu: unknown): number | undefined {
+  if (typeof cu !== 'object' || !cu) return undefined;
+  const obj = cu as CurrentUsageObject;
+  const total = (obj.input_tokens ?? 0)
+    + (obj.output_tokens ?? 0)
+    + (obj.cache_read_input_tokens ?? 0)
+    + (obj.cache_creation_input_tokens ?? 0);
+  return total;
+}
+
+/**
  * Extract cache fields from `context_window.current_usage` (modern ≥ 2.1.x payloads).
  * Returns `cached` (cache_read_input_tokens) and `denominator` (sum of all per-turn input
  * token categories). Returns empty object when `cu` is absent or not an object shape.
@@ -178,6 +194,18 @@ export function normalize(input: RawInput): NormalizedInput {
     ({ denominator: cacheTurnDenominator } = getCacheFields(claude.context_window?.current_usage));
   }
 
+  // Real context usage percentage (Claude only): includes output tokens in the numerator,
+  // unlike the hook-provided `used_percentage` which excludes them. This gives an accurate
+  // picture of actual context consumption, especially near auto-compact thresholds.
+  let realUsedPercentage: number | undefined;
+  if (claude) {
+    const total = getRealUsageTotal(claude.context_window?.current_usage);
+    const windowSize = claude.context_window?.context_window_size;
+    if (total !== undefined && windowSize) {
+      realUsedPercentage = Math.min(100, Math.round((total / windowSize) * 100 * 10) / 10);
+    }
+  }
+
   // Performance (Qwen only)
   let performance: NormalizedInput['performance'];
   if (qwen && first?.api) {
@@ -235,6 +263,7 @@ export function normalize(input: RawInput): NormalizedInput {
       windowSize: qwen
         ? qwen.context_window.context_window_size
         : claude?.context_window?.context_window_size,
+      realUsedPercentage,
     },
     cost: claude ? claude.cost?.total_cost_usd : undefined,
     durationMs: claude ? claude.cost?.total_duration_ms : undefined,

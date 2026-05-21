@@ -35,8 +35,8 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   let contextSlotCount = 0;
 
   // Context bar
+  const pct = input.context.realUsedPercentage ?? input.context.usedPercentage;
   if (display.contextBar) {
-    const pct = input.context.usedPercentage;
     leftParts.push(buildContextBar(pct, c, {
       iconSet: icons,
       cols,
@@ -50,8 +50,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   // total_input_tokens is cumulative across the session; current context size
   // is windowSize × usedPercentage / 100. Fallback derives capacity for legacy
   // payloads without context_window_size.
-  if (display.contextTokens && input.context.usedPercentage > 0) {
-    const pct = input.context.usedPercentage;
+  if (display.contextTokens && pct > 0) {
     const capacity = input.context.windowSize
       ?? (input.tokens.input > 0 ? Math.round(input.tokens.input / (pct / 100)) : 0);
     if (capacity > 0) {

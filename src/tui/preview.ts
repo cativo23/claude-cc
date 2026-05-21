@@ -58,7 +58,12 @@ function buildMockContext(opts: PreviewOpts): RenderContext {
       context_window_size: 200000,
       used_percentage: 42,
       remaining_percentage: 58,
-      current_usage: 84000,
+      current_usage: {
+        input_tokens: 60000,
+        output_tokens: 12000,
+        cache_read_input_tokens: 8000,
+        cache_creation_input_tokens: 4000,
+      },
       total_input_tokens: 12000,
       total_output_tokens: 1800,
       cache_read_input_tokens: 3500,
