@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `contextBar` and `contextTokens` now report **real context usage** by including output tokens and cache tokens in the percentage calculation (`input + output + cache_read + cache_creation / context_window_size`). Previously only input tokens were counted, causing the bar to under-report usage by 5–20 percentage points and making auto-compact appear to fire at ~80% instead of ~100%. Falls back to `used_percentage` from the Claude Code hook for legacy payloads where `current_usage` is absent or not an object. Resolves [#136](https://github.com/cativo23/lumira/issues/136).
+- `contextBar` and `contextTokens` now compute context usage from `current_usage` primitives (`input + output + cache_read + cache_creation`) instead of relying on the hook-provided `used_percentage`. In most sessions the two values are within ~1pp — `cache_read_input_tokens` already absorbs outputs cached from prior turns, so the hook's figure is not meaningfully wrong. The new formula captures the current turn's output tokens before they enter the cache, which is useful for long-output turns (large code generation, refactors) where the difference can reach 2–5pp. Falls back to `used_percentage` for legacy payloads where `current_usage` is absent or not an object. Note: this does not change the ~80% auto-compact threshold — that is a Claude Code design constant (reserved headroom for output generation), not a measurement error. A follow-up will visualize that threshold on the bar. Partial mitigation for [#136](https://github.com/cativo23/lumira/issues/136).
 
 ## [1.4.0] - 2026-05-19
 
