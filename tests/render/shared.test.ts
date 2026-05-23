@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildContextBar, formatGitChanges, SEP, SEP_MINIMAL } from '../../src/render/shared.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
+import { NERD_ICONS, EMOJI_ICONS, NO_ICONS } from '../../src/render/icons.js';
 import type { GitStatus } from '../../src/types.js';
 
 const c = createColors('named');
@@ -227,6 +228,87 @@ describe('buildContextBar — out-of-range pct', () => {
 
   it('does not crash on NaN pct', () => {
     expect(() => buildContextBar(NaN, c)).not.toThrow();
+  });
+});
+
+// Issue #138: The auto-compact warning glyph fires in the window just below
+// the platform's auto-compact threshold (Claude 80%, Qwen 70%) \u2014 independent
+// of the user-configurable warning/critical thresholds. The glyph reads RED
+// to signal "irreversible compaction imminent".
+describe('buildContextBar \u2014 nearAutoCompact glyph', () => {
+  it('nearAutoCompact: true emits warning glyph (nerd icon set)', () => {
+    const bar = buildContextBar(76, c, { nearAutoCompact: true, iconSet: NERD_ICONS });
+    expect(bar).toContain(NERD_ICONS.warning);
+  });
+
+  it('nearAutoCompact: true emits emoji warning glyph', () => {
+    const bar = buildContextBar(76, c, { nearAutoCompact: true, iconSet: EMOJI_ICONS });
+    expect(bar).toContain(EMOJI_ICONS.warning);
+  });
+
+  it('nearAutoCompact omitted \u2192 no warning glyph', () => {
+    const bar = buildContextBar(76, c, { iconSet: NERD_ICONS });
+    expect(bar).not.toContain(NERD_ICONS.warning);
+  });
+
+  it('nearAutoCompact: false \u2192 no warning glyph', () => {
+    const bar = buildContextBar(76, c, { nearAutoCompact: false, iconSet: NERD_ICONS });
+    expect(bar).not.toContain(NERD_ICONS.warning);
+  });
+
+  it('coexists with fire glyph in the warning zone', () => {
+    // pct=76, warning=65 \u2192 fire icon fires; nearAutoCompact also fires.
+    const bar = buildContextBar(76, c, {
+      nearAutoCompact: true,
+      warningThreshold: 65,
+      criticalThreshold: 90,
+      iconSet: NERD_ICONS,
+    });
+    expect(bar).toContain(NERD_ICONS.warning);
+    expect(bar).toContain(NERD_ICONS.fire);
+  });
+
+  it('coexists with skull glyph past critical', () => {
+    // The \u26a0 glyph is independent of the critical color tier \u2014 both should render.
+    const bar = buildContextBar(78, c, {
+      nearAutoCompact: true,
+      warningThreshold: 65,
+      criticalThreshold: 78,
+      iconSet: NERD_ICONS,
+    });
+    expect(bar).toContain(NERD_ICONS.warning);
+    expect(bar).toContain(NERD_ICONS.skull);
+  });
+
+  it('warning glyph carries the red ANSI escape', () => {
+    // Red in the named-ANSI palette is `\x1b[31m` (see render/colors.ts).
+    // The warning glyph must be colored red \u2014 distinct from orange fire (208)
+    // or blinkRed skull (5;31). The escape should immediately precede the glyph.
+    const bar = buildContextBar(76, c, { nearAutoCompact: true, iconSet: NERD_ICONS });
+    const pattern = new RegExp(`\\x1b\\[31m[^\\x1b]*${NERD_ICONS.warning}`);
+    expect(bar).toMatch(pattern);
+  });
+
+  it('showIcons: false suppresses the warning glyph', () => {
+    const bar = buildContextBar(76, c, {
+      nearAutoCompact: true,
+      showIcons: false,
+      iconSet: NERD_ICONS,
+    });
+    expect(bar).not.toContain(NERD_ICONS.warning);
+  });
+
+  it('NO_ICONS set emits ASCII "!" warning glyph (independent of fire "!" fallback)', () => {
+    // NO_ICONS.fire and NO_ICONS.warning both happen to be '!'. To prove the
+    // warning glyph is actually emitted (not just the fire fallback), compare
+    // counts: with nearAutoCompact:true we expect strictly MORE '!' chars than
+    // without it. Use no warningThreshold/criticalThreshold tweak \u2014 at 76%
+    // with defaults (post-impl: 65/78), fire fires either way; the delta must
+    // come from the warning glyph.
+    const without = stripAnsi(buildContextBar(76, c, { iconSet: NO_ICONS }));
+    const withFlag = stripAnsi(buildContextBar(76, c, { nearAutoCompact: true, iconSet: NO_ICONS }));
+    const countBangs = (s: string) => (s.match(/!/g) ?? []).length;
+    expect(countBangs(withFlag)).toBeGreaterThan(countBangs(without));
   });
 });
 
