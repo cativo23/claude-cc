@@ -116,35 +116,39 @@ describe('formatGitChanges', () => {
 });
 
 describe('buildContextBar — compact hint', () => {
-  it('shows /compact? hint at critical-(critical+5)% (default 85-89%)', () => {
-    const bar = stripAnsi(buildContextBar(87, c));
+  // Tests pin critical=85 explicitly so they continue exercising the original
+  // critical/critical+5 boundary semantics regardless of the default threshold
+  // (issue #138 lowered the default critical to 78 — these tests verify the
+  // mechanic, not the default value).
+  it('shows /compact? hint at critical-(critical+5)% (85-89%)', () => {
+    const bar = stripAnsi(buildContextBar(87, c, { warningThreshold: 70, criticalThreshold: 85 }));
     expect(bar).toContain('/compact?');
     expect(bar).not.toContain('/compact!');
   });
 
-  it('shows /compact! hint at >= critical+5% (default 90%+)', () => {
-    const bar = stripAnsi(buildContextBar(95, c));
+  it('shows /compact! hint at >= critical+5% (90%+)', () => {
+    const bar = stripAnsi(buildContextBar(95, c, { warningThreshold: 70, criticalThreshold: 85 }));
     expect(bar).toContain('/compact!');
   });
 
-  it('does not show compact hint below critical (default 85%)', () => {
-    const bar = stripAnsi(buildContextBar(80, c));
+  it('does not show compact hint below critical (85%)', () => {
+    const bar = stripAnsi(buildContextBar(80, c, { warningThreshold: 70, criticalThreshold: 85 }));
     expect(bar).not.toContain('/compact');
   });
 
-  it('shows /compact? at exactly critical (default 85%) — boundary inclusive', () => {
-    const bar = stripAnsi(buildContextBar(85, c));
+  it('shows /compact? at exactly critical (85%) — boundary inclusive', () => {
+    const bar = stripAnsi(buildContextBar(85, c, { warningThreshold: 70, criticalThreshold: 85 }));
     expect(bar).toContain('/compact?');
     expect(bar).not.toContain('/compact!');
   });
 
-  it('shows /compact! at exactly critical+5 (default 90%) — boundary inclusive', () => {
-    const bar = stripAnsi(buildContextBar(90, c));
+  it('shows /compact! at exactly critical+5 (90%) — boundary inclusive', () => {
+    const bar = stripAnsi(buildContextBar(90, c, { warningThreshold: 70, criticalThreshold: 85 }));
     expect(bar).toContain('/compact!');
   });
 
   it('hides compact hint when showHint=false', () => {
-    const bar = stripAnsi(buildContextBar(95, c, { showHint: false }));
+    const bar = stripAnsi(buildContextBar(95, c, { warningThreshold: 70, criticalThreshold: 85, showHint: false }));
     expect(bar).not.toContain('/compact');
   });
 });

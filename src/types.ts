@@ -136,7 +136,7 @@ export interface McpInfo {
 
 // ── Render context ──────────────────────────────────────────────────
 
-import type { NormalizedInput } from './normalize.js';
+import type { NormalizedInput, Platform } from './normalize.js';
 
 export interface RenderContext {
   input: NormalizedInput;
@@ -225,11 +225,18 @@ export interface DisplayToggles {
   health: boolean;
   apiLatency: boolean;
   /**
-   * Percentage at which the context bar turns orange and shows the fire icon. Default 70. Clamped [0,100].
+   * Percentage at which the context bar turns orange and shows the fire icon. Default 65. Clamped [0,100].
    * Setting this ≤ 50 collapses the yellow zone; the bar jumps green→orange directly at this value.
+   * Default lowered from 70 → 65 (issue #138) so the warning fires BEFORE the platform's silent
+   * auto-compact threshold (~80% on Claude, ~70% on Qwen).
    */
   contextWarningThreshold: number;
-  /** Percentage at which the context bar turns red/blinking and shows the skull icon. Default 85. Clamped [0,100]. Must be > contextWarningThreshold. */
+  /**
+   * Percentage at which the context bar turns red/blinking and shows the skull icon. Default 78.
+   * Clamped [0,100]. Must be > contextWarningThreshold.
+   * Default lowered from 85 → 78 (issue #138) to stay below Claude's ~80% auto-compact threshold —
+   * users now see the red zone before context is silently compacted.
+   */
   contextCriticalThreshold: number;
 }
 
@@ -238,8 +245,8 @@ export interface ColorConfig {
 }
 
 /** Default thresholds — used as fallback when user-provided values are invalid. */
-export const DEFAULT_CONTEXT_WARNING_THRESHOLD = 70;
-export const DEFAULT_CONTEXT_CRITICAL_THRESHOLD = 85;
+export const DEFAULT_CONTEXT_WARNING_THRESHOLD = 65;
+export const DEFAULT_CONTEXT_CRITICAL_THRESHOLD = 78;
 
 /**
  * Rate-limit quota threshold at which all visual escalations fire together:
@@ -248,6 +255,31 @@ export const DEFAULT_CONTEXT_CRITICAL_THRESHOLD = 85;
  * align intentionally — changing one means changing all.
  */
 export const QUOTA_CRITICAL = 85;
+
+/**
+ * Auto-compact threshold per platform — the % of context window at which
+ * the platform automatically compacts the conversation history.
+ *
+ * - Claude Code: ~80% (hardcoded internally; reserves ~40K tokens for output generation).
+ *   Not user-configurable in the main conversation. See anthropics/claude-code#34126.
+ * - Qwen Code: 70% by default; user-configurable via
+ *   `model.chatCompression.contextPercentageThreshold` in qwen settings.json.
+ *   If a Qwen user changed that setting, they should mirror it in lumira's
+ *   `contextCriticalThreshold` — the constant below is the platform default only.
+ */
+export const AUTO_COMPACT_THRESHOLD: Record<Platform, number> = {
+  'claude-code': 80,
+  'qwen-code': 70,
+};
+
+/**
+ * Gap (in percentage points) before the auto-compact threshold at which the
+ * `nearAutoCompact` warning glyph fires. The glyph appears in the window
+ * `[AUTO_COMPACT_THRESHOLD - GAP, AUTO_COMPACT_THRESHOLD)` — i.e., 75-80%
+ * on Claude, 65-70% on Qwen. This is an immutable system constant (not the
+ * same as the user-configurable `contextWarningThreshold`).
+ */
+export const AUTO_COMPACT_WARNING_GAP = 5;
 
 export const DEFAULT_DISPLAY: DisplayToggles = {
   model: true,
