@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-05-23
+
 ### Added
 
 - **`lumira stats` CLI** — new subcommand that parses a Claude Code or Qwen Code session transcript `.jsonl` and prints an analytics summary: session duration, total cost, total tokens, cache hit rate, tool call frequency (`Bash×45 Read×32 ...`), and burn rate (`$/h`). **Auto-discovery is the default**: with no flags, derives the Claude Code project slug from `cwd` (`/foo/bar` → `-foo-bar`) and reads the newest `.jsonl` under `~/.claude/projects/<slug>/`; falls back to the globally most-recently-modified transcript when the cwd has no matching project dir, with a stderr notice so stdout stays parseable. Flags: `--session-id <path-or-uuid>` (override — path used as-is, bare uuid resolved under cwd-slug then globally), `--no-color` (also honors the `NO_COLOR` env var per no-color.org), `--json` (pretty-printed `SessionStats` for `jq` / CI). Qwen Code sessions are supported — cost and burn-rate lines are suppressed when the payload lacks usage blocks (`hasCostData: false`) so users never see a misleading `$0.00`. Closes [#114](https://github.com/cativo23/lumira/issues/114).
@@ -464,7 +466,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/cativo23/lumira/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/cativo23/lumira/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/cativo23/lumira/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/cativo23/lumira/compare/v1.3.0...v1.3.1
