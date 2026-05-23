@@ -34,6 +34,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 - [Install](#install)
 - [Display modes](#display)
 - [Themes](#themes)
+- [Stats CLI](#stats-cli)
 - [Powerline](#powerline)
 - [Configuration](#configuration)
 - [Architecture](#architecture)
@@ -189,6 +190,28 @@ lumira themes preview --all --powerline      # the powerline grid (great for scr
 ### Want your favorite theme?
 
 Adding a theme is a single new file plus a one-line registration. Every PR runs the **WCAG AA contrast guard** — if any powerline cell drops below 4.5:1 against the foreground, CI rejects it. See [CONTRIBUTING.md → Adding a theme](CONTRIBUTING.md#adding-a-theme) for the walkthrough.
+
+## Stats CLI
+
+`lumira stats` reads a Claude Code or Qwen Code transcript `.jsonl` and prints a one-shot analytics summary — session duration, total cost, token totals, cache hit rate, tool call frequency, and burn rate (`$/h`). Useful for post-session review, scripting, and CI dashboards.
+
+```bash
+# Just works — auto-discovers the newest transcript for the current cwd.
+lumira stats
+# Session: 2h 15m — $4.23 — 156k tokens — 87% cache
+# Tools: Bash×45 Read×32 Write×18 Edit×12 Agent×8
+# Burn: $1.88/h
+```
+
+**Auto-discovery:** with no flags, `lumira stats` derives the Claude Code project slug from `cwd` (`/home/me/proj` → `-home-me-proj`) and reads the newest `.jsonl` under `~/.claude/projects/<slug>/`. If the current directory has no matching project dir, it falls back to the globally most-recently-modified transcript under `~/.claude/projects/` and prints a notice to stderr ("reading most recent session from …") so JSON pipelines on stdout stay clean.
+
+**Flags:**
+
+- `--session-id <path-or-uuid>` — override auto-discovery. A path (anything containing `/` or ending in `.jsonl`) is used as-is. A bare uuid is resolved first under `~/.claude/projects/<cwd-slug>/<uuid>.jsonl`, then by scanning every project dir for that filename.
+- `--no-color` — strip ANSI escapes (also honored when the `NO_COLOR` env var is set, per [no-color.org](https://no-color.org)).
+- `--json` — emit the raw `SessionStats` object as pretty-printed JSON for `jq` / CI composability.
+
+**Qwen Code sessions** are parsed the same way, but cost and burn-rate lines are suppressed when the transcript lacks usage blocks (`hasCostData: false` in the JSON output) — no misleading `$0.00`.
 
 ## Powerline
 

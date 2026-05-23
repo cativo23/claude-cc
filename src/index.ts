@@ -16,6 +16,7 @@ import { render } from './render/index.js';
 import { resolveIcons } from './render/icons.js';
 import { install, uninstall } from './installer.js';
 import { runThemesCommand } from './commands/themes.js';
+import { runStatsCommand } from './commands/stats.js';
 import type { Dependencies } from './types.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
 import { normalize } from './normalize.js';
@@ -82,6 +83,15 @@ if (isDirectRun()) {
     if (r.stdout) process.stdout.write(r.stdout);
     if (r.stderr) process.stderr.write(r.stderr);
     if (r.exitCode !== 0) process.exit(r.exitCode);
+  } else if (cmd === 'stats') {
+    runStatsCommand(process.argv, process.stdout.columns).then(r => {
+      if (r.stdout) process.stdout.write(r.stdout);
+      if (r.stderr) process.stderr.write(r.stderr);
+      if (r.exitCode !== 0) process.exit(r.exitCode);
+    }).catch(e => {
+      process.stderr.write(`Stats error: ${e.message}\n`);
+      process.exit(1);
+    });
   } else {
     main().then(o => process.stdout.write(o)).catch(e => { if (!(e instanceof StdinParseError)) process.stderr.write(`Statusline error: ${e.message}\n`); });
   }
