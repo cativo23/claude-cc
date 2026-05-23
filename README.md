@@ -196,15 +196,18 @@ Adding a theme is a single new file plus a one-line registration. Every PR runs 
 `lumira stats` reads a Claude Code or Qwen Code transcript `.jsonl` and prints a one-shot analytics summary — session duration, total cost, token totals, cache hit rate, tool call frequency, and burn rate (`$/h`). Useful for post-session review, scripting, and CI dashboards.
 
 ```bash
-lumira stats --session-id ~/.claude/projects/<slug>/<session>.jsonl
+# Just works — auto-discovers the newest transcript for the current cwd.
+lumira stats
 # Session: 2h 15m — $4.23 — 156k tokens — 87% cache
 # Tools: Bash×45 Read×32 Write×18 Edit×12 Task×8
 # Burn: $1.88/h
 ```
 
+**Auto-discovery:** with no flags, `lumira stats` derives the Claude Code project slug from `cwd` (`/home/me/proj` → `-home-me-proj`) and reads the newest `.jsonl` under `~/.claude/projects/<slug>/`. If the current directory has no matching project dir, it falls back to the globally most-recently-modified transcript under `~/.claude/projects/` and prints a notice to stderr ("reading most recent session from …") so JSON pipelines on stdout stay clean.
+
 **Flags:**
 
-- `--session-id <path>` — path to a transcript `.jsonl` file (required).
+- `--session-id <path-or-uuid>` — override auto-discovery. A path (anything containing `/` or ending in `.jsonl`) is used as-is. A bare uuid is resolved first under `~/.claude/projects/<cwd-slug>/<uuid>.jsonl`, then by scanning every project dir for that filename.
 - `--no-color` — strip ANSI escapes (also honored when the `NO_COLOR` env var is set, per [no-color.org](https://no-color.org)).
 - `--json` — emit the raw `SessionStats` object as pretty-printed JSON for `jq` / CI composability.
 

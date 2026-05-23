@@ -11,7 +11,19 @@
  * in the default path means a TTY-less test environment never sees stray
  * sequences, and a future enhancement can layer color in via `createColors`
  * without changing the test contract.
+ *
+ * Session auto-discovery (issue #114 follow-up): when `--session-id` is
+ * omitted, derive the Claude Code project slug from `cwd` (`/foo/bar` →
+ * `-foo-bar`) and read the newest `.jsonl` in `<homeDir>/.claude/projects/
+ * <slug>/`. If that dir is missing or empty, fall back to the globally
+ * newest transcript across all project subdirs and emit a stderr notice so
+ * users know a non-cwd session was picked. A bare uuid passed via
+ * `--session-id` is treated the same way: prefer cwd-slug, fall back to
+ * global search by filename.
  */
+import { promises as fs } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { aggregateStats, type SessionStats } from '../parsers/transcript-stats.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
 import { stripAnsi } from '../render/colors.js';
@@ -30,6 +42,16 @@ export interface StatsCommandResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+}
+
+/**
+ * Optional overrides for `runStatsCommand`. `cwd` and `homeDir` are injected
+ * here (rather than read from `process`) so tests can build isolated fake
+ * `~/.claude/projects/` trees in tmpdir without touching the real one.
+ */
+export interface StatsCommandOpts {
+  cwd?: string;
+  homeDir?: string;
 }
 
 /**
@@ -142,18 +164,148 @@ export function formatStatsOutput(
   return opts.noColor ? stripAnsi(out) : out;
 }
 
-function err(message: string): StatsCommandResult {
-  return { stdout: '', stderr: message.endsWith('\n') ? message : `${message}\n`, exitCode: 1 };
+function err(message: string, exitCode = 1): StatsCommandResult {
+  return { stdout: '', stderr: message.endsWith('\n') ? message : `${message}\n`, exitCode };
 }
 
-function ok(stdout: string): StatsCommandResult {
-  return { stdout, stderr: '', exitCode: 0 };
+function ok(stdout: string, stderr = ''): StatsCommandResult {
+  return { stdout, stderr, exitCode: 0 };
 }
 
 /**
- * Execute `lumira stats [...]`. Resolves the transcript path from the
- * `--session-id` flag (currently the only supported discovery mode), invokes
- * the parser, and renders.
+ * Convert a cwd into the Claude Code project slug. Claude Code names project
+ * directories by replacing every `/` in the absolute cwd with `-`, including
+ * the leading slash — `/home/me/proj` becomes `-home-me-proj`.
+ */
+function cwdToSlug(cwd: string): string {
+  return cwd.replace(/\//g, '-');
+}
+
+/**
+ * Return the newest `.jsonl` file in `dir` by mtime, or `null` if the dir
+ * doesn't exist, can't be read, or contains no `.jsonl` files. Symlinks and
+ * non-regular files are tolerated — `fs.stat` follows symlinks, and a stat
+ * failure on a single entry just drops it from the candidate set.
+ */
+async function newestJsonl(dir: string): Promise<string | null> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(dir);
+  } catch {
+    return null;
+  }
+  let bestPath: string | null = null;
+  let bestMtime = -Infinity;
+  for (const name of entries) {
+    if (!name.endsWith('.jsonl')) continue;
+    const full = join(dir, name);
+    try {
+      const st = await fs.stat(full);
+      if (!st.isFile()) continue;
+      if (st.mtimeMs > bestMtime) {
+        bestMtime = st.mtimeMs;
+        bestPath = full;
+      }
+    } catch {
+      // Unstable entry (deleted between readdir and stat, permission denied,
+      // broken symlink). Skip it — discovery should never crash on one bad file.
+    }
+  }
+  return bestPath;
+}
+
+/**
+ * Walk every project subdir under `projectsRoot` and return the globally
+ * newest `.jsonl` by mtime. Used as the fallback when the cwd-slug dir
+ * doesn't exist (e.g. user runs `lumira stats` from a directory that isn't
+ * a known Claude Code project).
+ */
+async function globalNewestJsonl(projectsRoot: string): Promise<string | null> {
+  let dirs: string[];
+  try {
+    dirs = await fs.readdir(projectsRoot);
+  } catch {
+    return null;
+  }
+  let bestPath: string | null = null;
+  let bestMtime = -Infinity;
+  for (const subdir of dirs) {
+    const candidate = await newestJsonl(join(projectsRoot, subdir));
+    if (!candidate) continue;
+    try {
+      const st = await fs.stat(candidate);
+      if (st.mtimeMs > bestMtime) {
+        bestMtime = st.mtimeMs;
+        bestPath = candidate;
+      }
+    } catch {
+      // Race: file vanished between `newestJsonl` and this stat. Skip.
+    }
+  }
+  return bestPath;
+}
+
+/**
+ * Locate a transcript when the user didn't pass an explicit path. Prefers
+ * the cwd-slug project dir; falls back to the globally newest transcript.
+ */
+async function discoverTranscript(cwd: string, homeDir: string): Promise<string | null> {
+  const projectsRoot = join(homeDir, '.claude', 'projects');
+  const cwdSlugDir = join(projectsRoot, cwdToSlug(cwd));
+  const local = await newestJsonl(cwdSlugDir);
+  if (local) return local;
+  return await globalNewestJsonl(projectsRoot);
+}
+
+/**
+ * Resolve a bare session uuid to a JSONL path. Prefer the cwd-slug dir so
+ * a uuid that exists in multiple projects (rare but possible if the user
+ * imports an old session) maps to the locally-scoped one. Falls back to the
+ * first match found by scanning every project subdir.
+ */
+async function resolveSessionId(uuid: string, cwd: string, homeDir: string): Promise<string | null> {
+  const projectsRoot = join(homeDir, '.claude', 'projects');
+  const filename = `${uuid}.jsonl`;
+
+  // 1. Try cwd-slug dir.
+  const localPath = join(projectsRoot, cwdToSlug(cwd), filename);
+  try {
+    const st = await fs.stat(localPath);
+    if (st.isFile()) return localPath;
+  } catch { /* miss — fall through to global scan */ }
+
+  // 2. Walk all project subdirs.
+  let dirs: string[];
+  try {
+    dirs = await fs.readdir(projectsRoot);
+  } catch {
+    return null;
+  }
+  for (const sub of dirs) {
+    const cand = join(projectsRoot, sub, filename);
+    try {
+      const st = await fs.stat(cand);
+      if (st.isFile()) return cand;
+    } catch { /* not in this project — keep walking */ }
+  }
+  return null;
+}
+
+/** Cheap detector for "looks like a path, not a uuid". */
+function looksLikePath(value: string): boolean {
+  return value.includes('/') || value.endsWith('.jsonl');
+}
+
+/**
+ * Execute `lumira stats [...]`. Resolution order for the transcript:
+ *   1. `--session-id <path>` (contains `/` or ends in `.jsonl`) — used as-is.
+ *   2. `--session-id <uuid>` — looked up under cwd-slug, then globally.
+ *   3. No flag — auto-discover newest in cwd-slug dir, then globally.
+ *
+ * The parser's own allow-list check (LUMIRA_ALLOWED_ROOTS) remains the
+ * security boundary — anything we hand it must pass `isUnderAllowedRoot`.
+ * Discovered paths live under `~/.claude/projects/` (covered by the home
+ * root) or under tmpdir in tests (also covered).
  *
  * `cols` is accepted for parity with `runThemesCommand` but the human
  * renderer here doesn't wrap or align to terminal width — keep it in the
@@ -164,26 +316,61 @@ export async function runStatsCommand(
   argv: string[],
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _cols?: number,
+  opts: StatsCommandOpts = {},
 ): Promise<StatsCommandResult> {
   const args = parseStatsArgs(argv);
+  const cwd = opts.cwd ?? process.cwd();
+  const homeDir = opts.homeDir ?? homedir();
+  const projectsRoot = join(homeDir, '.claude', 'projects');
 
-  if (!args.sessionId) {
-    return err(
-      'lumira stats: --session-id <path> is required.\n\n'
-      + 'Pass a path to a Claude Code transcript .jsonl file under your home or tmp directory.\n',
-    );
+  let transcriptPath: string;
+  let usedDiscovery = false;
+
+  if (args.sessionId) {
+    if (looksLikePath(args.sessionId)) {
+      // Explicit path — hand straight to the parser.
+      transcriptPath = args.sessionId;
+    } else {
+      // Bare uuid — resolve via cwd-slug then global scan.
+      const resolved = await resolveSessionId(args.sessionId, cwd, homeDir);
+      if (!resolved) {
+        return err(
+          `lumira stats: session id "${args.sessionId}" not found under ${projectsRoot}\n`,
+        );
+      }
+      transcriptPath = resolved;
+    }
+  } else {
+    const discovered = await discoverTranscript(cwd, homeDir);
+    if (!discovered) {
+      return err(
+        `lumira stats: no transcripts found under ${projectsRoot}\n\n`
+        + 'Pass --session-id <path-or-uuid> explicitly, or run `lumira stats` from a directory '
+        + 'where Claude Code has recorded a session.\n',
+      );
+    }
+    transcriptPath = discovered;
+    usedDiscovery = true;
   }
 
-  // For this first iteration, --session-id is interpreted as a path. The
-  // parser's own allow-list check (LUMIRA_ALLOWED_ROOTS) is the security
-  // boundary — we don't need to duplicate it here.
   let stats: SessionStats;
   try {
-    stats = await aggregateStats(args.sessionId);
+    stats = await aggregateStats(transcriptPath);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return err(`lumira stats: ${message}`);
   }
 
-  return ok(formatStatsOutput(stats, { noColor: args.noColor, json: args.json }));
+  // Fallback notice — emitted to stderr only when discovery picked a
+  // transcript outside the cwd-slug project dir. Keeping it on stderr means
+  // `lumira stats --json | jq` stays parseable even when the fallback fired.
+  let stderr = '';
+  if (usedDiscovery) {
+    const cwdSlugDir = join(projectsRoot, cwdToSlug(cwd));
+    if (!transcriptPath.startsWith(cwdSlugDir)) {
+      stderr = `lumira stats: no transcripts for cwd; reading most recent session from ${transcriptPath}\n`;
+    }
+  }
+
+  return ok(formatStatsOutput(stats, { noColor: args.noColor, json: args.json }), stderr);
 }

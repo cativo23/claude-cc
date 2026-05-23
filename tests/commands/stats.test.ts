@@ -8,7 +8,7 @@
  * exit-code semantics are consistent across subcommands.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, utimesSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { stripAnsi } from '../../src/render/colors.js';
@@ -227,6 +227,156 @@ describe('runStatsCommand', () => {
     // Same allow-list check the parser enforces. /etc/passwd is the
     // canonical out-of-bounds path used elsewhere in the test suite.
     const r = await runStatsCommand(argv('--session-id', '/etc/passwd'));
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stderr).not.toBe('');
+  });
+});
+
+/**
+ * Auto-discovery tests (issue #114 follow-up).
+ *
+ * `lumira stats` with no `--session-id` derives a Claude Code project slug
+ * from the cwd (`/foo/bar` → `-foo-bar`) and reads the newest `.jsonl` in
+ * `<homeDir>/.claude/projects/<slug>/`. If no cwd-slug dir exists, it falls
+ * back to the globally newest `.jsonl` across all project dirs.
+ *
+ * Tests use a tmpdir as a fake `homeDir` (passed via the opts parameter)
+ * so the real `~/.claude/projects/` is never touched. Tmpdir paths are
+ * already covered by LUMIRA_ALLOWED_ROOTS, so discovered paths pass the
+ * parser's allow-list check.
+ */
+describe('runStatsCommand — auto-discovery', () => {
+  let fakeHome: string;
+  let projectsRoot: string;
+  // A real fixture transcript — we copy its bytes into the fake project dirs
+  // so the parser sees a well-formed JSONL that exercises the full code path.
+  const fixtureBytes = readFileSync(WITH_USAGE);
+
+  beforeEach(() => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'lumira-stats-home-'));
+    projectsRoot = join(fakeHome, '.claude', 'projects');
+    mkdirSync(projectsRoot, { recursive: true });
+  });
+  afterEach(() => { rmSync(fakeHome, { recursive: true, force: true }); });
+
+  /** Slug Claude Code uses: leading `/` stripped, remaining `/` → `-`. */
+  function slugOf(cwd: string): string {
+    return cwd.replace(/\//g, '-');
+  }
+
+  /** Write a JSONL file with the given mtime (seconds since epoch). */
+  function writeTranscript(dir: string, filename: string, mtimeSec: number): string {
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, filename);
+    writeFileSync(path, fixtureBytes);
+    utimesSync(path, mtimeSec, mtimeSec);
+    return path;
+  }
+
+  it('reads the newest .jsonl from the cwd-slug project dir', async () => {
+    const cwd = '/home/test/some/project';
+    const slugDir = join(projectsRoot, slugOf(cwd));
+    writeTranscript(slugDir, 'older.jsonl', 1_000_000);
+    const newest = writeTranscript(slugDir, 'newer.jsonl', 2_000_000);
+
+    const r = await runStatsCommand(argv('--no-color'), undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('Session:');
+    expect(r.stdout).toContain('Tools:');
+    // No fallback notice when discovery hit the cwd-slug dir directly.
+    expect(r.stderr).toBe('');
+    // Verify it picked the newer file by reading it via --json and comparing
+    // the input-token total — the fixture's well-known totals act as a marker.
+    const j = await runStatsCommand(argv('--json'), undefined, { cwd, homeDir: fakeHome });
+    expect(JSON.parse(j.stdout).inputTokens).toBe(20_500);
+    expect(newest).toContain('newer.jsonl');
+  });
+
+  it('falls back to the globally newest .jsonl when cwd-slug dir is missing', async () => {
+    const cwd = '/home/test/no-match-here';
+    // Different (unrelated) project dir holds the only transcripts.
+    const otherDir = join(projectsRoot, '-some-other-project');
+    writeTranscript(otherDir, 'one.jsonl', 1_500_000);
+    writeTranscript(otherDir, 'two.jsonl', 2_500_000);
+
+    const r = await runStatsCommand(argv('--no-color'), undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('Session:');
+    // Fallback notice goes to stderr so JSON consumers on stdout aren't polluted.
+    expect(r.stderr.toLowerCase()).toContain('most recent');
+  });
+
+  it('exits non-zero with a clear stderr when no transcripts exist anywhere', async () => {
+    const cwd = '/home/test/empty-world';
+    // projectsRoot exists but is empty — no subdirs, no files.
+
+    const r = await runStatsCommand(argv(), undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stdout).toBe('');
+    expect(r.stderr).toContain('no transcripts found');
+    // The error should name the projects root path so users know where to look.
+    expect(r.stderr).toContain(join(fakeHome, '.claude', 'projects'));
+  });
+
+  it('exits non-zero when the projects root itself is missing', async () => {
+    const cwd = '/home/test/whatever';
+    // Remove the projects root entirely.
+    rmSync(projectsRoot, { recursive: true, force: true });
+
+    const r = await runStatsCommand(argv(), undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stderr).toContain('no transcripts found');
+  });
+
+  it('--session-id <absolute-path> still works (override)', async () => {
+    const cwd = '/home/test/some/project';
+    // No transcripts in the fake home — but the explicit path bypasses discovery.
+    const r = await runStatsCommand(argv('--session-id', WITH_USAGE, '--no-color'),
+      undefined, { cwd, homeDir: fakeHome });
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('Session:');
+    expect(r.stderr).toBe('');
+  });
+
+  it('--session-id <uuid> resolves under the cwd-slug dir', async () => {
+    const cwd = '/home/test/uuid/cwd';
+    const uuid = '01234567-89ab-cdef-0123-456789abcdef';
+    const slugDir = join(projectsRoot, slugOf(cwd));
+    writeTranscript(slugDir, `${uuid}.jsonl`, 1_000_000);
+    // Decoy in another project dir to confirm we prefer the cwd-slug match.
+    writeTranscript(join(projectsRoot, '-other'), `${uuid}.jsonl`, 9_000_000);
+
+    const r = await runStatsCommand(argv('--session-id', uuid, '--json'),
+      undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout).inputTokens).toBe(20_500);
+  });
+
+  it('--session-id <uuid> falls back to global search when cwd-slug has no match', async () => {
+    const cwd = '/home/test/no-local';
+    const uuid = 'fedcba98-7654-3210-fedc-ba9876543210';
+    // No cwd-slug dir — but the uuid exists in another project.
+    writeTranscript(join(projectsRoot, '-elsewhere'), `${uuid}.jsonl`, 1_000_000);
+
+    const r = await runStatsCommand(argv('--session-id', uuid, '--no-color'),
+      undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('Session:');
+  });
+
+  it('--session-id <uuid> with no matching transcript fails clearly', async () => {
+    const cwd = '/home/test/no-such-uuid';
+    const uuid = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+
+    const r = await runStatsCommand(argv('--session-id', uuid), undefined,
+      { cwd, homeDir: fakeHome });
+
     expect(r.exitCode).not.toBe(0);
     expect(r.stderr).not.toBe('');
   });
