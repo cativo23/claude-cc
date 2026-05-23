@@ -129,9 +129,16 @@ export async function aggregateStats(transcriptPath: string): Promise<SessionSta
       // (`entry.total_cost_usd`), but defensively accept it on `message`
       // too — older recorders or future renames shouldn't silently zero out
       // the dollar column.
+      //
+      // Precedence: top is authoritative, message is fallback ONLY when top
+      // is absent. We branch on field presence (`entry.total_cost_usd !==
+      // undefined`), not truthiness — Anthropic emits `total_cost_usd: 0` for
+      // fully-cached turns, and a `topCost || msgCost` short-circuit would
+      // incorrectly fall through to the message field in that case.
       const topCost = safeNumber(entry.total_cost_usd);
       const msgCost = message ? safeNumber(message.total_cost_usd) : 0;
-      stats.costUsd += topCost || msgCost;
+      const costContribution = entry.total_cost_usd !== undefined ? topCost : msgCost;
+      stats.costUsd += costContribution;
 
       // Tool / agent / error extraction from the message.content array.
       const content = message?.content;

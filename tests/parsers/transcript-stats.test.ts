@@ -145,15 +145,20 @@ describe('aggregateStats — edge cases', () => {
     // A missing file is a user-facing error (they may have typed the wrong
     // path, or the session JSONL has been rotated). The aggregator must
     // surface this — silently returning zeros would hide the real problem.
-    await expect(aggregateStats('/nonexistent/path/to/transcript.jsonl'))
-      .rejects.toThrow();
+    //
+    // We place the missing path UNDER workDir (which lives in tmpdir, an
+    // allowed root) so the allow-list check passes and we actually exercise
+    // the file-not-found branch rather than the security guard.
+    const missing = join(workDir, 'no-such-transcript.jsonl');
+    await expect(aggregateStats(missing))
+      .rejects.toThrow(/not found/i);
   });
 
   it('rejects paths outside LUMIRA_ALLOWED_ROOTS', async () => {
     // Same allow-list guard `parseTranscript` uses (see
     // src/utils/path.ts::isUnderAllowedRoot). The stats CLI must not be a
     // way to read /etc/passwd or any other system file via a crafted path.
-    await expect(aggregateStats('/etc/passwd')).rejects.toThrow();
+    await expect(aggregateStats('/etc/passwd')).rejects.toThrow(/outside allowed roots/i);
   });
 
   it('respects MAX_LINES cap from the underlying parser', async () => {
@@ -222,5 +227,29 @@ describe('aggregateStats — edge cases', () => {
     expect(stats.costUsd).toBe(0);
     expect(stats.inputTokens).toBe(0);
     expect(stats.hasCostData).toBe(true);
+  });
+
+  it('prefers top-level total_cost_usd:0 over a non-zero message.total_cost_usd', async () => {
+    // Regression: Anthropic emits `total_cost_usd: 0` for fully-cached turns.
+    // The aggregator must treat that explicit 0 as authoritative and NOT
+    // fall through to `message.total_cost_usd`. A truthy-OR (`top || msg`)
+    // would silently double-count the message field, inflating costs on
+    // every cached turn.
+    const p = join(workDir, 'top-zero-message-nonzero.jsonl');
+    writeFileSync(p, JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-05-23T04:00:00.000Z',
+      total_cost_usd: 0,
+      message: {
+        id: 'm1',
+        total_cost_usd: 0.05,
+        content: [{ type: 'text', text: 'cached' }],
+        usage: { input_tokens: 1, output_tokens: 0, cache_read_input_tokens: 100, cache_creation_input_tokens: 0 },
+      },
+    }) + '\n');
+
+    const stats = await aggregateStats(p);
+    // Top-level 0 wins — message.total_cost_usd is fallback, not addend.
+    expect(stats.costUsd).toBe(0);
   });
 });

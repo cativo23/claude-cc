@@ -199,7 +199,7 @@ Adding a theme is a single new file plus a one-line registration. Every PR runs 
 # Just works — auto-discovers the newest transcript for the current cwd.
 lumira stats
 # Session: 2h 15m — $4.23 — 156k tokens — 87% cache
-# Tools: Bash×45 Read×32 Write×18 Edit×12 Task×8
+# Tools: Bash×45 Read×32 Write×18 Edit×12 Agent×8
 # Burn: $1.88/h
 ```
 

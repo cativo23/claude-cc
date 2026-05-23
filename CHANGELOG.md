@@ -464,7 +464,11 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/cativo23/lumira/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/cativo23/lumira/compare/v1.3.1...v1.4.0
+[1.3.1]: https://github.com/cativo23/lumira/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/cativo23/lumira/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/cativo23/lumira/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/cativo23/lumira/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/cativo23/lumira/compare/v1.2.0...v1.2.1

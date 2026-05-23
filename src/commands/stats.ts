@@ -23,7 +23,7 @@
  */
 import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, isAbsolute } from 'node:path';
 import { aggregateStats, type SessionStats } from '../parsers/transcript-stats.js';
 import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../utils/format.js';
 import { stripAnsi } from '../render/colors.js';
@@ -75,7 +75,13 @@ export function parseStatsArgs(argv: string[]): StatsArgs {
   for (let i = 3; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--session-id' && i + 1 < argv.length) {
-      sessionId = argv[i + 1];
+      const next = argv[i + 1];
+      // Guard: if the "value" begins with `-`, the user almost certainly
+      // forgot to pass a value (e.g. `--session-id --json`). Consuming it
+      // would silently swallow the next flag — so skip without advancing
+      // and let the loop reprocess `--json` on its own.
+      if (next.startsWith('-')) continue;
+      sessionId = next;
       i += 1;
       continue;
     }
@@ -176,9 +182,14 @@ function ok(stdout: string, stderr = ''): StatsCommandResult {
  * Convert a cwd into the Claude Code project slug. Claude Code names project
  * directories by replacing every `/` in the absolute cwd with `-`, including
  * the leading slash — `/home/me/proj` becomes `-home-me-proj`.
+ *
+ * Trailing slashes are stripped first so `/foo/bar/` and `/foo/bar` produce
+ * the same slug `-foo-bar`. Without this normalization a stray trailing slash
+ * (e.g. from a shell prompt's PWD with a trailing /) would yield `-foo-bar-`
+ * and silently miss the real project dir.
  */
 function cwdToSlug(cwd: string): string {
-  return cwd.replace(/\//g, '-');
+  return cwd.replace(/\/+$/, '').replace(/\//g, '-');
 }
 
 /**
@@ -265,7 +276,10 @@ async function discoverTranscript(cwd: string, homeDir: string): Promise<string 
  */
 async function resolveSessionId(uuid: string, cwd: string, homeDir: string): Promise<string | null> {
   const projectsRoot = join(homeDir, '.claude', 'projects');
-  const filename = `${uuid}.jsonl`;
+  // Accept either bare `<uuid>` or `<uuid>.jsonl` — strip the extension if
+  // present so we don't produce `<uuid>.jsonl.jsonl`.
+  const bare = uuid.endsWith('.jsonl') ? uuid.slice(0, -'.jsonl'.length) : uuid;
+  const filename = `${bare}.jsonl`;
 
   // 1. Try cwd-slug dir.
   const localPath = join(projectsRoot, cwdToSlug(cwd), filename);
@@ -291,9 +305,16 @@ async function resolveSessionId(uuid: string, cwd: string, homeDir: string): Pro
   return null;
 }
 
-/** Cheap detector for "looks like a path, not a uuid". */
+/**
+ * Cheap detector for "looks like a path, not a uuid". The presence of a `/`
+ * is the only reliable signal — a bare filename (even one ending in `.jsonl`,
+ * such as `<uuid>.jsonl`) should still go through uuid resolution so the
+ * cwd-slug lookup applies. Treating `.jsonl` as path-ish would route
+ * `--session-id <uuid>.jsonl` to the "use as-is" branch, producing a
+ * `Transcript file not found` error instead of resolving via the project dir.
+ */
 function looksLikePath(value: string): boolean {
-  return value.includes('/') || value.endsWith('.jsonl');
+  return value.includes('/');
 }
 
 /**
@@ -364,10 +385,19 @@ export async function runStatsCommand(
   // Fallback notice — emitted to stderr only when discovery picked a
   // transcript outside the cwd-slug project dir. Keeping it on stderr means
   // `lumira stats --json | jq` stays parseable even when the fallback fired.
+  //
+  // Use `path.relative` instead of `startsWith` because slug names can be
+  // prefix-collisions of each other: `cwd=/foo` (slug `-foo`) vs a transcript
+  // under `<projects>/-foo-bar/x.jsonl` — `startsWith('-foo')` matches the
+  // sibling project and would silently SUPPRESS the cross-project notice.
+  // `relative(cwdSlugDir, transcriptPath)` returns `..` or an absolute path
+  // when the target is outside the dir, which we reject correctly.
   let stderr = '';
   if (usedDiscovery) {
     const cwdSlugDir = join(projectsRoot, cwdToSlug(cwd));
-    if (!transcriptPath.startsWith(cwdSlugDir)) {
+    const rel = relative(cwdSlugDir, transcriptPath);
+    const inCwdSlug = rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+    if (!inCwdSlug) {
       stderr = `lumira stats: no transcripts for cwd; reading most recent session from ${transcriptPath}\n`;
     }
   }

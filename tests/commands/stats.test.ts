@@ -87,6 +87,16 @@ describe('parseStatsArgs', () => {
     expect(args.json).toBe(true);
     expect(args.noColor).toBe(true);
   });
+
+  it('does NOT swallow the next flag when --session-id is missing its value', () => {
+    // Regression: `lumira stats --session-id --json` used to parse
+    // sessionId='--json' and silently disable JSON output. The guard now
+    // detects the leading `-`, leaves sessionId undefined, and lets `--json`
+    // parse normally on the next loop iteration.
+    const args = parseStatsArgs(argv('--session-id', '--json'));
+    expect(args.sessionId).toBeUndefined();
+    expect(args.json).toBe(true);
+  });
 });
 
 describe('formatStatsOutput', () => {
@@ -379,5 +389,61 @@ describe('runStatsCommand — auto-discovery', () => {
 
     expect(r.exitCode).not.toBe(0);
     expect(r.stderr).not.toBe('');
+  });
+
+  it('emits the fallback notice when discovery picks a sibling-slug project', async () => {
+    // Regression (B1): `startsWith` is unsafe for slug comparison because slug
+    // names can be prefix-collisions of each other. cwd `/foo` (slug `-foo`)
+    // and transcript dir `-foo-bar` both start with `-foo`, so a naive
+    // `startsWith(cwdSlugDir)` check would treat the sibling project as IN
+    // the cwd and SUPPRESS the cross-project notice. `path.relative` returns
+    // `..` for sibling dirs, which correctly flags the mismatch.
+    const cwd = '/foo';
+    // Only a sibling-slug project has a transcript.
+    writeTranscript(join(projectsRoot, '-foo-bar'), 's.jsonl', 1_000_000);
+
+    const r = await runStatsCommand(argv('--no-color'), undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('Session:');
+    // The notice MUST appear — the user is reading a different project.
+    expect(r.stderr.toLowerCase()).toContain('most recent');
+    expect(r.stderr).toContain('-foo-bar');
+  });
+
+  it('--session-id <uuid>.jsonl (bare filename) resolves via cwd-slug', async () => {
+    // Regression (B2): `looksLikePath` used to treat any `.jsonl` suffix as
+    // "is a path" and skip uuid resolution, so `--session-id <uuid>.jsonl`
+    // would error with `Transcript file not found: <uuid>.jsonl`. A bare
+    // filename (no `/`) must always go through cwd-slug resolution.
+    const cwd = '/home/test/uuid-jsonl-suffix';
+    const uuid = '01234567-89ab-cdef-0123-456789abcdef';
+    const slugDir = join(projectsRoot, slugOf(cwd));
+    writeTranscript(slugDir, `${uuid}.jsonl`, 1_000_000);
+
+    // Pass the full filename including extension — must still resolve.
+    const r = await runStatsCommand(argv('--session-id', `${uuid}.jsonl`, '--json'),
+      undefined, { cwd, homeDir: fakeHome });
+
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout).inputTokens).toBe(20_500);
+  });
+
+  it('treats /foo/bar/ and /foo/bar the same (trailing-slash cwd)', async () => {
+    // Regression (I3): `cwdToSlug('/foo/bar/')` used to produce `-foo-bar-`
+    // (with trailing dash), missing the real `-foo-bar` project dir. Trailing
+    // slashes are now stripped before slugification.
+    const cwd = '/home/test/trailing/slash';
+    const slugDir = join(projectsRoot, slugOf(cwd));
+    writeTranscript(slugDir, 'session.jsonl', 1_000_000);
+
+    // Same cwd but with a trailing slash — must still hit the cwd-slug dir.
+    const r = await runStatsCommand(argv('--no-color'), undefined,
+      { cwd: `${cwd}/`, homeDir: fakeHome });
+
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('Session:');
+    // No fallback notice — discovery found the cwd-slug dir directly.
+    expect(r.stderr).toBe('');
   });
 });
