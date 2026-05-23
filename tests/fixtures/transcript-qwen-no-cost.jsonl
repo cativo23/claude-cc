@@ -1,0 +1,11 @@
+{"type":"summary","timestamp":"2026-05-23T02:00:00.000Z"}
+{"type":"user","timestamp":"2026-05-23T02:00:00.000Z","message":{"content":"qwen session — please help"}}
+{"type":"assistant","timestamp":"2026-05-23T02:00:05.000Z","message":{"id":"msg_q1","model":"qwen-coder","content":[{"type":"text","text":"Looking at the project."}]}}
+{"type":"assistant","timestamp":"2026-05-23T02:00:10.000Z","message":{"id":"msg_q2","model":"qwen-coder","content":[{"type":"tool_use","id":"tq_b1","name":"Bash","input":{"command":"pwd"}}]}}
+{"type":"user","timestamp":"2026-05-23T02:00:11.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"tq_b1","content":"/home/x"}]}}
+{"type":"assistant","timestamp":"2026-05-23T02:00:20.000Z","message":{"id":"msg_q3","model":"qwen-coder","content":[{"type":"tool_use","id":"tq_r1","name":"Read","input":{"file_path":"/tmp/proj/README.md"}}]}}
+{"type":"user","timestamp":"2026-05-23T02:00:21.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"tq_r1","content":"# proj"}]}}
+{"type":"assistant","timestamp":"2026-05-23T02:00:40.000Z","message":{"id":"msg_q4","model":"qwen-coder","content":[{"type":"tool_use","id":"tq_a1","name":"Agent","input":{"subagent_type":"researcher","description":"survey libs"}}]}}
+{"type":"user","timestamp":"2026-05-23T02:01:00.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"tq_a1","content":"results"}]}}
+{"type":"assistant","timestamp":"2026-05-23T02:01:10.000Z","message":{"id":"msg_q5","model":"qwen-coder","content":[{"type":"tool_use","id":"tq_b2","name":"Bash","input":{"command":"ls"}}]}}
+{"type":"user","timestamp":"2026-05-23T02:01:11.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"tq_b2","content":"src/"}]}}
