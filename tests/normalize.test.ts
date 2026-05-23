@@ -192,6 +192,86 @@ describe('normalize', () => {
     });
   });
 
+  // Issue #138: Claude auto-compacts at ~80% and Qwen at ~70%, before the bar
+  // shows 100%. nearAutoCompact = true within [threshold-gap, threshold) so a
+  // dedicated warning glyph can fire ahead of the platform's silent compaction.
+  describe('nearAutoCompact', () => {
+    // Build a Claude payload with no current_usage so realUsedPercentage is
+    // undefined and the effective pct falls back to usedPercentage.
+    const claudeAt = (pct: number): ClaudeCodeInput => ({
+      ...claudeInput,
+      context_window: {
+        ...claudeInput.context_window,
+        used_percentage: pct,
+        // Drop current_usage so realUsedPercentage cannot be computed.
+        current_usage: undefined as unknown as ClaudeCodeInput['context_window']['current_usage'],
+      },
+    });
+
+    const qwenAt = (pct: number): QwenInput => ({
+      ...qwenInput,
+      context_window: {
+        ...qwenInput.context_window,
+        used_percentage: pct,
+      },
+    });
+
+    it('Claude at 75% → true (lower edge of warning window)', () => {
+      expect(normalize(claudeAt(75)).context.nearAutoCompact).toBe(true);
+    });
+
+    it('Claude at 79% → true (just below auto-compact threshold)', () => {
+      expect(normalize(claudeAt(79)).context.nearAutoCompact).toBe(true);
+    });
+
+    it('Claude at 80% → false (at threshold, past the warning window)', () => {
+      expect(normalize(claudeAt(80)).context.nearAutoCompact).toBe(false);
+    });
+
+    it('Claude at 74% → false (below warning window)', () => {
+      expect(normalize(claudeAt(74)).context.nearAutoCompact).toBe(false);
+    });
+
+    it('Qwen at 65% → true (window starts 5pp earlier for Qwen)', () => {
+      expect(normalize(qwenAt(65)).context.nearAutoCompact).toBe(true);
+    });
+
+    it('Qwen at 70% → false (at Qwen threshold)', () => {
+      expect(normalize(qwenAt(70)).context.nearAutoCompact).toBe(false);
+    });
+
+    it('modern Claude payload uses realUsedPercentage to gate the flag', () => {
+      // Construct current_usage so the real usage sum is 152000 / 200000 = 76%
+      // while used_percentage (hook-provided, input-only) stays at 42%.
+      const input: ClaudeCodeInput = {
+        ...modernInput,
+        context_window: {
+          ...modernInput.context_window,
+          context_window_size: 200000,
+          used_percentage: 42,
+          current_usage: {
+            input_tokens: 120000,
+            output_tokens: 12000,
+            cache_read_input_tokens: 15000,
+            cache_creation_input_tokens: 5000,
+          },
+        },
+      };
+      const result = normalize(input);
+      // Sanity: realUsedPercentage should land at 76 (in [75, 80))
+      expect(result.context.realUsedPercentage).toBeCloseTo(76, 1);
+      expect(result.context.nearAutoCompact).toBe(true);
+    });
+
+    it('missing context_window → false (graceful)', () => {
+      const input = {
+        ...claudeInput,
+        context_window: undefined as unknown as ClaudeCodeInput['context_window'],
+      };
+      expect(normalize(input).context.nearAutoCompact).toBe(false);
+    });
+  });
+
   describe('cost and duration (Claude only)', () => {
     it('extracts cost from Claude', () => {
       const result = normalize(claudeInput);

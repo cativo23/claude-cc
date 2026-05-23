@@ -42,6 +42,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       cols,
       warningThreshold: display.contextWarningThreshold,
       criticalThreshold: display.contextCriticalThreshold,
+      nearAutoCompact: input.context.nearAutoCompact,
     }));
     contextSlotCount++;
   }

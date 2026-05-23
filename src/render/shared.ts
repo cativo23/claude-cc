@@ -34,6 +34,13 @@ export interface ContextBarOpts {
   warningThreshold?: number;
   /** Percentage at which the bar turns red/blinking and shows the skull icon. Default 85. */
   criticalThreshold?: number;
+  /**
+   * When true, emit a red warning glyph (⚠) alongside the fire/skull icon.
+   * Indicates the context fill is in the 5pp window before auto-compact fires
+   * (an immutable platform constant, independent of the user-configurable
+   * warning/critical thresholds). Computed upstream by `normalize.ts`.
+   */
+  nearAutoCompact?: boolean;
 }
 
 function adaptiveSegments(cols?: number): number {
@@ -63,8 +70,16 @@ export function buildContextBar(pct: number, c: Colors, opts?: ContextBarOpts): 
 
   let icon = '';
   if (showIcons) {
-    if (safePct >= critical) icon = c.blinkRed(ic.skull);
-    else if (safePct >= warning) icon = c.orange(ic.fire);
+    let mainIcon = '';
+    if (safePct >= critical) mainIcon = c.blinkRed(ic.skull);
+    else if (safePct >= warning) mainIcon = c.orange(ic.fire);
+
+    // Auto-compact proximity warning — additive glyph, independent of color tier.
+    // Decoupled from user thresholds because it reflects a platform constraint
+    // (Claude reserves output buffer; Qwen has its own compression threshold).
+    const compactIcon = opts?.nearAutoCompact ? c.red(ic.warning) : '';
+
+    icon = [compactIcon, mainIcon].filter(Boolean).join(' ');
   }
 
   // Actionable hint at high fill — nudges the user to reclaim context before

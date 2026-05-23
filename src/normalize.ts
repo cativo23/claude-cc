@@ -5,6 +5,7 @@
 // Renderers check field presence, not platform identity.
 
 import type { ClaudeCodeInput, QwenInput, RawInput } from './types.js';
+import { AUTO_COMPACT_THRESHOLD, AUTO_COMPACT_WARNING_GAP } from './types.js';
 
 export function isQwenInput(input: RawInput): input is QwenInput {
   const raw = input as unknown as Record<string, unknown>;
@@ -42,6 +43,8 @@ export interface NormalizedInput {
     usedPercentage: number;
     windowSize?: number;
     realUsedPercentage?: number;
+    /** True when context fill is in the 5pp window before the platform's auto-compact threshold. */
+    nearAutoCompact: boolean;
   };
 
   /** Cost in USD (Claude only) */
@@ -206,6 +209,15 @@ export function normalize(input: RawInput): NormalizedInput {
     }
   }
 
+  // Auto-compact proximity warning: fires when context fill is in the
+  // [threshold-gap, threshold) window. Uses realUsedPercentage when available
+  // (more accurate; includes output+cache), falls back to usedPercentage for
+  // legacy payloads. Gated by platform (different thresholds Claude vs Qwen).
+  const effectivePct = realUsedPercentage ?? contextWindow.used_percentage ?? 0;
+  const platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
+  const nearAutoCompact = effectivePct >= (platformAutoCompactThreshold - AUTO_COMPACT_WARNING_GAP)
+    && effectivePct < platformAutoCompactThreshold;
+
   // Performance (Qwen only)
   let performance: NormalizedInput['performance'];
   if (qwen && first?.api) {
@@ -264,6 +276,7 @@ export function normalize(input: RawInput): NormalizedInput {
         ? qwen.context_window.context_window_size
         : claude?.context_window?.context_window_size,
       realUsedPercentage,
+      nearAutoCompact,
     },
     cost: claude ? claude.cost?.total_cost_usd : undefined,
     durationMs: claude ? claude.cost?.total_duration_ms : undefined,

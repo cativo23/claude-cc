@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Auto-compact proximity warning glyph (⚠)** — `contextBar` now emits a red ⚠ icon when context fill is in the 5pp window before the platform's auto-compact threshold (75–80% on Claude Code, 65–70% on Qwen Code by default). The glyph is independent of the user-configurable warning/critical thresholds — it tracks the platform constraint, not user preference. Qwen Code users who customized `model.chatCompression.contextPercentageThreshold` should mirror that value in lumira's `contextCriticalThreshold` for accurate gating. The install wizard preview now surfaces an educational footer explaining the behavior. Resolves [#138](https://github.com/cativo23/lumira/issues/138).
+
 ### Changed
 
 - `contextBar` and `contextTokens` now compute context usage from `current_usage` primitives (`input + output + cache_read + cache_creation`) instead of relying on the hook-provided `used_percentage`. In most sessions the two values are within ~1pp — `cache_read_input_tokens` already absorbs outputs cached from prior turns, so the hook's figure is not meaningfully wrong. The new formula captures the current turn's output tokens before they enter the cache, which is useful for long-output turns (large code generation, refactors) where the difference can reach 2–5pp. Falls back to `used_percentage` for legacy payloads where `current_usage` is absent or not an object. Note: this does not change the ~80% auto-compact threshold — that is a Claude Code design constant (reserved headroom for output generation), not a measurement error. A follow-up will visualize that threshold on the bar. Partial mitigation for [#136](https://github.com/cativo23/lumira/issues/136).
+- **contextBar default thresholds lowered to align with auto-compact reality** — `contextWarningThreshold` 70→65 (orange tier), `contextCriticalThreshold` 85→78 (red tier). The previous defaults marked the bar as "still safe" at 80%, but Claude Code auto-compact fires at ~80% of input tokens (reserves ~40K for output generation). New defaults give users actionable red color before auto-compact triggers. Users with custom thresholds in config are unaffected. Resolves part of [#138](https://github.com/cativo23/lumira/issues/138).
 
 ## [1.4.0] - 2026-05-19
 

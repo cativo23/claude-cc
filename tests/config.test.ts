@@ -159,9 +159,9 @@ describe('loadConfig', () => {
   describe('context bar thresholds', () => {
     beforeEach(() => { _resetMigrationFlags(); });
 
-    it('defaults to 70/85 when omitted', () => {
-      expect(loadConfig(join(dir, 'nope')).display.contextWarningThreshold).toBe(70);
-      expect(loadConfig(join(dir, 'nope')).display.contextCriticalThreshold).toBe(85);
+    it('defaults to 65/78 when omitted (issue #138: lowered to fire before auto-compact)', () => {
+      expect(loadConfig(join(dir, 'nope')).display.contextWarningThreshold).toBe(65);
+      expect(loadConfig(join(dir, 'nope')).display.contextCriticalThreshold).toBe(78);
     });
 
     it('accepts valid user values', () => {
@@ -194,8 +194,8 @@ describe('loadConfig', () => {
       writeFileSync(join(dir, 'config.json'), '{"display":{"contextWarningThreshold":90,"contextCriticalThreshold":50}}');
       const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       const c = loadConfig(dir);
-      expect(c.display.contextWarningThreshold).toBe(70);
-      expect(c.display.contextCriticalThreshold).toBe(85);
+      expect(c.display.contextWarningThreshold).toBe(65);
+      expect(c.display.contextCriticalThreshold).toBe(78);
       expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('thresholds invalid'));
       errSpy.mockRestore();
     });
@@ -216,7 +216,7 @@ describe('loadConfig', () => {
       writeFileSync(join(dir, 'config.json'), '{"display":{"contextWarningThreshold":60}}');
       const c = loadConfig(dir);
       expect(c.display.contextWarningThreshold).toBe(60);
-      expect(c.display.contextCriticalThreshold).toBe(85);
+      expect(c.display.contextCriticalThreshold).toBe(78);
     });
   });
 });

@@ -74,6 +74,7 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       cols: ctx.cols,
       warningThreshold: display.contextWarningThreshold,
       criticalThreshold: display.contextCriticalThreshold,
+      nearAutoCompact: input.context.nearAutoCompact,
     });
     segments.push({ text: bar, bg: palette.modelBg, fg: palette.fg, priority: 100 });
   }
