@@ -87,7 +87,7 @@ export function detectColorMode(): ColorMode {
 /**
  * Map a context-fill percentage to its alarm color.
  *
- * Zones (with default 70/85): green<50, yellow 50–70, orange 70–85, red 85+.
+ * Zones (with default 65/78): green<50, yellow 50–65, orange 65–78, red 78+.
  *
  * **Asymmetry by design:** the green→yellow boundary is fixed at 50%, the
  * "universally healthy" mark. So if a user sets `warning ≤ 50`, the yellow
