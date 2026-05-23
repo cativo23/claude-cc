@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-05-23
+
 ### Added
 
 - **Auto-compact proximity warning glyph (⚠)** — `contextBar` now emits a red ⚠ icon when context fill is in the 5pp window before the platform's auto-compact threshold (75–80% on Claude Code, 65–70% on Qwen Code by default). The glyph is independent of the user-configurable warning/critical thresholds — it tracks the platform constraint, not user preference. Qwen Code users who customized `model.chatCompression.contextPercentageThreshold` should mirror that value in lumira's `contextCriticalThreshold` for accurate gating. The install wizard preview now surfaces an educational footer explaining the behavior. Resolves [#138](https://github.com/cativo23/lumira/issues/138).
