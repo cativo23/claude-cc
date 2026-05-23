@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`lumira stats` CLI** — new subcommand that parses a Claude Code or Qwen Code session transcript `.jsonl` and prints an analytics summary: session duration, total cost, total tokens, cache hit rate, tool call frequency (`Bash×45 Read×32 ...`), and burn rate (`$/h`). Flags: `--session-id <path>` (required, path to the transcript file), `--no-color` (also honors the `NO_COLOR` env var per no-color.org), `--json` (pretty-printed `SessionStats` for `jq` / CI). Qwen Code sessions are supported — cost and burn-rate lines are suppressed when the payload lacks usage blocks (`hasCostData: false`) so users never see a misleading `$0.00`. Closes [#114](https://github.com/cativo23/lumira/issues/114).
+
 ## [1.4.1] - 2026-05-23
 
 ### Added

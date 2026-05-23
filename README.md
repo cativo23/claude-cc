@@ -34,6 +34,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 - [Install](#install)
 - [Display modes](#display)
 - [Themes](#themes)
+- [Stats CLI](#stats-cli)
 - [Powerline](#powerline)
 - [Configuration](#configuration)
 - [Architecture](#architecture)
@@ -189,6 +190,25 @@ lumira themes preview --all --powerline      # the powerline grid (great for scr
 ### Want your favorite theme?
 
 Adding a theme is a single new file plus a one-line registration. Every PR runs the **WCAG AA contrast guard** — if any powerline cell drops below 4.5:1 against the foreground, CI rejects it. See [CONTRIBUTING.md → Adding a theme](CONTRIBUTING.md#adding-a-theme) for the walkthrough.
+
+## Stats CLI
+
+`lumira stats` reads a Claude Code or Qwen Code transcript `.jsonl` and prints a one-shot analytics summary — session duration, total cost, token totals, cache hit rate, tool call frequency, and burn rate (`$/h`). Useful for post-session review, scripting, and CI dashboards.
+
+```bash
+lumira stats --session-id ~/.claude/projects/<slug>/<session>.jsonl
+# Session: 2h 15m — $4.23 — 156k tokens — 87% cache
+# Tools: Bash×45 Read×32 Write×18 Edit×12 Task×8
+# Burn: $1.88/h
+```
+
+**Flags:**
+
+- `--session-id <path>` — path to a transcript `.jsonl` file (required).
+- `--no-color` — strip ANSI escapes (also honored when the `NO_COLOR` env var is set, per [no-color.org](https://no-color.org)).
+- `--json` — emit the raw `SessionStats` object as pretty-printed JSON for `jq` / CI composability.
+
+**Qwen Code sessions** are parsed the same way, but cost and burn-rate lines are suppressed when the transcript lacks usage blocks (`hasCostData: false` in the JSON output) — no misleading `$0.00`.
 
 ## Powerline
 
