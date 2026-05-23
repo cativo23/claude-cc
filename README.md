@@ -24,7 +24,9 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 ![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-2d3748?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCI+PHBhdGggZD0iTTY0IDEyOEMzNS44IDEyOCAxMyAxMDUuMiAxMyA3N0MxMyA0OC44IDM1LjggMjYgNjQgMjZjMjguMiAwIDUxIDIyLjggNTEgNTFzLTIyLjggNTEtNTEgNTF6IiBmaWxsPSIjMjQyNTJGIi8+PC9zdmc+)
 ![Qwen Code](https://img.shields.io/badge/Qwen_Code-compatible-6156FF)
 
-> 1,700+ downloads in the first month — [share your setup](https://github.com/cativo23/lumira/discussions) in Discussions.
+> 3,400+ monthly downloads, zero marketing. Try it for one session — `npx lumira install`.
+
+> **What's new in v1.5:** the [`lumira stats` CLI](#stats-cli) prints post-session analytics (cost, tokens, cache hit, tool frequency, burn rate) — no competing statusline ships this. Combined with the `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), lumira surfaces a set of signals nothing else does.
 
 ## Table of contents
 
