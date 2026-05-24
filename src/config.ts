@@ -1,7 +1,62 @@
 import { readFileSync, existsSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
-import { DEFAULT_CONFIG, DEFAULT_DISPLAY, DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, POWERLINE_STYLE_NAMES, type HudConfig, type DisplayToggles, type ColorConfig } from './types.js';
+import {
+  DEFAULT_CONFIG,
+  DEFAULT_DISPLAY,
+  DEFAULT_CONTEXT_WARNING_THRESHOLD,
+  DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
+  POWERLINE_STYLE_NAMES,
+  CUSTOM_COMMAND_MAX_TIMEOUT_MS,
+  CUSTOM_COMMAND_MAX_BYTES,
+  CUSTOM_COMMAND_MAX_ENV_ENTRIES,
+  CUSTOM_COMMAND_MIN_REFRESH_MS,
+  CUSTOM_COMMAND_MAX_REFRESH_MS,
+  CUSTOM_COMMAND_VALID_LINES,
+  CUSTOM_COMMAND_ERROR_BEHAVIORS,
+  CUSTOM_COMMAND_COLORS,
+  type HudConfig,
+  type DisplayToggles,
+  type ColorConfig,
+  type CustomCommand,
+  type CustomCommandsConfig,
+  type OnErrorBehavior,
+} from './types.js';
+
+/**
+ * Ids we refuse to accept on user-supplied custom commands. Object.prototype
+ * lookalikes prevent prototype-pollution-style attacks via the cache map
+ * (cache entries are keyed by id; if an attacker can name an entry
+ * `__proto__` or `constructor`, lookups against arbitrary objects later in
+ * the pipeline could become surprising).
+ */
+const RESERVED_ID_NAMES = new Set([
+  '__proto__',
+  'prototype',
+  'constructor',
+  'hasOwnProperty',
+  'toString',
+  'valueOf',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'toLocaleString',
+]);
+
+/**
+ * Reject ids containing path separators or ASCII control characters. Slash
+ * and backslash would break cache-map lookups by id (entries are keyed under
+ * a single object; nesting via paths is not supported). Control chars in id
+ * could corrupt log output / status lines downstream.
+ */
+// eslint-disable-next-line no-control-regex
+const DANGEROUS_ID_CHARS = /[\x00-\x1f/\\]/;
+
+function isValidCustomCommandId(id: string): boolean {
+  if (id.length === 0 || id.length > 64) return false;
+  if (RESERVED_ID_NAMES.has(id)) return false;
+  if (DANGEROUS_ID_CHARS.test(id)) return false;
+  return true;
+}
 
 // Module-level flag: fires the qwen→minimal deprecation warning once per
 // Node process. Process-scoped by design — tests must run in forked workers
@@ -12,6 +67,111 @@ let thresholdWarningShown = false;
 export function _resetMigrationFlags(): void { qwenWarningShown = false; thresholdWarningShown = false; }
 
 const clampPct = (n: number): number => Math.max(0, Math.min(100, n));
+
+const clampInt = (n: number, min: number, max: number): number => {
+  const i = Math.trunc(n);
+  return Math.max(min, Math.min(max, i));
+};
+
+/**
+ * Parse and validate the `customCommands` config block (issue #143).
+ * Drops invalid commands silently, clamps numerics to documented bounds,
+ * defaults missing optional fields, and preserves first-occurrence on
+ * duplicate `id`. Always returns a fresh object (no shared references).
+ */
+function parseCustomCommands(raw: unknown): CustomCommandsConfig {
+  const empty: CustomCommandsConfig = { enabled: false, commands: [] };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return empty;
+  const obj = raw as Record<string, unknown>;
+  const enabled = typeof obj.enabled === 'boolean' ? obj.enabled : false;
+  if (!Array.isArray(obj.commands)) return { enabled, commands: [] };
+
+  const seenIds = new Set<string>();
+  const commands: CustomCommand[] = [];
+
+  for (const entry of obj.commands) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const e = entry as Record<string, unknown>;
+
+    // id — non-empty string, unique, no path separators / control chars /
+    // reserved Object.prototype names. Caps length at 64 to prevent absurd
+    // ids from blowing up log lines or cache files.
+    if (typeof e.id !== 'string' || !isValidCustomCommandId(e.id)) continue;
+    if (seenIds.has(e.id)) continue;
+
+    // command — non-empty array of non-empty strings (no shell-string form)
+    if (!Array.isArray(e.command) || e.command.length === 0) continue;
+    if (!e.command.every((s: unknown) => typeof s === 'string' && s.length > 0)) continue;
+
+    // line — must be one of {1,2,3,4}
+    if (typeof e.line !== 'number' || !CUSTOM_COMMAND_VALID_LINES.includes(e.line as 1 | 2 | 3 | 4)) continue;
+
+    // From here on the entry is valid; default optional fields.
+    const refreshMs = typeof e.refreshMs === 'number' && Number.isFinite(e.refreshMs)
+      ? clampInt(e.refreshMs, CUSTOM_COMMAND_MIN_REFRESH_MS, CUSTOM_COMMAND_MAX_REFRESH_MS)
+      : 5000;
+    const timeoutMs = typeof e.timeoutMs === 'number' && Number.isFinite(e.timeoutMs)
+      ? clampInt(e.timeoutMs, 100, CUSTOM_COMMAND_MAX_TIMEOUT_MS)
+      : 1500;
+    const maxBytes = typeof e.maxBytes === 'number' && Number.isFinite(e.maxBytes)
+      ? clampInt(e.maxBytes, 16, CUSTOM_COMMAND_MAX_BYTES)
+      : 256;
+
+    // Cast AFTER the membership guard, not before — casting unknown→typed
+    // up front inverts the type-narrowing the guard exists to provide.
+    const rawOnError = e.onError;
+    const onError: OnErrorBehavior =
+      typeof rawOnError === 'string' && (CUSTOM_COMMAND_ERROR_BEHAVIORS as readonly string[]).includes(rawOnError)
+        ? (rawOnError as OnErrorBehavior)
+        : 'hide';
+    const rawOnTimeout = e.onTimeout;
+    const onTimeout: OnErrorBehavior =
+      typeof rawOnTimeout === 'string' && (CUSTOM_COMMAND_ERROR_BEHAVIORS as readonly string[]).includes(rawOnTimeout)
+        ? (rawOnTimeout as OnErrorBehavior)
+        : 'stale';
+    const ansi = typeof e.ansi === 'boolean' ? e.ansi : false;
+
+    const cmd: CustomCommand = {
+      id: e.id,
+      command: e.command.slice() as string[],
+      line: e.line as 1 | 2 | 3 | 4,
+      refreshMs,
+      timeoutMs,
+      maxBytes,
+      onError,
+      onTimeout,
+      ansi,
+    };
+
+    if (typeof e.label === 'string') cmd.label = e.label;
+    // cwd — must be an absolute path. Relative paths like '../../../etc'
+    // would silently escape the renderer's cwd; drop them to fall back to
+    // process.cwd() instead of accepting hostile relative input.
+    if (typeof e.cwd === 'string' && isAbsolute(e.cwd)) cmd.cwd = e.cwd;
+    if (typeof e.color === 'string' && (CUSTOM_COMMAND_COLORS as readonly string[]).includes(e.color)) {
+      cmd.color = e.color as CustomCommand['color'];
+    }
+
+    // env — record of string→string, truncated to CUSTOM_COMMAND_MAX_ENV_ENTRIES
+    if (e.env && typeof e.env === 'object' && !Array.isArray(e.env)) {
+      const envOut: Record<string, string> = {};
+      let count = 0;
+      for (const [k, v] of Object.entries(e.env)) {
+        if (count >= CUSTOM_COMMAND_MAX_ENV_ENTRIES) break;
+        if (typeof k !== 'string' || k.length === 0) continue;
+        if (typeof v !== 'string') continue;
+        envOut[k] = v;
+        count++;
+      }
+      if (count > 0) cmd.env = envOut;
+    }
+
+    seenIds.add(cmd.id);
+    commands.push(cmd);
+  }
+
+  return { enabled, commands };
+}
 
 /**
  * Validate context-bar threshold pair. Clamps each to [0, 100]. If `warning`
@@ -45,12 +205,12 @@ function resolveThresholds(
 
 export function loadConfig(configDir: string = join(homedir(), '.config', 'lumira')): HudConfig {
   const p = join(configDir, 'config.json');
-  if (!existsSync(p)) return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } };
+  if (!existsSync(p)) return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY }, customCommands: { enabled: false, commands: [] } };
   try {
     const raw = JSON.parse(readFileSync(p, 'utf8'));
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY }, customCommands: { enabled: false, commands: [] } };
     return mergeConfig(raw);
-  } catch { return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } }; }
+  } catch { return { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY }, customCommands: { enabled: false, commands: [] } }; }
 }
 
 function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
@@ -68,7 +228,13 @@ function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
     const m = (raw.colors as Record<string, unknown>).mode;
     if (['auto', 'named', '256', 'truecolor'].includes(m as string)) colors.mode = m as ColorConfig['mode'];
   }
-  const result: HudConfig = { layout, gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd, display: { ...DEFAULT_DISPLAY }, colors };
+  const result: HudConfig = {
+    layout,
+    gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd,
+    display: { ...DEFAULT_DISPLAY },
+    colors,
+    customCommands: parseCustomCommands(raw.customCommands),
+  };
 
   // Apply preset FIRST (sets layout + display defaults)
   const validPresets = ['full', 'balanced', 'minimal'] as const;

@@ -153,4 +153,42 @@ describe('renderLine3 — agent count', () => {
     const out = stripAnsi(renderLine3(makeCtx({ transcript, config }), c));
     expect(out).not.toContain('agent');
   });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  describe('custom commands', () => {
+    it('renders a single ok command on line 3', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'CUSTOM3', state: 'ok', line: 3, ansi: false }],
+      });
+      const out = stripAnsi(renderLine3(ctx, c));
+      expect(out).toContain('CUSTOM3');
+    });
+
+    it('does not render commands for other lines', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'OTHER', state: 'ok', line: 2, ansi: false }],
+      });
+      const out = stripAnsi(renderLine3(ctx, c));
+      expect(out).not.toContain('OTHER');
+    });
+
+    it('drops hidden state outputs', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'GONE', state: 'hidden', line: 3, ansi: false }],
+      });
+      const out = stripAnsi(renderLine3(ctx, c));
+      expect(out).not.toContain('GONE');
+    });
+
+    it('coexists with line3 core widgets (tools/todos)', () => {
+      const transcript = { ...EMPTY_TRANSCRIPT, tools: [runningTool('Bash')] };
+      const ctx = makeCtx({
+        transcript,
+        customCommands: [{ id: 'foo', text: 'MINE', state: 'ok', line: 3, ansi: false }],
+      });
+      const out = stripAnsi(renderLine3(ctx, c));
+      expect(out).toContain('Bash');
+      expect(out).toContain('MINE');
+    });
+  });
 });

@@ -150,6 +150,13 @@ export interface RenderContext {
   cols: number;
   config: HudConfig;
   icons: import('./render/icons.js').IconSet;
+  /**
+   * Custom command outputs from the Phase 2 parser (issue #143). Optional for
+   * backward compat with test fixtures that don't construct it — renderers
+   * MUST treat `undefined` as an empty array. Each output already carries its
+   * own `line` + render metadata; per-line filtering happens at render time.
+   */
+  customCommands?: import('./parsers/custom-commands.js').CustomCommandOutput[];
 }
 
 // ── Config ──────────────────────────────────────────────────────────
@@ -179,7 +186,82 @@ export interface HudConfig {
     /** Separator glyph preset. Defaults to 'auto' (nerd font → arrow, else compatible). */
     style?: PowerlineStyleName;
   };
+  /**
+   * Custom Command widget (issue #143). Allows users to embed the output of
+   * arbitrary commands in the statusline. Security gate: `enabled` defaults
+   * to `false` and the renderer must short-circuit on `enabled: false` so an
+   * accidentally-shipped command never executes without explicit opt-in.
+   */
+  customCommands: CustomCommandsConfig;
 }
+
+// ── Custom Command widget (issue #143) ─────────────────────────────
+
+/**
+ * Behavior when a custom command errors or times out.
+ *   hide        → render nothing
+ *   placeholder → render a static placeholder glyph
+ *   output      → render last known output (if any), otherwise hide
+ *   stale       → keep the previous successful output until the next refresh
+ */
+export type OnErrorBehavior = 'hide' | 'placeholder' | 'output' | 'stale';
+
+export interface CustomCommand {
+  /** Unique id within the customCommands.commands array. Duplicates are dropped. */
+  id: string;
+  /** argv form (no shell strings). First element is the executable, rest are args. */
+  command: string[];
+  /** Optional prefix glyph or text rendered before the command output. */
+  label?: string;
+  /** Which statusline line to render on (1–4). */
+  line: 1 | 2 | 3 | 4;
+  /** Cache TTL — how often to re-run. Clamped to >= CUSTOM_COMMAND_MIN_REFRESH_MS. Default 5000. */
+  refreshMs: number;
+  /** Max wall time before the command is killed. Clamped to [100, CUSTOM_COMMAND_MAX_TIMEOUT_MS]. Default 1500. */
+  timeoutMs: number;
+  /** Stdout cap. Clamped to [16, CUSTOM_COMMAND_MAX_BYTES]. Default 256. */
+  maxBytes: number;
+  /** Optional env vars. Truncated to CUSTOM_COMMAND_MAX_ENV_ENTRIES. */
+  env?: Record<string, string>;
+  /** Optional cwd override. Defaults to lumira's cwd. */
+  cwd?: string;
+  /** Behavior on non-zero exit / spawn error. Default 'hide'. */
+  onError: OnErrorBehavior;
+  /** Behavior on wall-time timeout. Default 'stale'. */
+  onTimeout: OnErrorBehavior;
+  /** Pass through ANSI escapes in stdout? Default false (strip + optionally apply `color`). */
+  ansi: boolean;
+  /** Optional color applied only when ansi is false. */
+  color?: 'dim' | 'green' | 'yellow' | 'orange' | 'red' | 'cyan' | 'magenta';
+}
+
+export interface CustomCommandsConfig {
+  /** Security gate — must be true (explicitly opted in) before any command runs. */
+  enabled: boolean;
+  commands: CustomCommand[];
+}
+
+/** Hard cap on per-command wall time (ms). */
+export const CUSTOM_COMMAND_MAX_TIMEOUT_MS = 2000;
+/** Hard cap on captured stdout (bytes). */
+export const CUSTOM_COMMAND_MAX_BYTES = 4096;
+/** Hard cap on env vars passed to a command. */
+export const CUSTOM_COMMAND_MAX_ENV_ENTRIES = 32;
+/** Lower bound on refresh interval (ms) to prevent thrashing the renderer. */
+export const CUSTOM_COMMAND_MIN_REFRESH_MS = 500;
+/** Upper bound on refresh interval (ms) — 24h. Anything larger is almost
+ * certainly a typo (e.g. "5000000" meant "5000"). Clamping prevents an
+ * effectively-once-per-process command from being accidentally configured. */
+export const CUSTOM_COMMAND_MAX_REFRESH_MS = 86_400_000;
+
+/** Valid `line` values for CustomCommand. */
+export const CUSTOM_COMMAND_VALID_LINES = [1, 2, 3, 4] as const;
+
+/** Valid `onError` / `onTimeout` values. */
+export const CUSTOM_COMMAND_ERROR_BEHAVIORS = ['hide', 'placeholder', 'output', 'stale'] as const;
+
+/** Valid `color` values for CustomCommand. */
+export const CUSTOM_COMMAND_COLORS = ['dim', 'green', 'yellow', 'orange', 'red', 'cyan', 'magenta'] as const;
 
 /**
  * Single source of truth for valid powerline style names. Imported by
@@ -321,6 +403,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   gsd: false,
   display: { ...DEFAULT_DISPLAY },
   colors: { mode: 'auto' },
+  customCommands: { enabled: false, commands: [] },
 };
 
 // ── Dependency injection ────────────────────────────────────────────
@@ -390,3 +473,20 @@ export interface QwenInput {
 
 /** Union of all supported platform input types */
 export type RawInput = ClaudeCodeInput | QwenInput;
+
+/**
+ * Spec sent to the detached refresh helper (src/commands/custom-refresh.ts).
+ * Shared between the parser (which builds and sends it) and the helper (which
+ * receives and validates it).
+ */
+export interface RefreshSpec {
+  id: string;
+  command: string[];
+  timeoutMs: number;
+  maxBytes: number;
+  env?: Record<string, string>;
+  cwd?: string;
+  onError: OnErrorBehavior;
+  cachePath: string;
+  stdin?: string;
+}

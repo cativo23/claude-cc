@@ -5,8 +5,8 @@ import {
   type PowerlineStyleName,
 } from './powerline.js';
 import { truncField } from './text.js';
-import { EXCLUDED_TOOLS } from './shared.js';
-import type { ColorMode } from './colors.js';
+import { EXCLUDED_TOOLS, getCustomCommandsForLine, renderCustomCommand } from './shared.js';
+import { createColors, type ColorMode } from './colors.js';
 import type { RenderContext, ToolEntry } from '../types.js';
 import {
   type PowerlinePalette,
@@ -15,7 +15,7 @@ import {
   type ThemePalette,
 } from '../themes.js';
 
-function buildSegments(ctx: RenderContext, palette: PowerlinePalette): PowerlineSegment[] {
+function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import('./colors.js').Colors): PowerlineSegment[] {
   const { transcript: { tools, todos }, config: { display }, icons } = ctx;
   const segments: PowerlineSegment[] = [];
 
@@ -74,6 +74,15 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette): Powerline
     segments.push({ text: label, bg: palette.branchCleanBg, fg: palette.fg, priority: 80 });
   }
 
+  // Custom commands (issue #143 phase 3) — neutral dirBg, lowest priority so
+  // they evict before tools/agents/todos when line3 is space-constrained.
+  for (const out of getCustomCommandsForLine(ctx.customCommands, 3)) {
+    const text = renderCustomCommand(out, c);
+    if (text) {
+      segments.push({ text, bg: palette.dirBg, fg: palette.fg, priority: 15 });
+    }
+  }
+
   return segments;
 }
 
@@ -85,7 +94,10 @@ export function renderPowerlineLine3(ctx: RenderContext, mode: ColorMode, theme:
   const styleName = (ctx.config.powerline?.style ?? 'auto') as PowerlineStyleName;
   const hasNerdFont = (ctx.config.icons ?? 'nerd') === 'nerd';
   const style = resolveStyle(styleName, hasNerdFont);
-  const segments = buildSegments(ctx, palette);
+  // Colors instance for custom-command inline styling — consistent with the
+  // (mode, theme) the renderer dispatcher uses for the classic path.
+  const c = createColors(mode, theme);
+  const segments = buildSegments(ctx, palette, c);
   if (segments.length === 0) return '';
   return renderPowerline(segments, style, mode, ctx.cols);
 }

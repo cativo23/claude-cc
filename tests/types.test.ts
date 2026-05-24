@@ -4,6 +4,10 @@ import {
   DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
   AUTO_COMPACT_THRESHOLD,
   AUTO_COMPACT_WARNING_GAP,
+  CUSTOM_COMMAND_MAX_TIMEOUT_MS,
+  CUSTOM_COMMAND_MAX_BYTES,
+  CUSTOM_COMMAND_MAX_ENV_ENTRIES,
+  CUSTOM_COMMAND_MIN_REFRESH_MS,
 } from '../src/types.js';
 
 // Issue #138: defaults lowered so the visible bar warns/criticals BEFORE the
@@ -31,5 +35,25 @@ describe('AUTO_COMPACT_THRESHOLD (issue #138)', () => {
 
   it('AUTO_COMPACT_WARNING_GAP === 5', () => {
     expect(AUTO_COMPACT_WARNING_GAP).toBe(5);
+  });
+});
+
+// Issue #143: hard caps for the Custom Command widget. These bound runtime
+// cost so a misconfigured command can never starve the statusline render.
+describe('custom command hard caps (issue #143)', () => {
+  it('CUSTOM_COMMAND_MAX_TIMEOUT_MS === 2000', () => {
+    expect(CUSTOM_COMMAND_MAX_TIMEOUT_MS).toBe(2000);
+  });
+
+  it('CUSTOM_COMMAND_MAX_BYTES === 4096', () => {
+    expect(CUSTOM_COMMAND_MAX_BYTES).toBe(4096);
+  });
+
+  it('CUSTOM_COMMAND_MAX_ENV_ENTRIES === 32', () => {
+    expect(CUSTOM_COMMAND_MAX_ENV_ENTRIES).toBe(32);
+  });
+
+  it('CUSTOM_COMMAND_MIN_REFRESH_MS === 500', () => {
+    expect(CUSTOM_COMMAND_MIN_REFRESH_MS).toBe(500);
   });
 });

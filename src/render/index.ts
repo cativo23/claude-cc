@@ -29,6 +29,15 @@ export function render(ctx: RenderContext): string {
   lines.push(wantsPowerline ? renderPowerlineLine2(ctx, colorMode, theme, c) : renderLine2(ctx, c));
   const l3 = wantsPowerline ? renderPowerlineLine3(ctx, colorMode, theme) : renderLine3(ctx, c);
   if (l3) lines.push(l3);
-  if (ctx.config.gsd) { const l4 = renderLine4(ctx, c); if (l4) lines.push(l4); }
+
+  // Line 4 renders when either GSD is on OR a custom command targets line 4.
+  // The renderer short-circuits to '' when both are absent, so this gate just
+  // avoids invoking the renderer when we know it has nothing to do — keeping
+  // the previous behaviour for users without either feature configured.
+  const hasL4CustomCmds = (ctx.customCommands ?? []).some(o => o.line === 4 && o.state !== 'hidden');
+  if (ctx.config.gsd || hasL4CustomCmds) {
+    const l4 = renderLine4(ctx, c);
+    if (l4) lines.push(l4);
+  }
   return lines.filter(Boolean).join('\n');
 }

@@ -149,4 +149,29 @@ describe('renderPowerlineLine3 — agent count', () => {
     });
     expect(stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null))).not.toContain('agent');
   });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  describe('custom commands', () => {
+    it('renders an ok line-3 command as a powerline segment', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'L3', state: 'ok', line: 3, ansi: false }],
+      });
+      const out = stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null));
+      expect(out).toContain('L3');
+    });
+
+    it('drops hidden outputs', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'GONE', state: 'hidden', line: 3, ansi: false }],
+      });
+      expect(stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null))).not.toContain('GONE');
+    });
+
+    it('does not render commands for other lines', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'WRONG', state: 'ok', line: 1, ansi: false }],
+      });
+      expect(stripAnsi(renderPowerlineLine3(ctx, 'truecolor', null))).not.toContain('WRONG');
+    });
+  });
 });

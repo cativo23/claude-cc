@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fitSegments, truncField } from './text.js';
-import { formatGitChanges, getActiveTodo, SEP } from './shared.js';
+import { formatGitChanges, getActiveTodo, getCustomCommandsForLine, renderCustomCommand, SEP } from './shared.js';
 import { hyperlink } from './hyperlink.js';
 import { formatDuration } from '../utils/format.js';
 import { isNamedAgentType } from '../parsers/subagents.js';
@@ -115,6 +115,14 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
       `https://www.npmjs.com/package/@anthropic-ai/claude-code/v/${encodeURIComponent(input.version)}`,
       c.dim(`v${input.version}`),
     ));
+  }
+
+  // Custom commands (issue #143 phase 3) — appended last on the left so they
+  // sit after core widgets and evict first under fitSegments' narrow-cols
+  // pressure. Filtered to line === 1 and non-hidden state.
+  for (const out of getCustomCommandsForLine(ctx.customCommands, 1)) {
+    const seg = renderCustomCommand(out, c);
+    if (seg) left.push(seg);
   }
 
   if (left.length === 0 && right.length === 0) return '';

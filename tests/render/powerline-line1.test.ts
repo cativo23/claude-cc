@@ -758,4 +758,39 @@ describe('renderPowerlineLine1', () => {
       expect(out).toContain('jarvis');
     });
   });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  describe('custom commands', () => {
+    it('renders an ok line-1 command as a powerline segment', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'CUSTOM', state: 'ok', line: 1, ansi: false }],
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('CUSTOM');
+    });
+
+    it('ignores hidden state outputs', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'GONE', state: 'hidden', line: 1, ansi: false }],
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('GONE');
+    });
+
+    it('does not render commands targeting other lines', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'OTHER', state: 'ok', line: 2, ansi: false }],
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('OTHER');
+    });
+
+    it('dims a stale command', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'fading', state: 'stale', line: 1, ansi: false }],
+      });
+      const raw = renderPowerlineLine1(ctx, 'truecolor', null);
+      expect(raw).toContain('\x1b[2m');
+    });
+  });
 });

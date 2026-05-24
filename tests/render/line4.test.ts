@@ -16,12 +16,13 @@ const baseInput: ClaudeCodeInput = {
   workspace: { current_dir: '/home/user/project' },
 };
 
-function makeCtx(gsd: GsdInfo | null): RenderContext {
+function makeCtx(gsd: GsdInfo | null, overrides: Partial<RenderContext> = {}): RenderContext {
   return {
     input: normalize(baseInput), git: EMPTY_GIT, transcript: EMPTY_TRANSCRIPT,
     tokenSpeed: null, memory: null, gsd, mcp: null, cols: 120,
     config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } },
     icons: NERD_ICONS,
+    ...overrides,
   };
 }
 
@@ -49,5 +50,44 @@ describe('renderLine4', () => {
     const out = stripAnsi(renderLine4(makeCtx({ currentTask: 'My task', updateAvailable: true }), c));
     expect(out).toContain('My task');
     expect(out).toContain('GSD update available');
+  });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  describe('custom commands', () => {
+    it('renders custom commands on line 4 even when GSD is null', () => {
+      const ctx = makeCtx(null, {
+        customCommands: [{ id: 'foo', text: 'WIDGET4', state: 'ok', line: 4, ansi: false }],
+      });
+      const out = stripAnsi(renderLine4(ctx, c));
+      expect(out).toContain('WIDGET4');
+    });
+
+    it('renders custom commands alongside GSD task', () => {
+      const ctx = makeCtx({ currentTask: 'task' }, {
+        customCommands: [{ id: 'foo', text: 'BOTH', state: 'ok', line: 4, ansi: false }],
+      });
+      const out = stripAnsi(renderLine4(ctx, c));
+      expect(out).toContain('task');
+      expect(out).toContain('BOTH');
+    });
+
+    it('ignores commands for other lines', () => {
+      const ctx = makeCtx(null, {
+        customCommands: [{ id: 'foo', text: 'WRONG', state: 'ok', line: 1, ansi: false }],
+      });
+      expect(renderLine4(ctx, c)).toBe('');
+    });
+
+    it('drops hidden state outputs', () => {
+      const ctx = makeCtx(null, {
+        customCommands: [{ id: 'foo', text: 'GONE', state: 'hidden', line: 4, ansi: false }],
+      });
+      expect(renderLine4(ctx, c)).toBe('');
+    });
+
+    it('returns empty string when neither GSD nor custom commands have content', () => {
+      const ctx = makeCtx(null, { customCommands: [] });
+      expect(renderLine4(ctx, c)).toBe('');
+    });
   });
 });

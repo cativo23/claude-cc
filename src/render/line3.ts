@@ -1,5 +1,5 @@
 import { truncField } from './text.js';
-import { SEP, EXCLUDED_TOOLS } from './shared.js';
+import { SEP, EXCLUDED_TOOLS, getCustomCommandsForLine, renderCustomCommand } from './shared.js';
 import type { IconSet } from './icons.js';
 import type { Colors } from './colors.js';
 import type { RenderContext, ToolEntry, TodoEntry } from '../types.js';
@@ -67,5 +67,14 @@ export function renderLine3(ctx: RenderContext, c: Colors): string {
   const todosPart = display.todos === false ? '' : buildTodosPart(todos, c, icons);
 
   const parts = [toolsPart, agentsPart, todosPart].filter(Boolean);
+
+  // Custom commands (issue #143 phase 3) — appended after the core line3
+  // widgets so they sit at the end of the line and are visible without
+  // disrupting the tools/agents/todos cluster.
+  for (const out of getCustomCommandsForLine(ctx.customCommands, 3)) {
+    const seg = renderCustomCommand(out, c);
+    if (seg) parts.push(seg);
+  }
+
   return parts.join(SEP);
 }

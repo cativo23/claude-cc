@@ -118,8 +118,14 @@ export function renderMinimal(ctx: RenderContext, c: Colors): string {
 
   const mainLine = parts.join(SEP_MINIMAL);
 
-  // Append tools/todos as extra line
-  const l3 = renderLine3(ctx, c);
+  // Append tools/todos as extra line. Custom commands are intentionally NOT
+  // surfaced in minimal mode — the preset targets tight single-line terminals
+  // and arbitrary user widgets would fight every other widget for space.
+  // Users who want custom commands should switch to full or balanced.
+  // We strip customCommands from the ctx before delegating so line3's own
+  // custom-command handling never fires here.
+  const minimalCtx = ctx.customCommands ? { ...ctx, customCommands: undefined } : ctx;
+  const l3 = renderLine3(minimalCtx, c);
   if (l3) return mainLine + '\n' + l3;
   return mainLine;
 }

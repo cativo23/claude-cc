@@ -2,7 +2,7 @@ import { fitSegments, displayWidth } from './text.js';
 import { getQuotaColor, getPaceColor, getCacheHitColor, getApiLatencyColor, detectColorMode, type Colors } from './colors.js';
 import { QUOTA_CRITICAL } from '../types.js';
 import { computeApiLatency, formatApiLatency } from './api-latency.js';
-import { buildContextBar, formatQwenMetrics, SEP } from './shared.js';
+import { buildContextBar, formatQwenMetrics, getCustomCommandsForLine, renderCustomCommand, SEP } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
@@ -266,6 +266,14 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
         projectedW += addW;
       }
     }
+  }
+
+  // Custom commands (issue #143 phase 3) — appended last on the left so they
+  // sit after rate-limit/pace clusters and evict first under fitSegments'
+  // narrow-cols pressure. Filtered to line === 2 and non-hidden state.
+  for (const out of getCustomCommandsForLine(ctx.customCommands, 2)) {
+    const seg = renderCustomCommand(out, c);
+    if (seg) leftParts.push(seg);
   }
 
   if (leftParts.length === 0 && rightParts.length === 0) return '';

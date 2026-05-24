@@ -5,7 +5,7 @@ import {
   type PowerlineStyleName,
 } from './powerline.js';
 import { QUOTA_CRITICAL } from '../types.js';
-import { buildContextBar, formatQwenMetrics } from './shared.js';
+import { buildContextBar, formatQwenMetrics, getCustomCommandsForLine, renderCustomCommand } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { detectColorMode, getCacheHitTier, getApiLatencyTier, getPaceColor, type ColorMode, type Colors } from './colors.js';
 import { computeApiLatency, formatApiLatency } from './api-latency.js';
@@ -261,6 +261,16 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     for (const h of hints) {
       const prefix = h.severity === 'warn' ? '⚠ ' : 'ℹ ';
       segments.push({ text: `${prefix}${h.hint}`, bg: palette.versionBg, fg: palette.fg, priority: 10 });
+    }
+  }
+
+  // Custom commands (issue #143 phase 3) — neutral dirBg, priority 15 so user
+  // widgets evict before lumira's own line2 metrics. Inline fg color/dim from
+  // renderCustomCommand renders on top of the segment bg.
+  for (const out of getCustomCommandsForLine(ctx.customCommands, 2)) {
+    const text = renderCustomCommand(out, c);
+    if (text) {
+      segments.push({ text, bg: palette.dirBg, fg: palette.fg, priority: 15 });
     }
   }
 

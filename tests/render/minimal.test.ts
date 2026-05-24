@@ -94,4 +94,26 @@ describe('renderMinimal', () => {
     const out = stripAnsi(renderMinimal(makeCtx({ cols: 50 }), c));
     expect(out).not.toContain('$1.31');
   });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  // Minimal preset is intentionally opinionated: it targets tight single-line
+  // terminals where every char counts. User-defined widgets are not surfaced
+  // here. Users who want them should pick the full or balanced preset.
+  describe('custom commands', () => {
+    it('does not render custom commands declared on any line', () => {
+      const ctx = makeCtx({
+        customCommands: [
+          { id: 'a', text: 'CUSTOM1', state: 'ok', line: 1, ansi: false },
+          { id: 'b', text: 'CUSTOM2', state: 'ok', line: 2, ansi: false },
+          { id: 'c', text: 'CUSTOM3', state: 'ok', line: 3, ansi: false },
+          { id: 'd', text: 'CUSTOM4', state: 'ok', line: 4, ansi: false },
+        ],
+      });
+      const out = stripAnsi(renderMinimal(ctx, c));
+      expect(out).not.toContain('CUSTOM1');
+      expect(out).not.toContain('CUSTOM2');
+      expect(out).not.toContain('CUSTOM3');
+      expect(out).not.toContain('CUSTOM4');
+    });
+  });
 });
