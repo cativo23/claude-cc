@@ -1,8 +1,9 @@
 import { NERD_ICONS, type IconSet } from './icons.js';
-import { getContextColor, type Colors } from './colors.js';
+import { getContextColor, stripAnsi, type Colors } from './colors.js';
 import { formatTokens } from '../utils/format.js';
 import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData } from '../types.js';
 import type { NormalizedInput } from '../normalize.js';
+import type { CustomCommandOutput } from '../parsers/custom-commands.js';
 
 export const SEP = ` \x1b[90m\u2502\x1b[0m `;
 export const SEP_MINIMAL = ` \x1b[90m|\x1b[0m `;
@@ -116,6 +117,67 @@ export function formatGitChanges(git: GitStatus, c: Colors): string[] {
   if (git.modified > 0) parts.push(c.yellow(`!${git.modified}`));
   if (git.untracked > 0) parts.push(c.gray(`?${git.untracked}`));
   return parts;
+}
+
+/**
+ * Filter custom command outputs to those that should render on the given line.
+ * Hidden-state outputs are dropped — they exist in the parser result so the
+ * caller has full visibility, but renderers MUST treat them as if they were
+ * absent. `undefined` ctx input is normalized to an empty array so test
+ * fixtures without customCommands continue to work.
+ */
+export function getCustomCommandsForLine(
+  outputs: CustomCommandOutput[] | undefined,
+  line: 1 | 2 | 3 | 4,
+): CustomCommandOutput[] {
+  if (!outputs) return [];
+  return outputs.filter(o => o.line === line && o.state !== 'hidden');
+}
+
+/**
+ * Render a single CustomCommandOutput into a styled segment string.
+ *
+ * - `hidden`           → '' (caller should also have filtered via
+ *                        getCustomCommandsForLine, but defensive empty here).
+ * - `ansi: false`      → ANSI sequences are stripped from the raw text and the
+ *                        configured `color` is applied. Default.
+ * - `ansi: true`       → user-supplied ANSI is passed through verbatim;
+ *                        `color` is intentionally NOT applied (we'd be
+ *                        layering escapes over the user's existing ones).
+ * - `state: 'stale'`   → entire rendered output is dimmed *after* any color
+ *                        is applied. Mirrors the parser contract: stale means
+ *                        a refresh is in flight and the value displayed may
+ *                        be one tick old.
+ * - `label`            → prepended with a single-space separator. Useful for
+ *                        glyph prefixes (e.g. " " or "[ci]").
+ *
+ * Defensive about the color attr: when the parser emits an unrecognised value
+ * (shouldn't happen given config validation, but the type isn't load-bearing
+ * enough to assert at runtime), we fall through to no color rather than
+ * throwing — the renderer must never crash on user data.
+ */
+export function renderCustomCommand(output: CustomCommandOutput, c: Colors): string {
+  if (output.state === 'hidden') return '';
+
+  // Strip ANSI from user output unless explicitly opted in. Stripping happens
+  // *before* label concatenation so the label can't end up sandwiched inside
+  // an unclosed escape sequence.
+  let text = output.ansi ? output.text : stripAnsi(output.text);
+  if (output.label) text = `${output.label} ${text}`;
+
+  // Color is only applied when ansi=false; otherwise we'd be wrapping the
+  // user's escapes in another escape, which most terminals render as garbage.
+  let result = text;
+  if (!output.ansi && output.color) {
+    const fn = (c as unknown as Record<string, (s: string) => string>)[output.color];
+    if (typeof fn === 'function') result = fn(text);
+  }
+
+  // Stale dimming is the last transform — it must wrap the colored result so
+  // the "in-flight refresh" signal is visible regardless of the base color.
+  if (output.state === 'stale') result = c.dim(result);
+
+  return result;
 }
 
 export function formatQwenMetrics(n: NormalizedInput, c: Colors, icons: IconSet): string[] {
