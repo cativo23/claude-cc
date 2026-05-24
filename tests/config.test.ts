@@ -219,6 +219,160 @@ describe('loadConfig', () => {
       expect(c.display.contextCriticalThreshold).toBe(78);
     });
   });
+
+  // Issue #143 phase 1 — Custom Command widget config schema. Validates
+  // user-supplied commands at load time, drops invalid entries silently
+  // (same pattern as other config sections), clamps numeric fields, and
+  // gates the whole feature behind `enabled: false` by default.
+  describe('customCommands', () => {
+    it('defaults to { enabled: false, commands: [] } when omitted', () => {
+      expect(loadConfig(join(dir, 'nope')).customCommands).toEqual({ enabled: false, commands: [] });
+    });
+
+    it('parses a fully-specified command with all defaults applied to omitted fields', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: {
+          enabled: true,
+          commands: [
+            { id: 'k8s', command: ['kubectl', 'config', 'current-context'], line: 2 },
+          ],
+        },
+      }));
+      const c = loadConfig(dir);
+      expect(c.customCommands.enabled).toBe(true);
+      expect(c.customCommands.commands).toHaveLength(1);
+      const cmd = c.customCommands.commands[0];
+      expect(cmd.id).toBe('k8s');
+      expect(cmd.command).toEqual(['kubectl', 'config', 'current-context']);
+      expect(cmd.line).toBe(2);
+      // Defaults
+      expect(cmd.refreshMs).toBe(5000);
+      expect(cmd.timeoutMs).toBe(1500);
+      expect(cmd.maxBytes).toBe(256);
+      expect(cmd.onError).toBe('hide');
+      expect(cmd.onTimeout).toBe('stale');
+      expect(cmd.ansi).toBe(false);
+      expect(cmd.label).toBeUndefined();
+      expect(cmd.env).toBeUndefined();
+      expect(cmd.cwd).toBeUndefined();
+      expect(cmd.color).toBeUndefined();
+    });
+
+    it('clamps timeoutMs above 2000 to 2000', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, timeoutMs: 5000 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].timeoutMs).toBe(2000);
+    });
+
+    it('clamps maxBytes above 4096 to 4096', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, maxBytes: 100000 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].maxBytes).toBe(4096);
+    });
+
+    it('clamps refreshMs below 500 to 500', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, refreshMs: 100 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].refreshMs).toBe(500);
+    });
+
+    it('truncates env to 32 entries', () => {
+      mkdirSync(dir, { recursive: true });
+      const env: Record<string, string> = {};
+      for (let i = 0; i < 50; i++) env[`KEY_${i}`] = `v${i}`;
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, env }] },
+      }));
+      const cmd = loadConfig(dir).customCommands.commands[0];
+      expect(Object.keys(cmd.env ?? {}).length).toBe(32);
+    });
+
+    it('drops command with empty command array', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: [], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+
+    it('allows command: ["sh", "-c", "ls"] (we do not ban shell wrappers)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'shellish', command: ['sh', '-c', 'ls'], line: 1 }] },
+      }));
+      const cmds = loadConfig(dir).customCommands.commands;
+      expect(cmds).toHaveLength(1);
+      expect(cmds[0].command).toEqual(['sh', '-c', 'ls']);
+    });
+
+    it('rejects command as a single string (must be array)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: 'ls', line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+
+    it('drops duplicate id (second wins-policy = keep first, drop later duplicates)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [
+          { id: 'dup', command: ['echo', 'one'], line: 1 },
+          { id: 'dup', command: ['echo', 'two'], line: 2 },
+        ] },
+      }));
+      const cmds = loadConfig(dir).customCommands.commands;
+      expect(cmds).toHaveLength(1);
+      expect(cmds[0].command).toEqual(['echo', 'one']);
+    });
+
+    it('accepts enabled: true with empty commands array', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [] },
+      }));
+      expect(loadConfig(dir).customCommands).toEqual({ enabled: true, commands: [] });
+    });
+
+    it('defaults enabled to false when omitted', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { commands: [{ id: 'a', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.enabled).toBe(false);
+    });
+
+    it('falls back to onError default ("hide") when value is invalid', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, onError: 'explode' }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].onError).toBe('hide');
+    });
+
+    it('drops command with invalid line value (e.g. 5)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 5 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+
+    it('drops command with non-numeric line value', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 'a' }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+  });
 });
 
 describe('mergeCliFlags', () => {
