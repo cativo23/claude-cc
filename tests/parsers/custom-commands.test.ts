@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, chmodSync, existsSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { getCustomCommandOutputs } from '../../src/parsers/custom-commands.js';
+import {
+  getCustomCommandOutputs,
+  _setRefreshStrategy,
+  _resetRefreshState,
+} from '../../src/parsers/custom-commands.js';
+import { runCustomRefresh } from '../../src/commands/custom-refresh.js';
 import type { CustomCommand, CustomCommandsConfig } from '../../src/types.js';
 
 const FIXED_NOW = 1_700_000_000_000;
@@ -40,13 +45,36 @@ describe('getCustomCommandOutputs', () => {
   let cachePath: string;
   let configPath: string;
 
+  // Track in-flight in-process refreshes so tests can wait on them. The
+  // production strategy spawns a detached child process, which is great for
+  // the renderer's exit time but lousy for deterministic test assertions —
+  // we swap in an in-process strategy that drives runCustomRefresh directly
+  // and records the resulting Promise so tests can await completion.
+  const pendingRefreshes: Promise<void>[] = [];
+
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'lumira-custom-cmds-'));
     cachePath = join(dir, 'custom-commands.json');
     configPath = join(dir, 'config.json');
     writeFileSync(configPath, '{}', { mode: 0o600 });
+
+    // I4: reset module-level state so tests don't leak refresh-in-flight
+    // markers between cases.
+    _resetRefreshState();
+    pendingRefreshes.length = 0;
+
+    _setRefreshStrategy((spec) => {
+      // Serialize the spec exactly like the production strategy would, then
+      // hand it to runCustomRefresh in-process. We don't await here (caller
+      // is fire-and-forget) but we DO record the promise so tests that
+      // care about completion can await it.
+      const p = runCustomRefresh(JSON.stringify(spec)).catch(() => {});
+      pendingRefreshes.push(p);
+    });
   });
-  afterEach(() => {
+  afterEach(async () => {
+    await Promise.all(pendingRefreshes).catch(() => {});
+    _setRefreshStrategy(undefined);
     rmSync(dir, { recursive: true, force: true });
   });
 

@@ -17,6 +17,7 @@ import { resolveIcons } from './render/icons.js';
 import { install, uninstall } from './installer.js';
 import { runThemesCommand } from './commands/themes.js';
 import { runStatsCommand } from './commands/stats.js';
+import { runCustomRefreshFromStdin } from './commands/custom-refresh.js';
 import type { Dependencies } from './types.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
 import { normalize } from './normalize.js';
@@ -92,6 +93,11 @@ if (isDirectRun()) {
       process.stderr.write(`Stats error: ${e.message}\n`);
       process.exit(1);
     });
+  } else if (cmd === '__custom-refresh') {
+    // Internal: invoked by the renderer as a detached child to refresh a
+    // single custom command's cache entry without keeping the renderer's
+    // event loop refed. Reads the spec JSON from its own stdin.
+    runCustomRefreshFromStdin().then(() => process.exit(0)).catch(() => process.exit(0));
   } else {
     main().then(o => process.stdout.write(o)).catch(e => { if (!(e instanceof StdinParseError)) process.stderr.write(`Statusline error: ${e.message}\n`); });
   }

@@ -2,22 +2,16 @@ import {
   readFileSync,
   statSync,
   lstatSync,
-  openSync,
-  writeSync,
-  closeSync,
-  renameSync,
-  mkdirSync,
-  unlinkSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { randomBytes } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type {
   CustomCommand,
   CustomCommandsConfig,
   OnErrorBehavior,
 } from '../types.js';
-import { execBg } from '../utils/exec-bg.js';
 
 /**
  * Parser orchestrator for the Custom Command widget (issue #143).
@@ -137,33 +131,9 @@ function readCacheFile(path: string): CacheMap {
   }
 }
 
-/**
- * Write the cache atomically: dump to a temp file with mode 0600 + exclusive
- * open, then rename into place. The exclusive open (`wx`) prevents racing
- * symlink-following attacks on the temp file. We swallow all errors — a
- * failed cache write must NEVER affect the renderer.
- */
-function writeCacheFile(path: string, data: CacheMap): void {
-  try {
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    // Random suffix (vs. process.pid) defeats symlink TOCTOU: an attacker can
-    // no longer pre-create a symlink at a predictable path. `wx` open already
-    // refuses to open existing files, but it follows pre-existing symlinks; a
-    // random unguessable name keeps the attacker from creating the symlink in
-    // the first place.
-    const tmp = `${path}.${randomBytes(8).toString('hex')}.tmp`;
-    try { unlinkSync(tmp); } catch { /* not present */ }
-    const fd = openSync(tmp, 'wx', 0o600);
-    try {
-      writeSync(fd, JSON.stringify(data));
-    } finally {
-      closeSync(fd);
-    }
-    renameSync(tmp, path);
-  } catch {
-    /* cache write best-effort */
-  }
-}
+// Cache writes happen exclusively in the detached refresh helper (see
+// src/commands/custom-refresh.ts) so the renderer process never has to
+// wait on disk IO. This parser only ever reads.
 
 /** Stat-based world-writable check. Returns true ⇒ unsafe, caller aborts. */
 function isWorldWritable(path: string): boolean {
@@ -174,14 +144,6 @@ function isWorldWritable(path: string): boolean {
     // File missing → treat as safe (config layer wouldn't have parsed it).
     return false;
   }
-}
-
-/** Extract the last non-empty line of stderr, capped to N chars, for the
- * `output` fallback behavior. */
-function lastStderrLine(stderr: string, cap = 120): string {
-  const lines = stderr.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
-  const last = lines.length === 0 ? '' : lines[lines.length - 1];
-  return last.length > cap ? last.slice(0, cap) : last;
 }
 
 /**
@@ -265,65 +227,113 @@ function markStale(out: CustomCommandOutput): CustomCommandOutput {
 }
 
 /**
- * Fire-and-forget background refresh. Spawns the command, writes the result
- * into the cache file. Errors are swallowed — the renderer doesn't care.
- *
- * `inFlightKey` prevents the same id from racing itself if the renderer is
- * invoked twice within a single Node process before the first refresh lands.
+ * Spec sent to the detached refresh helper (must match the helper's
+ * RefreshSpec exactly — see src/commands/custom-refresh.ts).
+ */
+interface RefreshSpec {
+  id: string;
+  command: string[];
+  timeoutMs: number;
+  maxBytes: number;
+  env?: Record<string, string>;
+  cwd?: string;
+  onError: OnErrorBehavior;
+  cachePath: string;
+  stdin?: string;
+}
+
+function buildSpec(cmd: CustomCommand, stdin: string, cachePath: string): RefreshSpec {
+  const spec: RefreshSpec = {
+    id: cmd.id,
+    command: cmd.command,
+    timeoutMs: cmd.timeoutMs,
+    maxBytes: cmd.maxBytes,
+    onError: cmd.onError,
+    cachePath,
+    stdin,
+  };
+  if (cmd.env) spec.env = cmd.env;
+  if (cmd.cwd) spec.cwd = cmd.cwd;
+  return spec;
+}
+
+/**
+ * Refresh strategy — how to actually kick off the background work for a
+ * stale command. Default strategy spawns a detached lumira sub-process
+ * running the `__custom-refresh` helper so that this Node process can
+ * exit immediately (B1). Tests inject an in-process strategy that
+ * awaits execBg directly for deterministic assertions.
+ */
+export type RefreshStrategy = (spec: RefreshSpec) => void;
+
+/**
+ * Default strategy: spawn `node <lumira-entry> __custom-refresh`, write the
+ * spec to its stdin, then detach so the renderer's event loop unrefs the
+ * child immediately. The helper runs the user command, writes the cache,
+ * and exits — but the renderer no longer waits on any of that work.
+ */
+function defaultRefreshStrategy(spec: RefreshSpec): void {
+  try {
+    // The renderer is normally lumira's compiled entry (dist/index.js). When
+    // run from tests/dev we are likely executing TS via tsx/loaders; the env
+    // var lets the test harness override the entry it points to.
+    const entry = process.env.LUMIRA_CUSTOM_REFRESH_ENTRY
+      ?? fileURLToPath(new URL('../index.js', import.meta.url));
+    const child = spawn(process.execPath, [entry, '__custom-refresh'], {
+      detached: true,
+      // stdin pipes the spec; stdout/stderr discarded so we don't keep the
+      // event loop refed waiting on output from the helper.
+      stdio: ['pipe', 'ignore', 'ignore'],
+      windowsHide: true,
+    });
+    // Unref so the parent process can exit while the helper continues.
+    child.unref();
+    if (child.stdin) {
+      child.stdin.on('error', () => { /* helper may exit before we finish writing */ });
+      try { child.stdin.write(JSON.stringify(spec)); } catch { /* ignore */ }
+      try { child.stdin.end(); } catch { /* ignore */ }
+    }
+  } catch {
+    /* swallow — render must never break because a helper failed to spawn */
+  }
+}
+
+let activeRefreshStrategy: RefreshStrategy = defaultRefreshStrategy;
+
+/**
+ * Test-only: swap the refresh strategy. Pass `undefined` to restore the
+ * default detached-spawn behavior. Use the in-process strategy in tests
+ * that need to observe cache writes deterministically.
+ */
+export function _setRefreshStrategy(strategy: RefreshStrategy | undefined): void {
+  activeRefreshStrategy = strategy ?? defaultRefreshStrategy;
+}
+
+/**
+ * Fire-and-forget background refresh. Delegates to the active strategy.
+ * `refreshInFlight` prevents the same id from racing itself if the
+ * renderer is invoked twice within one Node process.
  */
 function fireRefresh(
   cmd: CustomCommand,
   stdin: string,
   cachePath: string,
-  now: () => number,
 ): void {
   if (refreshInFlight.has(cmd.id)) return;
   refreshInFlight.add(cmd.id);
-
-  // Detached from the call site — we don't await this and we don't surface errors.
-  void (async (): Promise<void> => {
-    try {
-      const result = await execBg({
-        command: cmd.command,
-        timeoutMs: cmd.timeoutMs,
-        maxBytes: cmd.maxBytes,
-        env: cmd.env,
-        cwd: cmd.cwd,
-        stdin,
-      });
-
-      let entry: CacheEntry;
-      switch (result.kind) {
-        case 'ok':
-          entry = { text: result.stdout, capturedAt: now(), state: 'ok' };
-          break;
-        case 'timeout':
-          entry = { text: result.stdout, capturedAt: now(), state: 'timeout' };
-          break;
-        case 'nonzero': {
-          // Honor onError: 'output' by storing the last stderr line; other
-          // behaviors will still see this entry as `nonzero` and choose to
-          // hide / placeholder / use stale, but `output` will surface text.
-          const text = cmd.onError === 'output' ? lastStderrLine(result.stderr) : result.stdout;
-          entry = { text, capturedAt: now(), state: 'nonzero' };
-          break;
-        }
-        case 'spawn-error':
-          entry = { text: '', capturedAt: now(), state: 'nonzero' };
-          break;
-      }
-
-      // Read-modify-write the cache so concurrent commands don't clobber each
-      // other's entries. The renamesync at the end is atomic on POSIX.
-      const current = readCacheFile(cachePath);
-      current[cmd.id] = entry;
-      writeCacheFile(cachePath, current);
-    } catch {
-      /* swallow — render must never break */
-    } finally {
-      refreshInFlight.delete(cmd.id);
-    }
-  })();
+  try {
+    activeRefreshStrategy(buildSpec(cmd, stdin, cachePath));
+  } catch {
+    /* defensive */
+  } finally {
+    // Note: detached strategy completes the work asynchronously in another
+    // process, so refreshInFlight is cleared as soon as the spawn has been
+    // dispatched. The cross-process semantics mean we no longer "know" when
+    // the helper finishes — but that's fine: stale-while-refreshing is the
+    // designed behavior, and the next render that sees a fresh cache entry
+    // will switch from `stale` back to `ok`.
+    refreshInFlight.delete(cmd.id);
+  }
 }
 
 export async function getCustomCommandOutputs(
@@ -350,7 +360,6 @@ export async function getCustomCommandOutputs(
 
   const cache = readCacheFile(cachePath);
   const now = typeof input.now === 'number' ? input.now : Date.now();
-  const nowFn = (): number => (typeof input.now === 'number' ? input.now : Date.now());
 
   const outputs: CustomCommandOutput[] = [];
   for (const cmd of config.commands) {
@@ -368,7 +377,7 @@ export async function getCustomCommandOutputs(
     outputs.push(isStale ? markStale(base) : base);
 
     if (isStale) {
-      fireRefresh(cmd, input.stdin, cachePath, nowFn);
+      fireRefresh(cmd, input.stdin, cachePath);
     }
   }
 
