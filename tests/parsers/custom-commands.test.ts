@@ -103,6 +103,9 @@ describe('getCustomCommandOutputs', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].text).toBe('old-text');
+    // H1: a past-refreshMs `ok` entry serves cached text but with state =
+    // 'stale' (not 'ok') so the renderer can dim it while the bg refresh runs.
+    expect(result[0].state).toBe('stale');
 
     // Wait for fire-and-forget refresh to land on disk.
     await waitFor(() => {
@@ -302,6 +305,55 @@ describe('getCustomCommandOutputs', () => {
     expect(result[0].text).toBe('cached-during-skew');
     expect(result[0].state).toBe('ok');
     // No crash, no weird state — just treats it as fresh.
+  });
+
+  // H2: each output carries renderer-facing metadata (line/label/color/ansi)
+  // copied from the source CustomCommand. Phase 3 renderers need this and
+  // shouldn't have to maintain a separate id→cmd map.
+  it('propagates line / label / color / ansi from CustomCommand onto every output', async () => {
+    const okCmd = makeCmd({
+      id: 'ok-meta',
+      command: ['node', '-e', "process.stdout.write('hi')"],
+      line: 3,
+      label: 'k8s:',
+      color: 'cyan',
+      ansi: true,
+      refreshMs: 5000,
+    });
+    const hiddenCmd = makeCmd({
+      id: 'hidden-meta',
+      line: 2,
+      label: 'gone',
+      color: 'red',
+      ansi: false,
+      onError: 'hide',
+    });
+    writeFileSync(cachePath, JSON.stringify({
+      [okCmd.id]: { text: 'cached', capturedAt: FIXED_NOW - 100, state: 'ok' },
+    }), { mode: 0o600 });
+
+    const result = await getCustomCommandOutputs({
+      config: makeConfig([okCmd, hiddenCmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+    expect(result).toHaveLength(2);
+    // ok entry — full metadata
+    expect(result[0].id).toBe('ok-meta');
+    expect(result[0].state).toBe('ok');
+    expect(result[0].line).toBe(3);
+    expect(result[0].label).toBe('k8s:');
+    expect(result[0].color).toBe('cyan');
+    expect(result[0].ansi).toBe(true);
+    // hidden entry — metadata still populated even when text is empty
+    expect(result[1].id).toBe('hidden-meta');
+    expect(result[1].state).toBe('hidden');
+    expect(result[1].line).toBe(2);
+    expect(result[1].label).toBe('gone');
+    expect(result[1].color).toBe('red');
+    expect(result[1].ansi).toBe(false);
   });
 
   // M4: symlink-safe cache read. If an attacker can write into the cache dir

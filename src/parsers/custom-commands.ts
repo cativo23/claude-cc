@@ -32,15 +32,41 @@ import { execBg } from '../utils/exec-bg.js';
  * - World-writable config file aborts (someone could have injected commands).
  */
 
+/**
+ * State emitted to the renderer.
+ *  - `ok`      — cached output present and within refreshMs.
+ *  - `stale`   — cached output present but past refreshMs; a background
+ *                refresh has just been kicked off. Renderer can dim the
+ *                text or render the previous value unchanged.
+ *  - `timeout` — last run hit wall-clock timeout (onTimeout governs text).
+ *  - `error`   — last run exited non-zero, spawn failed, or never-ran with
+ *                onError != 'hide' (onError governs text).
+ *  - `hidden`  — nothing should be rendered (empty text). Either explicit
+ *                onError/onTimeout = 'hide', or no cached entry + onError =
+ *                'hide' (collapses the old 'never-ran' state — same UI).
+ */
+export type CustomCommandState = 'ok' | 'stale' | 'timeout' | 'error' | 'hidden';
+
 export interface CustomCommandOutput {
   /** Matches CustomCommand.id from the config. */
   id: string;
   /** Text to render (may be empty when state = 'hidden'). */
   text: string;
   /** State the command is in — drives renderer styling. */
-  state: 'ok' | 'stale' | 'timeout' | 'error' | 'never-ran' | 'hidden';
-  /** When the cached output was captured (ms epoch); absent for never-ran/hidden. */
+  state: CustomCommandState;
+  /** When the cached output was captured (ms epoch); absent when no cache entry. */
   capturedAt?: number;
+  // ── Rendering metadata (copied from the CustomCommand config) ─────
+  // These are propagated here so renderers don't have to maintain a
+  // separate id→cmd lookup just to know which line / color / glyph to use.
+  /** Which statusline line to render on. */
+  line: 1 | 2 | 3 | 4;
+  /** Optional prefix label/glyph. */
+  label?: string;
+  /** Optional color (applied only when ansi = false). */
+  color?: CustomCommand['color'];
+  /** True if the command's stdout already contains ANSI escapes. */
+  ansi: boolean;
 }
 
 export interface GetCustomCommandOutputsInput {
@@ -158,18 +184,34 @@ function lastStderrLine(stderr: string, cap = 120): string {
   return last.length > cap ? last.slice(0, cap) : last;
 }
 
+/**
+ * Build the base render-metadata fields common to every output. Renderers
+ * consume these directly instead of joining the output back against the
+ * CustomCommand list — keeps the contract self-contained.
+ */
+function renderMeta(cmd: CustomCommand): Pick<CustomCommandOutput, 'line' | 'label' | 'color' | 'ansi'> {
+  const meta: Pick<CustomCommandOutput, 'line' | 'label' | 'color' | 'ansi'> = {
+    line: cmd.line,
+    ansi: cmd.ansi,
+  };
+  if (cmd.label !== undefined) meta.label = cmd.label;
+  if (cmd.color !== undefined) meta.color = cmd.color;
+  return meta;
+}
+
 /** Map a cached entry into the render-facing output, applying onError/onTimeout. */
 function applyFallback(
   cmd: CustomCommand,
   entry: CacheEntry | undefined,
 ): CustomCommandOutput {
   if (!entry) {
-    // No cache. Surface the never-ran state mapped through onError so the
-    // renderer knows what to draw on the first render after enabling.
-    return mapBehavior(cmd, cmd.onError, undefined, 'never-ran');
+    // No cache entry. The "never-ran" state is collapsed into the regular
+    // error/hidden mapping per onError — the renderer just sees `hidden`
+    // or `error` and renders accordingly (drops the dead `never-ran` arm).
+    return mapBehavior(cmd, cmd.onError, undefined, 'error');
   }
   if (entry.state === 'ok') {
-    return { id: cmd.id, text: entry.text, state: 'ok', capturedAt: entry.capturedAt };
+    return { ...renderMeta(cmd), id: cmd.id, text: entry.text, state: 'ok', capturedAt: entry.capturedAt };
   }
   if (entry.state === 'timeout') {
     return mapBehavior(cmd, cmd.onTimeout, entry, 'timeout');
@@ -182,36 +224,44 @@ function mapBehavior(
   cmd: CustomCommand,
   behavior: OnErrorBehavior,
   entry: CacheEntry | undefined,
-  failureState: 'timeout' | 'error' | 'never-ran',
+  failureState: 'timeout' | 'error',
 ): CustomCommandOutput {
+  const meta = renderMeta(cmd);
   switch (behavior) {
     case 'hide':
-      return { id: cmd.id, text: '', state: 'hidden' };
+      return { ...meta, id: cmd.id, text: '', state: 'hidden' };
     case 'placeholder': {
       const text = failureState === 'timeout' ? '…' : '?';
-      return { id: cmd.id, text, state: failureState === 'never-ran' ? 'error' : failureState };
+      return { ...meta, id: cmd.id, text, state: failureState };
     }
     case 'stale':
-      if (entry && entry.text.length > 0) {
-        return {
-          id: cmd.id,
-          text: entry.text,
-          state: failureState === 'never-ran' ? 'error' : failureState,
-          capturedAt: entry.capturedAt,
-        };
-      }
-      return { id: cmd.id, text: '', state: 'hidden' };
     case 'output':
+      // `stale` and `output` differ semantically but produce the same
+      // render: previous cached text if any, otherwise hidden. Keeping
+      // them in one arm avoids the dead `failureState === 'stale'` ===
+      // failureState pun the old code accidentally relied on.
       if (entry && entry.text.length > 0) {
         return {
+          ...meta,
           id: cmd.id,
           text: entry.text,
-          state: failureState === 'never-ran' ? 'error' : failureState,
+          state: failureState,
           capturedAt: entry.capturedAt,
         };
       }
-      return { id: cmd.id, text: '', state: 'hidden' };
+      return { ...meta, id: cmd.id, text: '', state: 'hidden' };
   }
+}
+
+/**
+ * Promote an `ok` output to `stale` when the cache entry is past refreshMs.
+ * Renderers can dim or annotate stale entries while a background refresh
+ * is in flight. `hidden` / `timeout` / `error` are left alone — their
+ * staleness is governed by the user's onError/onTimeout choice, not here.
+ */
+function markStale(out: CustomCommandOutput): CustomCommandOutput {
+  if (out.state !== 'ok') return out;
+  return { ...out, state: 'stale' };
 }
 
 /**
@@ -312,7 +362,10 @@ export async function getCustomCommandOutputs(
     const age = entry ? Math.max(0, now - entry.capturedAt) : Infinity;
     const isStale = !entry || age >= cmd.refreshMs;
 
-    outputs.push(applyFallback(cmd, entry));
+    const base = applyFallback(cmd, entry);
+    // Promote `ok` to `stale` when a refresh is about to fire — the renderer
+    // can then dim the entry while the new value lands on disk.
+    outputs.push(isStale ? markStale(base) : base);
 
     if (isStale) {
       fireRefresh(cmd, input.stdin, cachePath, nowFn);
