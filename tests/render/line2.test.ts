@@ -800,6 +800,76 @@ describe('renderLine2', () => {
       expect(out).toMatch(/\x1b\[(?!0m)[\d;]+m⚠ ~24h/u);
     });
   });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  describe('custom commands', () => {
+    it('renders a single ok command on line 2', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'BUILD', state: 'ok', line: 2, ansi: false }],
+      });
+      const out = stripAnsi(renderLine2(ctx, c));
+      expect(out).toContain('BUILD');
+    });
+
+    it('does not render commands targeting a different line', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'ELSEWHERE', state: 'ok', line: 1, ansi: false }],
+      });
+      const out = stripAnsi(renderLine2(ctx, c));
+      expect(out).not.toContain('ELSEWHERE');
+    });
+
+    it('drops hidden state outputs', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'NOPE', state: 'hidden', line: 2, ansi: false }],
+      });
+      const out = stripAnsi(renderLine2(ctx, c));
+      expect(out).not.toContain('NOPE');
+    });
+
+    it('renders multiple commands in declared order', () => {
+      const ctx = makeCtx({
+        customCommands: [
+          { id: 'a', text: 'ALPHA', state: 'ok', line: 2, ansi: false },
+          { id: 'b', text: 'BETA', state: 'ok', line: 2, ansi: false },
+        ],
+      });
+      const out = stripAnsi(renderLine2(ctx, c));
+      expect(out.indexOf('ALPHA')).toBeLessThan(out.indexOf('BETA'));
+    });
+
+    it('dims stale outputs', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'a', text: 'fading', state: 'stale', line: 2, ansi: false }],
+      });
+      const out = renderLine2(ctx, c);
+      expect(out).toContain('\x1b[2m');
+    });
+
+    it('strips embedded ANSI by default and passes through when ansi:true', () => {
+      const stripped = renderLine2(makeCtx({
+        customCommands: [{ id: 'a', text: '\x1b[31mraw\x1b[0m', state: 'ok', line: 2, ansi: false }],
+      }), c);
+      expect(stripped).not.toMatch(/\x1b\[31mraw/);
+
+      const through = renderLine2(makeCtx({
+        customCommands: [{ id: 'a', text: '\x1b[31mraw\x1b[0m', state: 'ok', line: 2, ansi: true }],
+      }), c);
+      expect(through).toContain('\x1b[31m');
+    });
+
+    it('renders timeout/error placeholder text verbatim', () => {
+      const ctx = makeCtx({
+        customCommands: [
+          { id: 'a', text: '…', state: 'timeout', line: 2, ansi: false },
+          { id: 'b', text: '?', state: 'error', line: 2, ansi: false },
+        ],
+      });
+      const out = stripAnsi(renderLine2(ctx, c));
+      expect(out).toContain('…');
+      expect(out).toContain('?');
+    });
+  });
 });
 
 describe('apiLatency widget', () => {

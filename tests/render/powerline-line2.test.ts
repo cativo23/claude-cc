@@ -712,4 +712,55 @@ describe('renderPowerlineLine2', () => {
       expect(stripAnsi(raw)).toContain('API ');
     });
   });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  describe('custom commands', () => {
+    it('renders an ok command on line 2 as a powerline segment', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'BUILD', state: 'ok', line: 2, ansi: false }],
+      });
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      // Segment text should appear; bg escapes also present (truecolor mode).
+      expect(stripAnsi(raw)).toContain('BUILD');
+      expect(raw).toContain('\x1b[48;2;');
+    });
+
+    it('does not render a command for a different line', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'NOTHERE', state: 'ok', line: 1, ansi: false }],
+      });
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      expect(stripAnsi(raw)).not.toContain('NOTHERE');
+    });
+
+    it('drops hidden state outputs', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'GONE', state: 'hidden', line: 2, ansi: false }],
+      });
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      expect(stripAnsi(raw)).not.toContain('GONE');
+    });
+
+    it('dims a stale command (inline dim escape)', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'fading', state: 'stale', line: 2, ansi: false }],
+      });
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      expect(raw).toContain('\x1b[2m');
+      expect(stripAnsi(raw)).toContain('fading');
+    });
+
+    it('powerline rendering does not crash on multiple custom commands', () => {
+      const ctx = makeCtx({
+        customCommands: [
+          { id: 'a', text: 'ONE', state: 'ok', line: 2, ansi: false, color: 'green' },
+          { id: 'b', text: 'TWO', state: 'ok', line: 2, ansi: false, color: 'yellow' },
+        ],
+      });
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      const plain = stripAnsi(raw);
+      expect(plain).toContain('ONE');
+      expect(plain).toContain('TWO');
+    });
+  });
 });

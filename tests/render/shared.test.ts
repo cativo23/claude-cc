@@ -1,8 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { buildContextBar, formatGitChanges, SEP, SEP_MINIMAL } from '../../src/render/shared.js';
+import {
+  buildContextBar,
+  formatGitChanges,
+  getCustomCommandsForLine,
+  renderCustomCommand,
+  SEP,
+  SEP_MINIMAL,
+} from '../../src/render/shared.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
 import { NERD_ICONS, EMOJI_ICONS, NO_ICONS } from '../../src/render/icons.js';
 import type { GitStatus } from '../../src/types.js';
+import type { CustomCommandOutput } from '../../src/parsers/custom-commands.js';
 
 const c = createColors('named');
 
@@ -324,5 +332,142 @@ describe('SEP constants', () => {
   it('SEP_MINIMAL uses ASCII pipe', () => {
     expect(SEP_MINIMAL).toContain('|');
     expect(SEP_MINIMAL).not.toContain('\u2502');
+  });
+});
+
+// \u2500\u2500 Custom command render helpers (issue #143 phase 3) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Build a CustomCommandOutput with sane defaults; tests only override what
+// they care about. Keeps individual cases short and intent-focused.
+function mkOutput(overrides: Partial<CustomCommandOutput> = {}): CustomCommandOutput {
+  return {
+    id: 'test',
+    text: 'hello',
+    state: 'ok',
+    line: 1,
+    ansi: false,
+    ...overrides,
+  };
+}
+
+describe('getCustomCommandsForLine', () => {
+  it('returns [] for undefined input', () => {
+    expect(getCustomCommandsForLine(undefined, 1)).toEqual([]);
+  });
+
+  it('returns [] for empty input', () => {
+    expect(getCustomCommandsForLine([], 1)).toEqual([]);
+  });
+
+  it('filters to outputs matching the requested line', () => {
+    const outs = [
+      mkOutput({ id: 'a', line: 1 }),
+      mkOutput({ id: 'b', line: 2 }),
+      mkOutput({ id: 'c', line: 1 }),
+    ];
+    const filtered = getCustomCommandsForLine(outs, 1);
+    expect(filtered.map(o => o.id)).toEqual(['a', 'c']);
+  });
+
+  it('drops outputs in hidden state regardless of line match', () => {
+    const outs = [
+      mkOutput({ id: 'visible', line: 2, state: 'ok' }),
+      mkOutput({ id: 'gone', line: 2, state: 'hidden', text: '' }),
+    ];
+    const filtered = getCustomCommandsForLine(outs, 2);
+    expect(filtered.map(o => o.id)).toEqual(['visible']);
+  });
+
+  it('preserves insertion order', () => {
+    const outs = [
+      mkOutput({ id: 'first', line: 3 }),
+      mkOutput({ id: 'second', line: 3 }),
+      mkOutput({ id: 'third', line: 3 }),
+    ];
+    expect(getCustomCommandsForLine(outs, 3).map(o => o.id)).toEqual(['first', 'second', 'third']);
+  });
+});
+
+describe('renderCustomCommand', () => {
+  const colors = createColors('named');
+
+  it('renders plain ok output without color or label', () => {
+    const out = renderCustomCommand(mkOutput({ text: 'plain' }), colors);
+    expect(out).toBe('plain');
+  });
+
+  it('strips ANSI from text when ansi: false', () => {
+    // Embedded ANSI in user-provided text must not leak through when ansi is off.
+    const out = renderCustomCommand(
+      mkOutput({ text: '\x1b[31mred\x1b[0m text', ansi: false }),
+      colors,
+    );
+    expect(stripAnsi(out)).toBe('red text');
+    expect(out).not.toContain('\x1b[31m');
+  });
+
+  it('passes ANSI through when ansi: true', () => {
+    const out = renderCustomCommand(
+      mkOutput({ text: '\x1b[31mred\x1b[0m', ansi: true }),
+      colors,
+    );
+    expect(out).toContain('\x1b[31m');
+  });
+
+  it('prepends label with a single space when set', () => {
+    const out = renderCustomCommand(mkOutput({ text: 'value', label: '\u25c6' }), colors);
+    expect(stripAnsi(out)).toBe('\u25c6 value');
+  });
+
+  it('applies color when ansi: false and color set', () => {
+    const out = renderCustomCommand(mkOutput({ text: 'green', color: 'green' }), colors);
+    // Named-ANSI green is \x1b[32m
+    expect(out).toContain('\x1b[32m');
+    expect(stripAnsi(out)).toBe('green');
+  });
+
+  it('does NOT apply color when ansi: true (avoids nested escapes)', () => {
+    const out = renderCustomCommand(
+      mkOutput({ text: 'preset', color: 'green', ansi: true }),
+      colors,
+    );
+    // No wrapper escape \u2014 only the raw text comes through.
+    expect(out).toBe('preset');
+  });
+
+  it('returns empty string for hidden state', () => {
+    expect(renderCustomCommand(mkOutput({ state: 'hidden', text: '' }), colors)).toBe('');
+  });
+
+  it('dims output when state is stale', () => {
+    const out = renderCustomCommand(mkOutput({ text: 'fading', state: 'stale' }), colors);
+    // dim escape is \x1b[2m in named mode
+    expect(out).toContain('\x1b[2m');
+    expect(stripAnsi(out)).toBe('fading');
+  });
+
+  it('stale dim wraps a colored output (dim applied last)', () => {
+    const out = renderCustomCommand(
+      mkOutput({ text: 'x', state: 'stale', color: 'green' }),
+      colors,
+    );
+    // dim escape must be present somewhere outside the color escape.
+    expect(out).toContain('\x1b[2m');
+    expect(out).toContain('\x1b[32m');
+  });
+
+  it('renders timeout/error states with their text untouched (parser already remapped)', () => {
+    const timeout = renderCustomCommand(mkOutput({ text: '\u2026', state: 'timeout' }), colors);
+    expect(stripAnsi(timeout)).toBe('\u2026');
+    const error = renderCustomCommand(mkOutput({ text: '?', state: 'error' }), colors);
+    expect(stripAnsi(error)).toBe('?');
+  });
+
+  it('ignores unknown color names without throwing', () => {
+    const out = renderCustomCommand(
+      // Cast intentionally: simulate parser drift / mis-typed config.
+      mkOutput({ text: 'safe', color: 'nope' as unknown as CustomCommandOutput['color'] }),
+      colors,
+    );
+    expect(stripAnsi(out)).toBe('safe');
   });
 });

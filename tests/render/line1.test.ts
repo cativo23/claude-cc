@@ -198,4 +198,91 @@ describe('renderLine1', () => {
       expect(out).not.toContain(cube);
     });
   });
+
+  // ── Custom commands (issue #143 phase 3) ─────────────────────────
+  describe('custom commands', () => {
+    it('renders a single ok command on line 1', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'CI', state: 'ok', line: 1, ansi: false }],
+      });
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain('CI');
+    });
+
+    it('does not render a command targeting a different line', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'OTHER', state: 'ok', line: 2, ansi: false }],
+      });
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('OTHER');
+    });
+
+    it('drops hidden state outputs', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'foo', text: 'GONE', state: 'hidden', line: 1, ansi: false }],
+      });
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('GONE');
+    });
+
+    it('renders multiple commands in order', () => {
+      const ctx = makeCtx({
+        customCommands: [
+          { id: 'a', text: 'FIRST', state: 'ok', line: 1, ansi: false },
+          { id: 'b', text: 'SECOND', state: 'ok', line: 1, ansi: false },
+        ],
+      });
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out.indexOf('FIRST')).toBeGreaterThan(-1);
+      expect(out.indexOf('SECOND')).toBeGreaterThan(out.indexOf('FIRST'));
+    });
+
+    it('applies label prefix', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'a', text: 'green', label: '◆', state: 'ok', line: 1, ansi: false }],
+      });
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain('◆ green');
+    });
+
+    it('strips embedded ANSI when ansi:false (default)', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'a', text: '\x1b[31mraw\x1b[0m', state: 'ok', line: 1, ansi: false }],
+      });
+      const out = renderLine1(ctx, c);
+      // The fg red escape should not leak through.
+      expect(out).not.toMatch(/\x1b\[31mraw/);
+      expect(stripAnsi(out)).toContain('raw');
+    });
+
+    it('passes ANSI through when ansi:true', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'a', text: '\x1b[31mraw\x1b[0m', state: 'ok', line: 1, ansi: true }],
+      });
+      const out = renderLine1(ctx, c);
+      expect(out).toContain('\x1b[31m');
+    });
+
+    it('dims a stale command', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'a', text: 'fading', state: 'stale', line: 1, ansi: false }],
+      });
+      const out = renderLine1(ctx, c);
+      expect(out).toContain('\x1b[2m');
+    });
+
+    it('renders error-state text verbatim (parser already remapped)', () => {
+      const ctx = makeCtx({
+        customCommands: [{ id: 'a', text: '?', state: 'error', line: 1, ansi: false }],
+      });
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain('?');
+    });
+
+    it('no change to output when customCommands is undefined', () => {
+      const without = stripAnsi(renderLine1(makeCtx(), c));
+      const withEmpty = stripAnsi(renderLine1(makeCtx({ customCommands: [] }), c));
+      expect(withEmpty).toBe(without);
+    });
+  });
 });
