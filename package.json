@@ -1,7 +1,7 @@
 {
   "name": "lumira",
   "version": "1.5.0",
-  "description": "Real-time statusline HUD for Claude Code and Qwen Code — context bar, burn rate, themes, powerline, zero deps.",
+  "description": "Real-time statusline HUD for Claude Code and Qwen Code. Includes session analytics CLI, API latency overhead widget, 7d quota projection, auto-compact proximity warnings, themes, and powerline. Zero deps.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

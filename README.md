@@ -26,7 +26,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 
 > 3,400+ monthly downloads, zero marketing. Try it for one session — `npx lumira install`.
 
-> **What's new in v1.5:** the [`lumira stats` CLI](#stats-cli) prints post-session analytics (cost, tokens, cache hit, tool frequency, burn rate) — no competing statusline ships this. Combined with the `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), lumira surfaces a set of signals nothing else does.
+> **What's new in v1.5:** the [`lumira stats` CLI](#stats-cli) prints post-session analytics (cost, tokens, cache hit, tool frequency, burn rate). Combined with the `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), recent releases add several diagnostic signals to the session.
 
 ## Table of contents
 
