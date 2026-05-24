@@ -9,6 +9,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import type {
   CustomCommand,
   CustomCommandsConfig,
@@ -95,7 +96,12 @@ function readCacheFile(path: string): CacheMap {
 function writeCacheFile(path: string, data: CacheMap): void {
   try {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    const tmp = `${path}.${process.pid}.tmp`;
+    // Random suffix (vs. process.pid) defeats symlink TOCTOU: an attacker can
+    // no longer pre-create a symlink at a predictable path. `wx` open already
+    // refuses to open existing files, but it follows pre-existing symlinks; a
+    // random unguessable name keeps the attacker from creating the symlink in
+    // the first place.
+    const tmp = `${path}.${randomBytes(8).toString('hex')}.tmp`;
     try { unlinkSync(tmp); } catch { /* not present */ }
     const fd = openSync(tmp, 'wx', 0o600);
     try {

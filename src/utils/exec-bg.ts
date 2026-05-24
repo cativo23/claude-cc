@@ -136,6 +136,15 @@ export async function execBg(input: ExecBgInput): Promise<ExecBgResult> {
       try { child.stdin.end(); } catch { /* ignore */ }
     }
 
+    // Schedule SIGKILL after SIGTERM grace, clearing any previously scheduled
+    // SIGKILL first. Without the clear, a byte-cap kill followed by a wall-time
+    // kill (or vice versa) orphans the earlier timer — the SIGKILL we lose
+    // reference to fires unconditionally and can't be cancelled by settle().
+    const scheduleSigkill = (): void => {
+      if (killTimer) clearTimeout(killTimer);
+      killTimer = setTimeout(() => groupKill(child.pid, 'SIGKILL'), SIGKILL_GRACE_MS);
+    };
+
     if (child.stdout) {
       child.stdout.on('data', (chunk: Buffer) => {
         if (truncated) return;
@@ -146,14 +155,14 @@ export async function execBg(input: ExecBgInput): Promise<ExecBgResult> {
           if (stdoutBytes >= input.maxBytes) {
             truncated = true;
             groupKill(child.pid, 'SIGTERM');
-            killTimer = setTimeout(() => groupKill(child.pid, 'SIGKILL'), SIGKILL_GRACE_MS);
+            scheduleSigkill();
           }
         } else {
           stdout += chunk.slice(0, remaining).toString('utf8');
           stdoutBytes = input.maxBytes;
           truncated = true;
           groupKill(child.pid, 'SIGTERM');
-          killTimer = setTimeout(() => groupKill(child.pid, 'SIGKILL'), SIGKILL_GRACE_MS);
+          scheduleSigkill();
         }
       });
       child.stdout.on('error', () => { /* ignore */ });
@@ -174,7 +183,7 @@ export async function execBg(input: ExecBgInput): Promise<ExecBgResult> {
     timeoutTimer = setTimeout(() => {
       timedOut = true;
       groupKill(child.pid, 'SIGTERM');
-      killTimer = setTimeout(() => groupKill(child.pid, 'SIGKILL'), SIGKILL_GRACE_MS);
+      scheduleSigkill();
     }, input.timeoutMs);
 
     child.on('error', (err: Error & { code?: string }) => {
