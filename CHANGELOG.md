@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-05-24
+
+### Added
+
+- **Custom Commands widget** — user-defined shell commands rendered as statusline segments on any line (1–4). Configured via `customCommands` in `~/.config/lumira/config.json`. Commands are argv arrays (no shell expansion). TTL file-cache with background refresh — zero latency on the hot path. `onError`/`onTimeout` strategies (`hide`, `placeholder`, `output`, `stale`). Disabled by default; opt-in via `lumira custom enable`.
+- **`lumira custom` CLI** — `enable`, `disable`, `list`, `test <id>`, and `logs` subcommands for managing custom commands without editing config by hand. Closes [#143](https://github.com/cativo23/lumira/issues/143).
+
 ## [1.5.0] - 2026-05-23
 
 ### Added
@@ -466,7 +473,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/cativo23/lumira/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/cativo23/lumira/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/cativo23/lumira/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/cativo23/lumira/compare/v1.3.1...v1.4.0
