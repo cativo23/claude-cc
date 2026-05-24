@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, chmodSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, chmodSync, existsSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { getCustomCommandOutputs } from '../../src/parsers/custom-commands.js';
@@ -278,5 +278,55 @@ describe('getCustomCommandOutputs', () => {
     expect(result).toHaveLength(1);
     expect(result[0].state).toBe('error');
     expect(result[0].text).toBe('?');
+  });
+
+  // M2: clock-skew defensive clamp. If the system clock jumps backwards (NTP
+  // correction, suspend/resume, manual change), `now - capturedAt` becomes a
+  // large negative number. The clamp ensures we treat it as age=0 (still
+  // fresh) rather than negative — no negative durations leaking into renderer
+  // metadata, no weird isStale semantics. The entry is returned cleanly.
+  it('does not crash or misbehave on future capturedAt (clock-skew clamp)', async () => {
+    const cmd = makeCmd({ id: 'skew', refreshMs: 5000 });
+    writeFileSync(cachePath, JSON.stringify({
+      [cmd.id]: { text: 'cached-during-skew', capturedAt: FIXED_NOW + 60_000, state: 'ok' },
+    }), { mode: 0o600 });
+
+    const result = await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW, // "earlier" than capturedAt → would compute negative age without clamp
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe('cached-during-skew');
+    expect(result[0].state).toBe('ok');
+    // No crash, no weird state — just treats it as fresh.
+  });
+
+  // M4: symlink-safe cache read. If an attacker can write into the cache dir
+  // they could replace our cache file with a symlink targeting attacker-
+  // controlled content. We refuse to read symlinked cache files.
+  it('returns no cached data when cache file is a symlink (refuses to follow)', async () => {
+    const cmd = makeCmd({ id: 'symlink-target', onError: 'placeholder' });
+    // Create the real file with what would look like a cached entry…
+    const realPath = join(dir, 'real-cache.json');
+    writeFileSync(realPath, JSON.stringify({
+      [cmd.id]: { text: 'leaked', capturedAt: FIXED_NOW, state: 'ok' },
+    }), { mode: 0o600 });
+    // …then symlink cachePath at it. The parser must refuse to follow.
+    symlinkSync(realPath, cachePath);
+
+    const result = await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+    expect(result).toHaveLength(1);
+    // No entry surfaced (symlink read aborts → never-ran path).
+    expect(result[0].text).toBe('?');
+    expect(result[0].state).toBe('error');
   });
 });

@@ -1,6 +1,7 @@
 import {
   readFileSync,
   statSync,
+  lstatSync,
   openSync,
   writeSync,
   closeSync,
@@ -8,7 +9,8 @@ import {
   mkdirSync,
   unlinkSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import type {
   CustomCommand,
@@ -72,8 +74,24 @@ type CacheMap = Record<string, CacheEntry>;
  * the renderer firing N parallel refreshes when called in a tight loop. */
 const refreshInFlight = new Set<string>();
 
+/** Default cache file location when caller doesn't supply one. */
+function defaultCachePath(): string {
+  return join(homedir(), '.cache', 'lumira', 'custom-commands.json');
+}
+
 function readCacheFile(path: string): CacheMap {
   try {
+    // Symlink-safe: lstat first and refuse to read if the cache path itself
+    // is a symlink. Otherwise an attacker who can write into the cache dir
+    // could redirect our read to a file they control, then watch the cache
+    // contents leak into the rendered statusline.
+    try {
+      const st = lstatSync(path);
+      if (st.isSymbolicLink()) return {};
+    } catch {
+      // File does not exist (or stat failed) — fall through; readFileSync
+      // below will return an empty cache via its catch block.
+    }
     const raw = readFileSync(path, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
@@ -273,12 +291,12 @@ export async function getCustomCommandOutputs(
 
   if (!Array.isArray(config.commands) || config.commands.length === 0) return [];
 
-  const cachePath = input.cachePath;
-  if (typeof cachePath !== 'string' || cachePath.length === 0) {
-    // Without a cache path we can't store anything. Return never-ran outputs
-    // per command without spawning (no place to write the result).
-    return config.commands.map((cmd) => applyFallback(cmd, undefined));
-  }
+  // M1: apply the documented default when the caller omits cachePath, rather
+  // than silently degrading to never-ran for every command. The default
+  // matches the JSDoc on cachePath: ~/.cache/lumira/custom-commands.json.
+  const cachePath = typeof input.cachePath === 'string' && input.cachePath.length > 0
+    ? input.cachePath
+    : defaultCachePath();
 
   const cache = readCacheFile(cachePath);
   const now = typeof input.now === 'number' ? input.now : Date.now();
@@ -287,7 +305,12 @@ export async function getCustomCommandOutputs(
   const outputs: CustomCommandOutput[] = [];
   for (const cmd of config.commands) {
     const entry = cache[cmd.id];
-    const isStale = !entry || now - entry.capturedAt >= cmd.refreshMs;
+    // M2: clamp age to 0. If the system clock skews backwards (NTP correction,
+    // suspend/resume, manual change), `now - capturedAt` could be negative and
+    // the entry would look fresh forever. Math.max guarantees we only ever
+    // treat past-captured entries as having age >= 0.
+    const age = entry ? Math.max(0, now - entry.capturedAt) : Infinity;
+    const isStale = !entry || age >= cmd.refreshMs;
 
     outputs.push(applyFallback(cmd, entry));
 
