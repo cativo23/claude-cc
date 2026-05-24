@@ -384,6 +384,85 @@ describe('getCustomCommandOutputs', () => {
     expect(result[1].ansi).toBe(false);
   });
 
+  // B1 regression: the renderer's process must exit immediately after
+  // getCustomCommandOutputs returns, even if a refresh has just been
+  // dispatched for a slow command. The earlier "void async-IIFE" version
+  // kept the event loop refed until execBg's child exited (+ cache write
+  // completed) — measured at ~2s for a 1.5s-timeout command. The detached
+  // helper subprocess design must keep the parent's exit-to-return time
+  // independent of the user command's wall time.
+  //
+  // We exercise this by spawning a sub-Node process that:
+  //  1. invokes getCustomCommandOutputs with a 5s-sleep command
+  //  2. immediately returns (no explicit process.exit, no awaits left)
+  //  3. lets the Node event loop unref naturally
+  // and measure how long it takes the sub-process to exit.
+  it('B1 — renderer process exits within 500ms even when a slow refresh was just dispatched', async () => {
+    const { spawn } = await import('node:child_process');
+    const distEntry = join(process.cwd(), 'dist', 'index.js');
+    const distParser = join(process.cwd(), 'dist', 'parsers', 'custom-commands.js');
+    // Skip if the dist build isn't available — this regression test depends
+    // on the production strategy, which spawns 'node dist/index.js'.
+    if (!existsSync(distEntry) || !existsSync(distParser)) {
+      console.warn('[B1 test] skipped: dist build not present (run `npm run build`)');
+      return;
+    }
+
+    const slowCachePath = join(dir, 'b1-cache.json');
+    const script = `
+      import('${distParser.replace(/\\/g, '\\\\')}').then(async (m) => {
+        await m.getCustomCommandOutputs({
+          config: {
+            enabled: true,
+            commands: [{
+              id: 'slow',
+              command: ['node', '-e', 'setInterval(() => {}, 1000)'],
+              line: 1,
+              refreshMs: 100,
+              timeoutMs: 1500,
+              maxBytes: 256,
+              onError: 'hide',
+              onTimeout: 'stale',
+              ansi: false,
+            }],
+          },
+          stdin: '{}',
+          cachePath: ${JSON.stringify(slowCachePath)},
+          configFilePath: ${JSON.stringify(configPath)},
+        });
+      });
+    `;
+
+    const start = Date.now();
+    const result = await new Promise<{ elapsed: number; signal: NodeJS.Signals | null }>((resolve, reject) => {
+      const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, LUMIRA_CUSTOM_REFRESH_ENTRY: distEntry },
+      });
+      const killTimer = setTimeout(() => {
+        // If exit doesn't happen in time, kill it so the test fails cleanly.
+        try { child.kill('SIGKILL'); } catch { /* gone */ }
+        reject(new Error('child did not exit within 3s'));
+      }, 3000);
+      child.on('exit', (_code, signal) => {
+        clearTimeout(killTimer);
+        resolve({ elapsed: Date.now() - start, signal });
+      });
+      child.on('error', (err) => {
+        clearTimeout(killTimer);
+        reject(err);
+      });
+    });
+
+    // The whole point of B1 is that exit time is INDEPENDENT of the user
+    // command's wall time (1500ms here). 500ms gives plenty of headroom
+    // for Node startup + module imports without crossing into "we're
+    // waiting on execBg" territory.
+    expect(result.elapsed).toBeLessThan(1500);
+    // No signal — clean exit, not a kill.
+    expect(result.signal).toBeNull();
+  }, 10_000);
+
   // M4: symlink-safe cache read. If an attacker can write into the cache dir
   // they could replace our cache file with a symlink targeting attacker-
   // controlled content. We refuse to read symlinked cache files.
