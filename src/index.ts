@@ -10,6 +10,7 @@ import { getTokenSpeed } from './parsers/token-speed.js';
 import { getMemoryInfo } from './parsers/memory.js';
 import { getGsdInfo } from './parsers/gsd.js';
 import { getMcpInfo } from './parsers/mcp.js';
+import { getCustomCommandOutputs } from './parsers/custom-commands.js';
 import { getLayoutCols, getTermCols } from './utils/terminal.js';
 import { loadConfig, mergeCliFlags } from './config.js';
 import { render } from './render/index.js';
@@ -18,7 +19,8 @@ import { install, uninstall } from './installer.js';
 import { runThemesCommand } from './commands/themes.js';
 import { runStatsCommand } from './commands/stats.js';
 import { runCustomRefreshFromStdin } from './commands/custom-refresh.js';
-import type { Dependencies } from './types.js';
+import type { Dependencies, RawInput } from './types.js';
+import type { NormalizedInput } from './normalize.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
 import { normalize } from './normalize.js';
 
@@ -32,6 +34,27 @@ const defaultDeps: Dependencies = {
   getMcpInfo: (cwd) => getMcpInfo(cwd),
   getTermCols: () => getTermCols(),
 };
+
+/**
+ * Build the stdin envelope passed to user-written custom commands (issue #143).
+ *
+ * Keep this contract minimal and forward-compatible: the `lumira.version`
+ * field is the API version a user-script can branch on, and only fields with
+ * a stable meaning are exposed. Anything more would couple user scripts to
+ * lumira's internal normalisation. Documented as the user-facing contract
+ * for the Custom Command widget.
+ */
+function buildStdinEnvelope(input: RawInput, n: NormalizedInput): string {
+  const envelope = {
+    lumira: { version: 1, platform: n.platform },
+    model: n.model,
+    cwd: n.cwd,
+    context_window: input.context_window ?? null,
+    cost: 'cost' in input ? input.cost ?? null : null,
+    git: { branch: n.gitBranch ?? null },
+  };
+  return JSON.stringify(envelope);
+}
 
 export async function main(overrides: Partial<Dependencies> = {}): Promise<string> {
   const deps = { ...defaultDeps, ...overrides };
@@ -55,7 +78,20 @@ export async function main(overrides: Partial<Dependencies> = {}): Promise<strin
   const cols = getLayoutCols(rawCols, isTTY);
   const icons = resolveIcons(config.icons);
   const normalizedInput = normalize(input);
-  return render({ input: normalizedInput, git, transcript, tokenSpeed, memory, gsd, mcp, cols, config, icons });
+
+  // Custom command outputs (issue #143). The parser is async because it reads
+  // the on-disk cache + may spawn a detached refresh helper, but it is
+  // designed to return immediately (no network or process waits). Defensive
+  // catch: any unexpected error degrades to no custom segments rather than
+  // breaking the entire statusline render.
+  const configFilePath = join(homedir(), '.config', 'lumira', 'config.json');
+  const customCommands = await getCustomCommandOutputs({
+    config: config.customCommands,
+    stdin: buildStdinEnvelope(input, normalizedInput),
+    configFilePath,
+  }).catch(() => []);
+
+  return render({ input: normalizedInput, git, transcript, tokenSpeed, memory, gsd, mcp, cols, config, icons, customCommands });
 }
 
 // Run when invoked directly.

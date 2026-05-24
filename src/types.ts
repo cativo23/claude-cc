@@ -150,6 +150,13 @@ export interface RenderContext {
   cols: number;
   config: HudConfig;
   icons: import('./render/icons.js').IconSet;
+  /**
+   * Custom command outputs from the Phase 2 parser (issue #143). Optional for
+   * backward compat with test fixtures that don't construct it — renderers
+   * MUST treat `undefined` as an empty array. Each output already carries its
+   * own `line` + render metadata; per-line filtering happens at render time.
+   */
+  customCommands?: import('./parsers/custom-commands.js').CustomCommandOutput[];
 }
 
 // ── Config ──────────────────────────────────────────────────────────
