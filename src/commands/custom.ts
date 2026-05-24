@@ -72,7 +72,7 @@ function readConfigRaw(): Record<string, unknown> {
 function writeConfigRaw(value: Record<string, unknown>): void {
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(value, null, 2), 'utf8');
+  writeFileSync(p, JSON.stringify(value, null, 2), { encoding: 'utf8', mode: 0o600 });
 }
 
 /**

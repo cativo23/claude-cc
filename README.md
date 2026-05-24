@@ -355,6 +355,9 @@ Add a `customCommands` block to `~/.config/lumira/config.json`:
 | `label` | Optional prefix shown before the command output |
 | `color` | Optional color override for the segment |
 | `onError` | What to show on non-zero exit: `hide` (default), `placeholder`, `output`, or `stale` |
+| `onTimeout` | What to show on timeout: same options as `onError`, defaults to `hide` |
+| `timeoutMs` | Max execution time in ms (clamped to 2000) |
+| `maxBytes` | Max stdout bytes captured (clamped to 4096) |
 | `ansi` | Set `true` to pass through ANSI escape sequences from the command |
 
 `command` must be an argv array (`["git", "status", "--short"]`). Shell strings with pipes or redirects are not supported — wrap them in a script if needed.

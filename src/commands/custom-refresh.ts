@@ -38,7 +38,7 @@ import {
   mkdirSync,
   unlinkSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, isAbsolute } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { OnErrorBehavior } from '../types.js';
 
@@ -117,10 +117,10 @@ function isValidSpec(raw: unknown): raw is RefreshSpec {
   if (typeof s.id !== 'string' || s.id.length === 0) return false;
   if (!Array.isArray(s.command) || s.command.length === 0) return false;
   if (!s.command.every((x: unknown) => typeof x === 'string' && x.length > 0)) return false;
-  if (typeof s.timeoutMs !== 'number' || !Number.isFinite(s.timeoutMs)) return false;
-  if (typeof s.maxBytes !== 'number' || !Number.isFinite(s.maxBytes)) return false;
+  if (typeof s.timeoutMs !== 'number' || !Number.isFinite(s.timeoutMs) || s.timeoutMs > 2000) return false;
+  if (typeof s.maxBytes !== 'number' || !Number.isFinite(s.maxBytes) || s.maxBytes > 4096) return false;
   if (typeof s.onError !== 'string') return false;
-  if (typeof s.cachePath !== 'string' || s.cachePath.length === 0) return false;
+  if (typeof s.cachePath !== 'string' || s.cachePath.length === 0 || !isAbsolute(s.cachePath)) return false;
   return true;
 }
 
@@ -158,8 +158,11 @@ export async function runCustomRefresh(stdinPayload: string): Promise<void> {
         entry = { text: result.stdout, capturedAt: now, state: 'timeout' };
         break;
       case 'nonzero': {
-        const text = spec.onError === 'output' ? lastStderrLine(result.stderr) : result.stdout;
-        entry = { text, capturedAt: now, state: 'nonzero' };
+        // For onError:'output' the renderer shows entry.text directly, so
+        // store stdout (partial output before the command failed). For all
+        // other strategies the text is not displayed — store stdout anyway
+        // so the entry is useful if the strategy is later changed.
+        entry = { text: result.stdout, capturedAt: now, state: 'nonzero' };
         break;
       }
       case 'spawn-error':
