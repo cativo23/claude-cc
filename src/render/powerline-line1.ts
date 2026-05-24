@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { truncField } from './text.js';
-import { getActiveTodo } from './shared.js';
+import { getActiveTodo, getCustomCommandsForLine, renderCustomCommand } from './shared.js';
 import { formatDuration } from '../utils/format.js';
 import { hyperlink } from './hyperlink.js';
 import { isNamedAgentType } from '../parsers/subagents.js';
@@ -11,7 +11,7 @@ import {
   type PowerlineSegment,
   type PowerlineStyleName,
 } from './powerline.js';
-import type { ColorMode } from './colors.js';
+import { createColors, type ColorMode } from './colors.js';
 import type { RenderContext } from '../types.js';
 import {
   type PowerlinePalette,
@@ -37,7 +37,7 @@ import {
  *   version:       20
  *   style:         18  (dropped first)
  */
-function buildSegments(ctx: RenderContext, palette: PowerlinePalette): PowerlineSegment[] {
+function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import('./colors.js').Colors): PowerlineSegment[] {
   const { input, git, transcript, config: { display }, icons, memory, tokenSpeed } = ctx;
   const segments: PowerlineSegment[] = [];
 
@@ -205,6 +205,18 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette): Powerline
     });
   }
 
+  // Custom commands (issue #143 phase 3) — neutral bg (dirBg) so user-defined
+  // segments don't collide with the semantic bg slots (modelBg, taskBg, etc.).
+  // Priority 15 sits below all built-in segments so custom commands evict
+  // first under narrow-cols pressure — keeps lumira's own widgets visible
+  // when space is tight, treating user widgets as additive overlay.
+  for (const out of getCustomCommandsForLine(ctx.customCommands, 1)) {
+    const text = renderCustomCommand(out, c);
+    if (text) {
+      segments.push({ text, bg: palette.dirBg, fg: palette.fg, priority: 15 });
+    }
+  }
+
   return segments;
 }
 
@@ -216,7 +228,11 @@ export function renderPowerlineLine1(ctx: RenderContext, mode: ColorMode, theme:
   const styleName = (ctx.config.powerline?.style ?? 'auto') as PowerlineStyleName;
   const hasNerdFont = (ctx.config.icons ?? 'nerd') === 'nerd';
   const style = resolveStyle(styleName, hasNerdFont);
-  const segments = buildSegments(ctx, palette);
+  // Custom command segments need a Colors instance to apply inline fg styling
+  // inside the segment text (mirroring how pace/quota colour their bodies).
+  // Built with the same (mode, theme) the dispatcher uses for classic mode.
+  const c = createColors(mode, theme);
+  const segments = buildSegments(ctx, palette, c);
   if (segments.length === 0) return '';
   return renderPowerline(segments, style, mode, ctx.cols);
 }
