@@ -1,7 +1,5 @@
 import {
-  readFileSync,
   statSync,
-  lstatSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -11,7 +9,9 @@ import type {
   CustomCommand,
   CustomCommandsConfig,
   OnErrorBehavior,
+  RefreshSpec,
 } from '../types.js';
+import { readCacheFile, type CacheEntry, type CacheMap } from '../utils/custom-cache.js';
 
 /**
  * Parser orchestrator for the Custom Command widget (issue #143).
@@ -81,15 +81,6 @@ export interface GetCustomCommandOutputsInput {
   now?: number;
 }
 
-/** Persisted cache entry. `state` captures the prior run's outcome. */
-interface CacheEntry {
-  text: string;
-  capturedAt: number;
-  state: 'ok' | 'nonzero' | 'timeout';
-}
-
-type CacheMap = Record<string, CacheEntry>;
-
 /** Tracks which commands are currently being refreshed in-process. Prevents
  * the renderer firing N parallel refreshes when called in a tight loop. */
 const refreshInFlight = new Set<string>();
@@ -97,38 +88,6 @@ const refreshInFlight = new Set<string>();
 /** Default cache file location when caller doesn't supply one. */
 function defaultCachePath(): string {
   return join(homedir(), '.cache', 'lumira', 'custom-commands.json');
-}
-
-function readCacheFile(path: string): CacheMap {
-  try {
-    // Symlink-safe: lstat first and refuse to read if the cache path itself
-    // is a symlink. Otherwise an attacker who can write into the cache dir
-    // could redirect our read to a file they control, then watch the cache
-    // contents leak into the rendered statusline.
-    try {
-      const st = lstatSync(path);
-      if (st.isSymbolicLink()) return {};
-    } catch {
-      // File does not exist (or stat failed) — fall through; readFileSync
-      // below will return an empty cache via its catch block.
-    }
-    const raw = readFileSync(path, 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const out: CacheMap = {};
-    for (const [id, entry] of Object.entries(parsed as Record<string, unknown>)) {
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-      const e = entry as Record<string, unknown>;
-      if (typeof e.text !== 'string') continue;
-      if (typeof e.capturedAt !== 'number' || !Number.isFinite(e.capturedAt)) continue;
-      const s = e.state;
-      if (s !== 'ok' && s !== 'nonzero' && s !== 'timeout') continue;
-      out[id] = { text: e.text, capturedAt: e.capturedAt, state: s };
-    }
-    return out;
-  } catch {
-    return {};
-  }
 }
 
 // Cache writes happen exclusively in the detached refresh helper (see
@@ -224,22 +183,6 @@ function mapBehavior(
 function markStale(out: CustomCommandOutput): CustomCommandOutput {
   if (out.state !== 'ok') return out;
   return { ...out, state: 'stale' };
-}
-
-/**
- * Spec sent to the detached refresh helper (must match the helper's
- * RefreshSpec exactly — see src/commands/custom-refresh.ts).
- */
-interface RefreshSpec {
-  id: string;
-  command: string[];
-  timeoutMs: number;
-  maxBytes: number;
-  env?: Record<string, string>;
-  cwd?: string;
-  onError: OnErrorBehavior;
-  cachePath: string;
-  stdin?: string;
 }
 
 function buildSpec(cmd: CustomCommand, stdin: string, cachePath: string): RefreshSpec {

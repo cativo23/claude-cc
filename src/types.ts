@@ -473,3 +473,20 @@ export interface QwenInput {
 
 /** Union of all supported platform input types */
 export type RawInput = ClaudeCodeInput | QwenInput;
+
+/**
+ * Spec sent to the detached refresh helper (src/commands/custom-refresh.ts).
+ * Shared between the parser (which builds and sends it) and the helper (which
+ * receives and validates it).
+ */
+export interface RefreshSpec {
+  id: string;
+  command: string[];
+  timeoutMs: number;
+  maxBytes: number;
+  env?: Record<string, string>;
+  cwd?: string;
+  onError: OnErrorBehavior;
+  cachePath: string;
+  stdin?: string;
+}

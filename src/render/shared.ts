@@ -1,7 +1,7 @@
 import { NERD_ICONS, type IconSet } from './icons.js';
 import { getContextColor, stripAnsi, type Colors } from './colors.js';
 import { formatTokens } from '../utils/format.js';
-import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData } from '../types.js';
+import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData, type CustomCommand } from '../types.js';
 import type { NormalizedInput } from '../normalize.js';
 import type { CustomCommandOutput } from '../parsers/custom-commands.js';
 
@@ -169,7 +169,11 @@ export function renderCustomCommand(output: CustomCommandOutput, c: Colors): str
   // user's escapes in another escape, which most terminals render as garbage.
   let result = text;
   if (!output.ansi && output.color) {
-    const fn = (c as unknown as Record<string, (s: string) => string>)[output.color];
+    const colorMap: Record<NonNullable<CustomCommand['color']>, (s: string) => string> = {
+      dim: c.dim, green: c.green, yellow: c.yellow, orange: c.orange,
+      red: c.red, cyan: c.cyan, magenta: c.magenta,
+    };
+    const fn = colorMap[output.color];
     if (typeof fn === 'function') result = fn(text);
   }
 

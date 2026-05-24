@@ -28,88 +28,9 @@
  */
 
 import { execBg } from '../utils/exec-bg.js';
-import {
-  readFileSync,
-  lstatSync,
-  openSync,
-  writeSync,
-  closeSync,
-  renameSync,
-  mkdirSync,
-  unlinkSync,
-} from 'node:fs';
-import { dirname, isAbsolute } from 'node:path';
-import { randomBytes } from 'node:crypto';
-import type { OnErrorBehavior } from '../types.js';
-
-interface RefreshSpec {
-  id: string;
-  command: string[];
-  timeoutMs: number;
-  maxBytes: number;
-  env?: Record<string, string>;
-  cwd?: string;
-  onError: OnErrorBehavior;
-  cachePath: string;
-  stdin?: string;
-}
-
-interface CacheEntry {
-  text: string;
-  capturedAt: number;
-  state: 'ok' | 'nonzero' | 'timeout';
-}
-type CacheMap = Record<string, CacheEntry>;
-
-/** Symlink-safe cache read (mirrors the parser's readCacheFile). */
-function readCacheFile(path: string): CacheMap {
-  try {
-    try {
-      const st = lstatSync(path);
-      if (st.isSymbolicLink()) return {};
-    } catch { /* missing — fine */ }
-    const raw = readFileSync(path, 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const out: CacheMap = {};
-    for (const [id, entry] of Object.entries(parsed as Record<string, unknown>)) {
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-      const e = entry as Record<string, unknown>;
-      if (typeof e.text !== 'string') continue;
-      if (typeof e.capturedAt !== 'number' || !Number.isFinite(e.capturedAt)) continue;
-      const s = e.state;
-      if (s !== 'ok' && s !== 'nonzero' && s !== 'timeout') continue;
-      out[id] = { text: e.text, capturedAt: e.capturedAt, state: s };
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-/** Atomic cache write with random temp-file name (mirrors writeCacheFile). */
-function writeCacheFile(path: string, data: CacheMap): void {
-  try {
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    const tmp = `${path}.${randomBytes(8).toString('hex')}.tmp`;
-    try { unlinkSync(tmp); } catch { /* not present */ }
-    const fd = openSync(tmp, 'wx', 0o600);
-    try {
-      writeSync(fd, JSON.stringify(data));
-    } finally {
-      closeSync(fd);
-    }
-    renameSync(tmp, path);
-  } catch {
-    /* cache write best-effort */
-  }
-}
-
-function lastStderrLine(stderr: string, cap = 120): string {
-  const lines = stderr.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
-  const last = lines.length === 0 ? '' : lines[lines.length - 1];
-  return last.length > cap ? last.slice(0, cap) : last;
-}
+import { isAbsolute } from 'node:path';
+import type { OnErrorBehavior, RefreshSpec } from '../types.js';
+import { readCacheFile, writeCacheFile, type CacheEntry, type CacheMap } from '../utils/custom-cache.js';
 
 function isValidSpec(raw: unknown): raw is RefreshSpec {
   if (!raw || typeof raw !== 'object') return false;

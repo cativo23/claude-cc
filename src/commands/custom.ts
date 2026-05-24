@@ -21,6 +21,8 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execBg } from '../utils/exec-bg.js';
 import { createColors } from '../render/colors.js';
+import { loadConfig } from '../config.js';
+import { readCacheFile } from '../utils/custom-cache.js';
 import type { CustomCommandsConfig, CustomCommand } from '../types.js';
 
 // ── constants ──────────────────────────────────────────────────────────────
@@ -92,46 +94,17 @@ function readCustomCommandsBlock(
   return { enabled, commands };
 }
 
-/**
- * Lightweight parse of customCommands.commands from raw config for `list` and
- * `test`. We only need id, command, line, and refreshMs — enough to display a
- * table or run a test. We don't re-validate all fields here; we let the user
- * see whatever is configured, including invalid entries (so they can debug).
- */
-function parseCommandsForDisplay(
-  raw: Record<string, unknown>,
-): Array<{ id: string; command: string[]; line: number; refreshMs: number; timeoutMs: number; maxBytes: number }> {
-  const { commands } = readCustomCommandsBlock(raw);
-  const out: Array<{ id: string; command: string[]; line: number; refreshMs: number; timeoutMs: number; maxBytes: number }> = [];
-
-  for (const entry of commands) {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-    const e = entry as Record<string, unknown>;
-    if (typeof e.id !== 'string' || e.id.length === 0) continue;
-    if (!Array.isArray(e.command) || e.command.length === 0) continue;
-    const command = (e.command as unknown[]).every(s => typeof s === 'string')
-      ? (e.command as string[])
-      : [];
-    if (command.length === 0) continue;
-    const line = typeof e.line === 'number' ? e.line : 1;
-    const refreshMs = typeof e.refreshMs === 'number' ? e.refreshMs : 5000;
-    const timeoutMs = typeof e.timeoutMs === 'number' ? e.timeoutMs : 1500;
-    const maxBytes = typeof e.maxBytes === 'number' ? e.maxBytes : 256;
-    out.push({ id: e.id, command, line, refreshMs, timeoutMs, maxBytes });
-  }
-
-  return out;
-}
-
 // ── color ──────────────────────────────────────────────────────────────────
 
 /**
- * Only use color when stdout is a real TTY. In pipe/test contexts this
- * produces no escape sequences, keeping output clean for programmatic use.
+ * Only use color when stdout is a real TTY and NO_COLOR is not set.
+ * In pipe/test contexts or when NO_COLOR is in env, produces no escape
+ * sequences, keeping output clean for programmatic use.
  */
 function makeColors() {
-  const isTTY = !!process.stdout.isTTY;
-  return isTTY ? createColors('named') : null;
+  const noColor = 'NO_COLOR' in process.env || process.env.TERM === 'dumb';
+  if (noColor || !process.stdout.isTTY) return null;
+  return createColors('named');
 }
 
 // ── subcommands ────────────────────────────────────────────────────────────
@@ -176,15 +149,15 @@ async function cmdDisable(): Promise<Result> {
 
 async function cmdList(): Promise<Result> {
   const c = makeColors();
-  let raw: Record<string, unknown>;
+  let enabled = false;
+  let commands: CustomCommand[] = [];
   try {
-    raw = readConfigRaw();
+    const cfg = loadConfig();
+    enabled = cfg.customCommands.enabled;
+    commands = cfg.customCommands.commands;
   } catch {
-    raw = {};
+    // config unreadable — fall through with empty defaults
   }
-
-  const { enabled } = readCustomCommandsBlock(raw);
-  const commands = parseCommandsForDisplay(raw);
 
   const statusLine = enabled
     ? `Custom commands: ${c ? c.green('enabled') : 'enabled'}\n`
@@ -222,15 +195,14 @@ async function cmdTest(id: string | undefined): Promise<Result> {
     );
   }
 
-  let raw: Record<string, unknown>;
+  let commands: CustomCommand[];
   try {
-    raw = readConfigRaw();
+    commands = loadConfig().customCommands.commands;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return fail(`lumira custom test: could not read config: ${msg}\n`);
   }
 
-  const commands = parseCommandsForDisplay(raw);
   const cmd = commands.find(c => c.id === id);
 
   if (!cmd) {
@@ -270,47 +242,23 @@ async function cmdTest(id: string | undefined): Promise<Result> {
   return ok(lines.join('\n') + '\n');
 }
 
-interface CacheEntry {
-  text: string;
-  capturedAt: number;
-  state: string;
-}
-
 async function cmdLogs(): Promise<Result> {
   const p = cachePath();
 
-  let raw: unknown;
-  try {
-    if (!existsSync(p)) {
-      return ok(
-        `No cache file found at ${p}.\n`
-        + "Run lumira once with custom commands enabled to populate the cache.\n",
-      );
-    }
-    raw = JSON.parse(readFileSync(p, 'utf8'));
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return fail(`lumira custom logs: could not read cache: ${msg}\n`);
-  }
+  const cacheData = readCacheFile(p);
+  const entries = Object.entries(cacheData);
 
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return ok('Cache file is empty or malformed.\n');
-  }
-
-  const entries = Object.entries(raw as Record<string, unknown>);
   if (entries.length === 0) {
-    return ok('Cache file exists but contains no entries.\n');
+    return ok(
+      `No cache file found at ${p}.\n`
+      + "Run lumira once with custom commands enabled to populate the cache.\n",
+    );
   }
 
   const lines: string[] = [`Cache: ${p}`, ''];
 
   for (const [id, entry] of entries) {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-    const e = entry as Record<string, unknown>;
-    const text = typeof e.text === 'string' ? e.text : '';
-    const capturedAt = typeof e.capturedAt === 'number' ? e.capturedAt : 0;
-    const state = typeof e.state === 'string' ? e.state : 'unknown';
-
+    const { text, capturedAt, state } = entry;
     const dateStr = capturedAt > 0
       ? new Date(capturedAt).toLocaleString()
       : 'unknown';
