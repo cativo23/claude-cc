@@ -47,8 +47,14 @@ export interface GetCustomCommandOutputsInput {
   stdin: string;
   /** Path to the cache file. Defaults to ~/.cache/lumira/custom-commands.json. */
   cachePath?: string;
-  /** Path to the user's lumira config — used for the world-writable safety check. */
-  configFilePath?: string;
+  /**
+   * Path to the user's lumira config — required for the world-writable
+   * safety gate. Required (not optional) so that no caller can accidentally
+   * bypass the security check by forgetting to pass the path. If you truly
+   * have no config file path (e.g. config came from defaults), pass an empty
+   * string; the parser will fail-closed and return [].
+   */
+  configFilePath: string;
   /** Now override for deterministic tests. Defaults to Date.now(). */
   now?: number;
 }
@@ -259,8 +265,11 @@ export async function getCustomCommandOutputs(
   // Security gate #1: opt-in required.
   if (!config || config.enabled !== true) return [];
 
-  // Security gate #2: refuse to run if config file is world-writable.
-  if (input.configFilePath && isWorldWritable(input.configFilePath)) return [];
+  // Security gate #2: refuse to run if no config path was supplied (callers
+  // must explicitly pass one — bypassing the gate by omission is not OK)
+  // or if the supplied config file is world-writable.
+  if (typeof input.configFilePath !== 'string' || input.configFilePath.length === 0) return [];
+  if (isWorldWritable(input.configFilePath)) return [];
 
   if (!Array.isArray(config.commands) || config.commands.length === 0) return [];
 

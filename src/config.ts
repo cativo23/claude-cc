@@ -1,5 +1,5 @@
 import { readFileSync, existsSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import {
   DEFAULT_CONFIG,
@@ -11,6 +11,7 @@ import {
   CUSTOM_COMMAND_MAX_BYTES,
   CUSTOM_COMMAND_MAX_ENV_ENTRIES,
   CUSTOM_COMMAND_MIN_REFRESH_MS,
+  CUSTOM_COMMAND_MAX_REFRESH_MS,
   CUSTOM_COMMAND_VALID_LINES,
   CUSTOM_COMMAND_ERROR_BEHAVIORS,
   CUSTOM_COMMAND_COLORS,
@@ -21,6 +22,41 @@ import {
   type CustomCommandsConfig,
   type OnErrorBehavior,
 } from './types.js';
+
+/**
+ * Ids we refuse to accept on user-supplied custom commands. Object.prototype
+ * lookalikes prevent prototype-pollution-style attacks via the cache map
+ * (cache entries are keyed by id; if an attacker can name an entry
+ * `__proto__` or `constructor`, lookups against arbitrary objects later in
+ * the pipeline could become surprising).
+ */
+const RESERVED_ID_NAMES = new Set([
+  '__proto__',
+  'prototype',
+  'constructor',
+  'hasOwnProperty',
+  'toString',
+  'valueOf',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'toLocaleString',
+]);
+
+/**
+ * Reject ids containing path separators or ASCII control characters. Slash
+ * and backslash would break cache-map lookups by id (entries are keyed under
+ * a single object; nesting via paths is not supported). Control chars in id
+ * could corrupt log output / status lines downstream.
+ */
+// eslint-disable-next-line no-control-regex
+const DANGEROUS_ID_CHARS = /[\x00-\x1f/\\]/;
+
+function isValidCustomCommandId(id: string): boolean {
+  if (id.length === 0 || id.length > 64) return false;
+  if (RESERVED_ID_NAMES.has(id)) return false;
+  if (DANGEROUS_ID_CHARS.test(id)) return false;
+  return true;
+}
 
 // Module-level flag: fires the qwen→minimal deprecation warning once per
 // Node process. Process-scoped by design — tests must run in forked workers
@@ -57,8 +93,10 @@ function parseCustomCommands(raw: unknown): CustomCommandsConfig {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
     const e = entry as Record<string, unknown>;
 
-    // id — non-empty string, unique
-    if (typeof e.id !== 'string' || e.id.length === 0) continue;
+    // id — non-empty string, unique, no path separators / control chars /
+    // reserved Object.prototype names. Caps length at 64 to prevent absurd
+    // ids from blowing up log lines or cache files.
+    if (typeof e.id !== 'string' || !isValidCustomCommandId(e.id)) continue;
     if (seenIds.has(e.id)) continue;
 
     // command — non-empty array of non-empty strings (no shell-string form)
@@ -70,7 +108,7 @@ function parseCustomCommands(raw: unknown): CustomCommandsConfig {
 
     // From here on the entry is valid; default optional fields.
     const refreshMs = typeof e.refreshMs === 'number' && Number.isFinite(e.refreshMs)
-      ? Math.max(CUSTOM_COMMAND_MIN_REFRESH_MS, Math.trunc(e.refreshMs))
+      ? clampInt(e.refreshMs, CUSTOM_COMMAND_MIN_REFRESH_MS, CUSTOM_COMMAND_MAX_REFRESH_MS)
       : 5000;
     const timeoutMs = typeof e.timeoutMs === 'number' && Number.isFinite(e.timeoutMs)
       ? clampInt(e.timeoutMs, 100, CUSTOM_COMMAND_MAX_TIMEOUT_MS)
@@ -79,12 +117,18 @@ function parseCustomCommands(raw: unknown): CustomCommandsConfig {
       ? clampInt(e.maxBytes, 16, CUSTOM_COMMAND_MAX_BYTES)
       : 256;
 
-    const onError: OnErrorBehavior = CUSTOM_COMMAND_ERROR_BEHAVIORS.includes(e.onError as OnErrorBehavior)
-      ? (e.onError as OnErrorBehavior)
-      : 'hide';
-    const onTimeout: OnErrorBehavior = CUSTOM_COMMAND_ERROR_BEHAVIORS.includes(e.onTimeout as OnErrorBehavior)
-      ? (e.onTimeout as OnErrorBehavior)
-      : 'stale';
+    // Cast AFTER the membership guard, not before — casting unknown→typed
+    // up front inverts the type-narrowing the guard exists to provide.
+    const rawOnError = e.onError;
+    const onError: OnErrorBehavior =
+      typeof rawOnError === 'string' && (CUSTOM_COMMAND_ERROR_BEHAVIORS as readonly string[]).includes(rawOnError)
+        ? (rawOnError as OnErrorBehavior)
+        : 'hide';
+    const rawOnTimeout = e.onTimeout;
+    const onTimeout: OnErrorBehavior =
+      typeof rawOnTimeout === 'string' && (CUSTOM_COMMAND_ERROR_BEHAVIORS as readonly string[]).includes(rawOnTimeout)
+        ? (rawOnTimeout as OnErrorBehavior)
+        : 'stale';
     const ansi = typeof e.ansi === 'boolean' ? e.ansi : false;
 
     const cmd: CustomCommand = {
@@ -100,8 +144,11 @@ function parseCustomCommands(raw: unknown): CustomCommandsConfig {
     };
 
     if (typeof e.label === 'string') cmd.label = e.label;
-    if (typeof e.cwd === 'string') cmd.cwd = e.cwd;
-    if (CUSTOM_COMMAND_COLORS.includes(e.color as never)) {
+    // cwd — must be an absolute path. Relative paths like '../../../etc'
+    // would silently escape the renderer's cwd; drop them to fall back to
+    // process.cwd() instead of accepting hostile relative input.
+    if (typeof e.cwd === 'string' && isAbsolute(e.cwd)) cmd.cwd = e.cwd;
+    if (typeof e.color === 'string' && (CUSTOM_COMMAND_COLORS as readonly string[]).includes(e.color)) {
       cmd.color = e.color as CustomCommand['color'];
     }
 

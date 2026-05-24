@@ -372,6 +372,77 @@ describe('loadConfig', () => {
       }));
       expect(loadConfig(dir).customCommands.commands).toEqual([]);
     });
+
+    // I5: cwd must be absolute. Relative paths like '../../etc' would silently
+    // escape the renderer's cwd to attacker-controlled locations.
+    it('drops cwd when not an absolute path (relative paths rejected)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'rel', command: ['echo'], line: 1, cwd: '../../etc' }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].cwd).toBeUndefined();
+    });
+
+    it('accepts cwd when absolute', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'abs', command: ['echo'], line: 1, cwd: '/tmp' }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].cwd).toBe('/tmp');
+    });
+
+    // I6: refreshMs has an upper bound now (24h). Larger values clamp.
+    it('clamps refreshMs above 86_400_000 (24h) down to 86_400_000', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, refreshMs: 100_000_000 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].refreshMs).toBe(86_400_000);
+    });
+
+    // I7: reject ids containing path separators (slash/backslash).
+    it('drops command with id containing slash', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'bad/id', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+
+    it('drops command with id containing backslash', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'bad\\id', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+
+    // I7: reject reserved Object.prototype-shadowing ids.
+    it('drops command with id === "__proto__" (prototype pollution guard)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: '__proto__', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+
+    it('drops command with id === "constructor"', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'constructor', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toEqual([]);
+    });
+
+    // I8: cast-after-guard means malformed (non-string) onError doesn't sneak
+    // through. The guard now also rejects non-string values cleanly.
+    it('falls back to onError default when value is not a string', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, onError: 42 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].onError).toBe('hide');
+    });
   });
 });
 

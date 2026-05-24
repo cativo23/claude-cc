@@ -242,6 +242,10 @@ export const CUSTOM_COMMAND_MAX_BYTES = 4096;
 export const CUSTOM_COMMAND_MAX_ENV_ENTRIES = 32;
 /** Lower bound on refresh interval (ms) to prevent thrashing the renderer. */
 export const CUSTOM_COMMAND_MIN_REFRESH_MS = 500;
+/** Upper bound on refresh interval (ms) — 24h. Anything larger is almost
+ * certainly a typo (e.g. "5000000" meant "5000"). Clamping prevents an
+ * effectively-once-per-process command from being accidentally configured. */
+export const CUSTOM_COMMAND_MAX_REFRESH_MS = 86_400_000;
 
 /** Valid `line` values for CustomCommand. */
 export const CUSTOM_COMMAND_VALID_LINES = [1, 2, 3, 4] as const;

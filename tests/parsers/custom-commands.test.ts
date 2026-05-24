@@ -160,6 +160,20 @@ describe('getCustomCommandOutputs', () => {
     }
   });
 
+  // I3: fail-closed if configFilePath is missing/empty so a caller can never
+  // accidentally evaporate the world-writable safety gate by omission.
+  it('returns [] when configFilePath is the empty string (fail-closed)', async () => {
+    const result = await getCustomCommandOutputs({
+      config: makeConfig([makeCmd()]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: '',
+      now: FIXED_NOW,
+    });
+    expect(result).toEqual([]);
+    expect(existsSync(cachePath)).toBe(false);
+  });
+
   it('respects onTimeout=stale — returns cached text from previous timeout entry', async () => {
     const cmd = makeCmd({ id: 'timeout-cmd', onTimeout: 'stale', refreshMs: 5000 });
     writeFileSync(cachePath, JSON.stringify({
