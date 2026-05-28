@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-05-28
+
 ### Changed
 
 - **Smaller npm package** — source maps (`*.map`) and type declarations (`*.d.ts`) are now excluded from the published tarball via the `files` allowlist. They are build artifacts that `npx lumira` never loads. Unpacked install size drops ~50% (≈633 KB → ≈321 KB); the tarball shrinks from ~167 KB to ~99 KB.
