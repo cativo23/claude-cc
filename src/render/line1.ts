@@ -46,6 +46,19 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     }
   }
 
+  // Added dirs badge — only when count > 0; warning color at >= 5
+  if (display.addedDirs && input.addedDirsCount != null && input.addedDirsCount > 0) {
+    const badge = `+${input.addedDirsCount} dirs`;
+    left.push(input.addedDirsCount >= 5 ? c.orange(badge) : c.dim(badge));
+  }
+
+  // Worktree origin-branch breadcrumb — only when original_branch is present and differs from current
+  const branchForBreadcrumb = input.gitBranch || git.branch;
+  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch && input.worktreeOriginalBranch !== branchForBreadcrumb) {
+    const truncated = truncField(input.worktreeOriginalBranch, 15);
+    left.push(c.gray(`↳ ${truncated}`));
+  }
+
   // Duration (Claude only)
   if (display.duration && input.durationMs != null) {
     right.push(c.dim(`${icons.clock} ${formatDuration(input.durationMs)}`));

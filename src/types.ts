@@ -5,7 +5,7 @@ export interface ClaudeCodeInput {
   session_id: string;
   session_name?: string;
   cwd?: string;
-  workspace?: { current_dir: string };
+  workspace?: { current_dir: string; added_dirs?: string[] };
   context_window: {
     context_window_size?: number;
     used_percentage: number;
@@ -33,7 +33,7 @@ export interface ClaudeCodeInput {
   output_style?: { name: string };
   version?: string;
   agent?: { name: string };
-  worktree?: { name: string };
+  worktree?: { name: string; original_branch?: string };
   vim?: { mode: string };
   rate_limits?: {
     five_hour?: RateLimitWindow;
@@ -306,6 +306,8 @@ export interface DisplayToggles {
   agents: boolean;
   health: boolean;
   apiLatency: boolean;
+  addedDirs: boolean;
+  worktreeBreadcrumb: boolean;
   /**
    * Percentage at which the context bar turns orange and shows the fire icon. Default 65. Clamped [0,100].
    * Setting this ≤ 50 collapses the yellow zone; the bar jumps green→orange directly at this value.
@@ -394,6 +396,8 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   agents: true,
   health: false,
   apiLatency: true,
+  addedDirs: true,
+  worktreeBreadcrumb: true,
   contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
   contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };
