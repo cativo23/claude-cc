@@ -868,7 +868,13 @@ describe('renderPowerlineLine1', () => {
       const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
       expect(out).toContain('+5 dirs');
 
-      const withDirs4 = makeCtx({
+      // Pin the actual warning bg: DEFAULT_POWERLINE_PALETTE.taskBg is {128,96,24},
+      // rendered as a truecolor bg escape. count>=5 must use taskBg.
+      const warnRaw = renderPowerlineLine1(ctx, 'truecolor', null);
+      expect(warnRaw).toContain('\x1b[48;2;128;96;24m');
+
+      // count<5 uses versionBg {64,64,72} (not the taskBg warning slot).
+      const normCtx = makeCtx({
         input: {
           ...normalize({
             model: 'Claude',
@@ -880,9 +886,8 @@ describe('renderPowerlineLine1', () => {
         },
         config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } },
       });
-      const outWarn = renderPowerlineLine1(ctx, 'truecolor', null);
-      const outNorm = renderPowerlineLine1(withDirs4, 'truecolor', null);
-      expect(outWarn).not.toBe(outNorm);
+      const normRaw = renderPowerlineLine1(normCtx, 'truecolor', null);
+      expect(normRaw).toContain('\x1b[48;2;64;64;72m');
     });
   });
 

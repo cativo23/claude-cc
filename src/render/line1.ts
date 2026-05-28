@@ -52,9 +52,10 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     left.push(input.addedDirsCount >= 5 ? c.orange(badge) : c.dim(badge));
   }
 
-  // Worktree origin-branch breadcrumb — only when original_branch is present and differs from current
+  // Worktree origin-branch breadcrumb — only when original_branch is present,
+  // there IS a current branch to contrast against (anchor), and they differ.
   const branchForBreadcrumb = input.gitBranch || git.branch;
-  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch && input.worktreeOriginalBranch !== branchForBreadcrumb) {
+  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch && branchForBreadcrumb && input.worktreeOriginalBranch !== branchForBreadcrumb) {
     const truncated = truncField(input.worktreeOriginalBranch, 15);
     left.push(c.gray(`↳ ${truncated}`));
   }

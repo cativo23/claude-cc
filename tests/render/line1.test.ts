@@ -6,6 +6,7 @@ import type { ClaudeCodeInput, GitStatus, RenderContext } from '../../src/types.
 import { NERD_ICONS } from '../../src/render/icons.js';
 import { normalize } from '../../src/normalize.js';
 import { displayWidth } from '../../src/render/text.js';
+import { applyPreset } from '../../src/config.js';
 
 const c = createColors('named');
 
@@ -412,7 +413,11 @@ describe('renderLine1', () => {
     });
 
     it('should_not_render_breadcrumb_in_minimal_preset_toggle_defaults_to_false', () => {
-      const config = { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktreeBreadcrumb: false } };
+      // Exercise the real minimal-preset path: applyPreset must turn the
+      // breadcrumb off (DEFAULT_DISPLAY has it ON) so minimal stays clean.
+      const config = { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } };
+      applyPreset(config, 'minimal');
+      expect(config.display.worktreeBreadcrumb).toBe(false);
       const ctx = makeCtx(
         { git: { branch: 'feat/my-feature', staged: 0, modified: 0, untracked: 0 }, config },
         { worktree: { name: 'wt', original_branch: 'main' } },
