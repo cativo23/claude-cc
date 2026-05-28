@@ -49,6 +49,8 @@
   ],
   "files": [
     "dist",
-    "skills"
+    "skills",
+    "!dist/**/*.map",
+    "!dist/**/*.d.ts"
   ]
 }
