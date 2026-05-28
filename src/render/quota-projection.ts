@@ -1,4 +1,5 @@
 import { debug } from '../utils/debug.js';
+import { computeBurnExtrapolation } from './burn-math.js';
 
 const log = debug('quota-projection');
 
@@ -44,23 +45,20 @@ export function computeQuotaProjection(
     return null;
   }
 
-  // burnRate is in pct-per-second
-  const burnRate = usedPct / elapsedSec;
-  const timeToExhaustSec = (100 - usedPct) / burnRate;
-  const willExhaustBefore = timeToExhaustSec < remainingSec;
+  const burn = computeBurnExtrapolation(usedPct, elapsedSec, remainingSec);
 
   if (log.enabled) {
     log({
       usedPct,
       elapsedSec: Math.round(elapsedSec),
       remainingSec: Math.round(remainingSec),
-      burnRate,
-      timeToExhaustSec: Math.round(timeToExhaustSec),
-      willExhaustBefore,
+      burnRate: burn.burnRateSec,
+      timeToExhaustSec: Math.round(burn.timeToExhaustSec),
+      willExhaustBefore: burn.willExhaustBefore,
     });
   }
 
-  return { timeToExhaustSec, willExhaustBefore };
+  return { timeToExhaustSec: burn.timeToExhaustSec, willExhaustBefore: burn.willExhaustBefore };
 }
 
 /**
