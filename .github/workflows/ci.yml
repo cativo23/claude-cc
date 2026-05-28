@@ -26,19 +26,20 @@ jobs:
       - run: npm run test:coverage
       - run: npm run lint
       - run: npm run build
-      # Bundle size guard: dist/ ships to npm. Currently ~590 KB after
-      # the custom commands widget (exec-bg, parser, refresh helper, CLI,
-      # cache util, renderer integration). Ceiling raised from 512 KB to
-      # 640 KB alongside PR #146. Raise alongside the corresponding PR if
-      # a feature genuinely needs the headroom.
+      # Bundle size guard: measures only the .js files that actually ship and
+      # execute (source maps + .d.ts are excluded from the npm package via the
+      # files allowlist in package.json, so they don't count). Currently ~285 KB
+      # of JS after the custom commands widget. Ceiling is 400 KB. Raise it
+      # alongside the corresponding PR — and in release.yml too — if a feature
+      # genuinely needs the headroom.
       - name: Bundle size guard
         env:
-          CEILING: '655360'
+          CEILING: '409600'
         run: |
-          SIZE=$(du -sb dist/ | cut -f1)
-          echo "dist/ size: $SIZE bytes (ceiling: $CEILING)"
+          SIZE=$(find dist -name '*.js' -type f -printf '%s\n' | awk '{s+=$1} END {print s+0}')
+          echo "dist/ JS size: $SIZE bytes (ceiling: $CEILING)"
           if [ "$SIZE" -gt "$CEILING" ]; then
-            echo "::error::dist/ exceeded ceiling — raise it in ci.yml if intentional"
+            echo "::error::dist/ JS exceeded ceiling — raise it in ci.yml + release.yml if intentional"
             exit 1
           fi
       # Theme contrast guard. Reads compiled THEMES from dist/, computes
