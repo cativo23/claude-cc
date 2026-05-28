@@ -1,4 +1,5 @@
 import { debug } from '../utils/debug.js';
+import { computeBurnExtrapolation } from './burn-math.js';
 
 const log = debug('pace');
 
@@ -28,17 +29,13 @@ export function computePaceDelta(
     return null;
   }
 
-  const elapsedPct = (elapsedSec / totalWindowSec) * 100;
-  const delta = usedPercentage - elapsedPct;
-
-  let timeToExhaustion: number | null = null;
-  if (delta > 0 && usedPercentage > 0) {
-    // burn rate = usedPercentage / elapsedSec (pct per second)
-    // time to exhaust remaining (100 - usedPercentage) pct at that rate
-    timeToExhaustion = (100 - usedPercentage) / (usedPercentage / elapsedSec) / 60;
-  }
+  const burn = computeBurnExtrapolation(usedPercentage, elapsedSec, remainingSec);
+  const timeToExhaustion = burn.delta > 0 && usedPercentage > 0
+    ? burn.timeToExhaustSec / 60
+    : null;
 
   if (log.enabled) {
+    const elapsedPct = (elapsedSec / totalWindowSec) * 100;
     log({
       usedPercentage,
       resetsAt,
@@ -48,12 +45,12 @@ export function computePaceDelta(
       remainingSec: Math.round(remainingSec),
       remainingMin: Math.round(remainingSec / 60),
       elapsedPct: Math.round(elapsedPct * 10) / 10,
-      delta: Math.round(delta * 10) / 10,
+      delta: Math.round(burn.delta * 10) / 10,
       timeToExhaustionMin: timeToExhaustion != null ? Math.round(timeToExhaustion) : null,
     });
   }
 
-  return { delta, timeToExhaustion };
+  return { delta: burn.delta, timeToExhaustion };
 }
 
 export function formatPaceDelta(pace: PaceDelta): string {
