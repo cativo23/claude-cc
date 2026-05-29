@@ -785,5 +785,37 @@ describe('renderPowerlineLine2', () => {
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
       expect(out).not.toContain('⊙');
     });
+
+    it('uses the dirBg palette background — same visual family as contextTokens', () => {
+      // DEFAULT_POWERLINE_PALETTE.dirBg = { r: 48, g: 72, b: 128 } (themes/util.ts).
+      // Disable every other dirBg segment (contextTokens/tokens/paceDelta/vim) so
+      // the only dirBg escape in the output belongs to the compaction segment.
+      const DIR_BG = '\x1b[48;2;48;72;128m';
+      const ctx = makeCtx({
+        transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 2 },
+        config: {
+          ...DEFAULT_CONFIG,
+          display: {
+            ...DEFAULT_DISPLAY,
+            compactionCount: true,
+            contextBar: false,
+            contextTokens: false,
+            cost: false,
+            burnRate: false,
+            tokens: false,
+            rateLimits: false,
+            paceDelta: false,
+            quotaProjection: false,
+            cacheMetrics: false,
+            mcp: false,
+            vim: false,
+            effort: false,
+          },
+        },
+      });
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      expect(stripAnsi(raw)).toContain('⊙ 2');
+      expect(raw).toContain(DIR_BG);
+    });
   });
 });

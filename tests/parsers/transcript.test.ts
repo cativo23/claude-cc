@@ -180,6 +180,20 @@ describe('parseTranscript', () => {
       ]);
       expect(result.compactionCount).toBe(2);
     });
+
+    it('skips a malformed line interleaved with valid boundaries without disrupting the count', async () => {
+      const validBoundary = JSON.stringify({ type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:00Z' });
+      const garbage = 'this is not json {';
+      const dir = mkdtempSync(join(tmpdir(), 'lumira-compact-bad-'));
+      const p = join(dir, 'test.jsonl');
+      writeFileSync(p, [validBoundary, garbage, validBoundary].join('\n') + '\n');
+      try {
+        const result = await parseTranscript(p);
+        expect(result.compactionCount).toBe(2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 });
 
