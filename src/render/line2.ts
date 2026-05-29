@@ -26,7 +26,7 @@ export function formatCountdown(resetsAt: number): string {
 }
 
 export function renderLine2(ctx: RenderContext, c: Colors): string {
-  const { input, tokenSpeed, transcript: { thinkingEffort }, config: { display }, cols, memory, mcp, icons } = ctx;
+  const { input, tokenSpeed, transcript: { thinkingEffort, compactionCount }, config: { display }, cols, memory, mcp, icons } = ctx;
   const leftParts: string[] = [];
   const rightParts: string[] = [];
 
@@ -59,6 +59,12 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
       leftParts.push(c.dim(`${formatTokens(used)}/${formatTokens(capacity)}`));
       contextSlotCount++;
     }
+  }
+
+  // Compaction counter — how many times this session has been compacted.
+  // Self-gating: renders nothing at count 0. Paired with the context bar.
+  if (display.compactionCount && compactionCount > 0) {
+    leftParts.push(c.dim(`⊙ ${compactionCount}`));
   }
 
   // Tokens

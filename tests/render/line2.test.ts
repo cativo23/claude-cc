@@ -940,6 +940,35 @@ describe('apiLatency widget', () => {
   });
 });
 
+describe('compactionCount widget (renderLine2)', () => {
+  it('renders ⊙ N when compactionCount > 0 and display.compactionCount is on', () => {
+    const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 2 } });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).toContain('⊙ 2');
+  });
+
+  it('renders nothing when compactionCount is 0', () => {
+    const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 0 } });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('⊙');
+  });
+
+  it('does not render when display.compactionCount is off', () => {
+    const ctx = makeCtx({
+      transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 3 },
+      config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, compactionCount: false } },
+    });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('⊙');
+  });
+
+  it('renders ⊙ 1 for a single compaction', () => {
+    const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 1 } });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).toContain('⊙ 1');
+  });
+});
+
 describe('formatCountdown', () => {
   afterEach(() => vi.useRealTimers());
 

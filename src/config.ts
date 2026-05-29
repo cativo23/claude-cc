@@ -327,6 +327,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       apiLatency: false,
       addedDirs: false,
       worktreeBreadcrumb: false,
+      compactionCount: false,
     },
   },
 };

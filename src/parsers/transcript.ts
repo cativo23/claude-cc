@@ -128,7 +128,7 @@ export function extractToolTarget(toolName: string, input: Record<string, unknow
 // about the string-level (non-symlink-following) nature of the check.
 
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
-  const result: TranscriptData = { ...EMPTY_TRANSCRIPT, tools: [], agents: [], todos: [] };
+  const result: TranscriptData = { ...EMPTY_TRANSCRIPT, tools: [], agents: [], todos: [], compactionCount: 0 };
   if (!transcriptPath || !existsSync(transcriptPath)) {
     if (log.enabled) log('skip — transcript path missing or nonexistent:', transcriptPath || '(empty)');
     // File may have been deleted/rotated between calls — drop any stale entry
@@ -193,6 +193,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
       try {
         const entry = JSON.parse(line);
         if (!result.sessionStart && entry.timestamp) result.sessionStart = new Date(entry.timestamp);
+
+        if (entry.type === 'system' && entry.subtype === 'compact_boundary') result.compactionCount++;
 
         const effortMatch = Array.isArray(entry.message?.content)
           ? entry.message.content

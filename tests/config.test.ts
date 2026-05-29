@@ -588,3 +588,31 @@ describe('qwen preset migration', () => {
     expect(calls).toContain("'qwen' preset is removed");
   });
 });
+
+describe('compactionCount display toggle — preset defaults', () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'cc-cfg-compact-')); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('compactionCount is ON by default (full preset)', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"full"}');
+    expect(loadConfig(dir).display.compactionCount).toBe(true);
+  });
+
+  it('compactionCount is ON in balanced preset', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"balanced"}');
+    expect(loadConfig(dir).display.compactionCount).toBe(true);
+  });
+
+  it('compactionCount is OFF in minimal preset', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"minimal"}');
+    expect(loadConfig(dir).display.compactionCount).toBe(false);
+  });
+
+  it('compactionCount is true when no config file exists (DEFAULT_DISPLAY)', () => {
+    expect(loadConfig(join(dir, 'nope')).display.compactionCount).toBe(true);
+  });
+});
