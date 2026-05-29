@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-28
+
+### Added
+
+- **Compaction counter widget** — line 2 renders `⊙ N` next to the context bar, counting how many times the session transcript has been compacted (auto + manual). Pairs with the auto-compact proximity glyph ⚠ to show both "how close to the next compaction" and "how many already happened". Computed inside the existing mtime-cached transcript parser (no extra I/O). Self-gating: renders nothing at zero. Toggled via `display.compactionCount` (default `true` in `full`/`balanced`; `false` in `minimal`). (#154)
+
+### Fixed
+
+- **Flaky git cache test** — `tests/parsers/git.test.ts` no longer fails intermittently when a prior run's on-disk TTL cache survives; the test now forces a cache miss so the write path is deterministic. Dev-only, no user-facing change. (#155)
+
 ## [1.7.0] - 2026-05-28
 
 ### Added
