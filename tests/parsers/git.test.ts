@@ -58,7 +58,7 @@ describe('parseGitStatus', () => {
     // Force a cache miss so the write path always runs — otherwise a fresh
     // on-disk TTL entry from a prior `vitest run` (within GIT_CACHE_TTL) makes
     // parseGitStatus return early and writeTtlCache is never called (flaky).
-    vi.spyOn(cacheUtils, 'readTtlCache').mockReturnValue(null);
+    const readSpy = vi.spyOn(cacheUtils, 'readTtlCache').mockReturnValue(null);
     // Spy on writeTtlCache to capture the key the production code actually uses.
     // If someone truncates the digest or changes the algorithm in git.ts, the
     // captured key will no longer match the expected 32-char hex pattern.
@@ -79,6 +79,7 @@ describe('parseGitStatus', () => {
     expect(usedKey).toMatch(/^git-[0-9a-f]{32}$/);
 
     writeSpy.mockRestore();
+    readSpy.mockRestore();
   });
 
 });
