@@ -73,6 +73,7 @@ export interface TranscriptData {
   todos: TodoEntry[];
   thinkingEffort: ThinkingEffort;
   sessionStart: Date | null;
+  compactionCount: number;
 }
 
 export const EMPTY_TRANSCRIPT: Readonly<TranscriptData> = Object.freeze({
@@ -81,6 +82,7 @@ export const EMPTY_TRANSCRIPT: Readonly<TranscriptData> = Object.freeze({
   todos: Object.freeze([] as TodoEntry[]),
   thinkingEffort: '' as ThinkingEffort,
   sessionStart: null,
+  compactionCount: 0,
 } as TranscriptData);
 
 export type ThinkingEffort = 'low' | 'medium' | 'high' | 'max' | 'xhigh' | '';
@@ -308,6 +310,7 @@ export interface DisplayToggles {
   apiLatency: boolean;
   addedDirs: boolean;
   worktreeBreadcrumb: boolean;
+  compactionCount: boolean;
   /**
    * Percentage at which the context bar turns orange and shows the fire icon. Default 65. Clamped [0,100].
    * Setting this ≤ 50 collapses the yellow zone; the bar jumps green→orange directly at this value.
@@ -398,6 +401,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   apiLatency: true,
   addedDirs: true,
   worktreeBreadcrumb: true,
+  compactionCount: true,
   contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
   contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };

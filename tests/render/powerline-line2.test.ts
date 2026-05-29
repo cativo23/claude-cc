@@ -763,4 +763,59 @@ describe('renderPowerlineLine2', () => {
       expect(plain).toContain('TWO');
     });
   });
+
+  describe('compactionCount segment (powerline-line2)', () => {
+    it('renders ⊙ N segment when compactionCount > 0 and display.compactionCount is on', () => {
+      const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 2 } });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('⊙ 2');
+    });
+
+    it('does not render segment when compactionCount is 0', () => {
+      const ctx = makeCtx({ transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 0 } });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('⊙');
+    });
+
+    it('does not render segment when display.compactionCount is off', () => {
+      const ctx = makeCtx({
+        transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 5 },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, compactionCount: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('⊙');
+    });
+
+    it('uses the dirBg palette background — same visual family as contextTokens', () => {
+      // DEFAULT_POWERLINE_PALETTE.dirBg = { r: 48, g: 72, b: 128 } (themes/util.ts).
+      // Disable every other dirBg segment (contextTokens/tokens/paceDelta/vim) so
+      // the only dirBg escape in the output belongs to the compaction segment.
+      const DIR_BG = '\x1b[48;2;48;72;128m';
+      const ctx = makeCtx({
+        transcript: { ...EMPTY_TRANSCRIPT, compactionCount: 2 },
+        config: {
+          ...DEFAULT_CONFIG,
+          display: {
+            ...DEFAULT_DISPLAY,
+            compactionCount: true,
+            contextBar: false,
+            contextTokens: false,
+            cost: false,
+            burnRate: false,
+            tokens: false,
+            rateLimits: false,
+            paceDelta: false,
+            quotaProjection: false,
+            cacheMetrics: false,
+            mcp: false,
+            vim: false,
+            effort: false,
+          },
+        },
+      });
+      const raw = renderPowerlineLine2(ctx, 'truecolor', null, c);
+      expect(stripAnsi(raw)).toContain('⊙ 2');
+      expect(raw).toContain(DIR_BG);
+    });
+  });
 });

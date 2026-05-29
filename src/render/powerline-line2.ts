@@ -61,7 +61,7 @@ function getApiLatencyBg(pct: number, palette: PowerlinePalette): RGB {
 // recorded against PR #47.
 
 function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors): PowerlineSegment[] {
-  const { input, config: { display }, icons, mcp, transcript: { thinkingEffort } } = ctx;
+  const { input, config: { display }, icons, mcp, transcript: { thinkingEffort, compactionCount } } = ctx;
   const segments: PowerlineSegment[] = [];
 
   // Context bar — always highest priority. plain=true so the bar cells inherit
@@ -90,6 +90,12 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
       const used = Math.round(capacity * pct / 100);
       segments.push({ text: `${formatTokens(used)}/${formatTokens(capacity)}`, bg: palette.dirBg, fg: palette.fg, priority: 90 });
     }
+  }
+
+  // Compaction counter — self-gating at 0; priority 88 keeps it adjacent to
+  // the context family (contextBar=100, contextTokens=90).
+  if (display.compactionCount && compactionCount > 0) {
+    segments.push({ text: `⊙ ${compactionCount}`, bg: palette.dirBg, fg: palette.fg, priority: 88 });
   }
 
   // 7d projection — computed once, surfaced inside the 7d segment when the

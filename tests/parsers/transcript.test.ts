@@ -115,6 +115,86 @@ describe('parseTranscript', () => {
     expect(result.todos[2].id).toBe('c');
     expect(result.todos[2].status).toBe('pending');
   });
+
+  describe('compactionCount', () => {
+    async function parseLines(lines: object[]): Promise<import('../../src/types.js').TranscriptData> {
+      const dir = mkdtempSync(join(tmpdir(), 'lumira-compact-'));
+      const p = join(dir, 'test.jsonl');
+      writeFileSync(p, lines.map(l => JSON.stringify(l)).join('\n') + '\n');
+      try {
+        return await parseTranscript(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+
+    it('returns 0 when no compact_boundary entries exist', async () => {
+      const result = await parseLines([
+        { timestamp: '2026-04-08T10:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu1', name: 'Read', input: { file_path: '/foo.ts' } }] } },
+        { timestamp: '2026-04-08T10:00:01Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } },
+      ]);
+      expect(result.compactionCount).toBe(0);
+    });
+
+    it('counts a single compact_boundary system entry', async () => {
+      const result = await parseLines([
+        { timestamp: '2026-04-08T10:00:00Z', message: { content: [{ type: 'tool_use', id: 'tu1', name: 'Read', input: { file_path: '/foo.ts' } }] } },
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:01Z' },
+        { timestamp: '2026-04-08T10:00:02Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } },
+      ]);
+      expect(result.compactionCount).toBe(1);
+    });
+
+    it('counts multiple compact_boundary entries', async () => {
+      const result = await parseLines([
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:00Z' },
+        { timestamp: '2026-04-08T10:00:01Z', message: { content: [{ type: 'tool_use', id: 'tu1', name: 'Bash', input: { command: 'ls' } }] } },
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:02Z' },
+        { timestamp: '2026-04-08T10:00:03Z', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } },
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:04Z' },
+      ]);
+      expect(result.compactionCount).toBe(3);
+    });
+
+    it('ignores system entries with other subtypes', async () => {
+      const result = await parseLines([
+        { type: 'system', subtype: 'some_other_event', timestamp: '2026-04-08T10:00:00Z' },
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:01Z' },
+        { type: 'system', subtype: 'init', timestamp: '2026-04-08T10:00:02Z' },
+      ]);
+      expect(result.compactionCount).toBe(1);
+    });
+
+    it('ignores non-system entries that happen to have subtype compact_boundary', async () => {
+      const result = await parseLines([
+        { type: 'assistant', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:00Z' },
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:01Z' },
+      ]);
+      expect(result.compactionCount).toBe(1);
+    });
+
+    it('does not filter on compactMetadata.trigger — counts auto and manual equally', async () => {
+      const result = await parseLines([
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:00Z', compactMetadata: { trigger: 'auto' } },
+        { type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:01Z', compactMetadata: { trigger: 'manual' } },
+      ]);
+      expect(result.compactionCount).toBe(2);
+    });
+
+    it('skips a malformed line interleaved with valid boundaries without disrupting the count', async () => {
+      const validBoundary = JSON.stringify({ type: 'system', subtype: 'compact_boundary', timestamp: '2026-04-08T10:00:00Z' });
+      const garbage = 'this is not json {';
+      const dir = mkdtempSync(join(tmpdir(), 'lumira-compact-bad-'));
+      const p = join(dir, 'test.jsonl');
+      writeFileSync(p, [validBoundary, garbage, validBoundary].join('\n') + '\n');
+      try {
+        const result = await parseTranscript(p);
+        expect(result.compactionCount).toBe(2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
 });
 
 describe('extractToolTarget', () => {
