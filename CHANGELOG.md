@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-05-28
+
+### Added
+
+- **Added-dirs badge** — line 1 now renders `+N dirs` when `workspace.added_dirs` is non-empty. Color escalates to orange at ≥5 new directories. Self-gating: renders nothing when the field is absent or zero. Toggled via `display.addedDirs` (default `true` in `full`/`balanced`; `false` in `minimal`). Closes [#129](https://github.com/cativo23/lumira/issues/129).
+- **Worktree origin-branch breadcrumb** — during native `--worktree` sessions, line 1 renders `↳ <branch>` when `worktree.original_branch` differs from the current branch. Gives at-a-glance context of which base branch the worktree tracks. Toggled via `display.worktreeBreadcrumb` (default `true` in `full`/`balanced`; `false` in `minimal`). Renders nothing when not in a worktree session or when origin matches current. Closes [#130](https://github.com/cativo23/lumira/issues/130).
+
+### Fixed
+
+- **`lumira` skill now accepts `apiLatency`, `addedDirs`, and `worktreeBreadcrumb` as valid `display.*` keys** — previously the skill's valid-key guard rejected all three and would have told users their config was invalid. `apiLatency` has been live since v1.4.0 (latent bug); `addedDirs` and `worktreeBreadcrumb` are new in this release.
+
+### Changed
+
+- **Burn-rate math consolidated internally** — pace/quota burn-rate calculations are now computed once in a shared helper rather than duplicated across pace-delta and quota-projection modules. No behavior change for users. (#131)
+
 ## [1.6.1] - 2026-05-28
 
 ### Changed

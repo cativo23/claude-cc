@@ -26,7 +26,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 
 > 3,400+ monthly downloads, zero marketing. Try it for one session — `npx lumira install`.
 
-> **What's new in v1.5:** the [`lumira stats` CLI](#stats-cli) prints post-session analytics (cost, tokens, cache hit, tool frequency, burn rate). Combined with the `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), recent releases add several diagnostic signals to the session.
+> **What's new in v1.7.0:** added-dirs badge (`+N dirs`, orange at ≥5) and worktree origin-branch breadcrumb (`↳ <branch>`) — both togglable via `display.addedDirs` / `display.worktreeBreadcrumb`, on by default in `full`/`balanced`. Combined with the [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), recent releases add several diagnostic signals to the session.
 
 ## Table of contents
 
@@ -87,7 +87,7 @@ Inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud); takes a dif
 - **Config health widget** — surfaces silent fallbacks (theme/powerline degrading in named-ANSI, missing GSD STATE.md). Opt-in.
 - **Memory usage** — process RSS percentage.
 - **MCP server detection** — count of attached MCP servers per session.
-- **Vim-mode hint, thinking effort, worktree, output style, session name** — all togglable per-field via `display.*`.
+- **Vim-mode hint, thinking effort, worktree, output style, session name, added-dirs badge, worktree origin-branch breadcrumb** — all togglable per-field via `display.*`.
 - **3-tier color system** — named ANSI / 256-color / truecolor, auto-detected.
 - **Config-driven** — every feature toggleable via JSON config + CLI flags.
 
@@ -269,6 +269,7 @@ Create `~/.config/lumira/config.json`:
     "burnRate": true,
     "duration": true,
     "tokenSpeed": true,
+    "apiLatency": true,
     "rateLimits": true,
     "paceDelta": true,
     "quotaProjection": true,
@@ -278,6 +279,8 @@ Create `~/.config/lumira/config.json`:
     "vim": true,
     "effort": true,
     "worktree": true,
+    "addedDirs": true,
+    "worktreeBreadcrumb": true,
     "agent": true,
     "sessionName": true,
     "style": true,
