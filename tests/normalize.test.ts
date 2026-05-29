@@ -581,6 +581,70 @@ describe('apiDurationMs normalization', () => {
   });
 });
 
+describe('addedDirsCount normalization (issue #129)', () => {
+  const base: ClaudeCodeInput = {
+    model: 'Claude',
+    session_id: 's',
+    context_window: { used_percentage: 10, remaining_percentage: 90 },
+    cost: { total_cost_usd: 0, total_duration_ms: 0 },
+  };
+
+  it('normalizes count when added_dirs is a non-empty array', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', added_dirs: ['/a', '/b', '/c'] } };
+    expect(normalize(input).addedDirsCount).toBe(3);
+  });
+
+  it('returns undefined when added_dirs is an empty array', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', added_dirs: [] } };
+    expect(normalize(input).addedDirsCount).toBeUndefined();
+  });
+
+  it('returns undefined when added_dirs is missing from workspace', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp' } };
+    expect(normalize(input).addedDirsCount).toBeUndefined();
+  });
+
+  it('returns undefined when workspace is absent entirely', () => {
+    expect(normalize(base).addedDirsCount).toBeUndefined();
+  });
+});
+
+describe('worktreeOriginalBranch normalization (issue #130)', () => {
+  const base: ClaudeCodeInput = {
+    model: 'Claude',
+    session_id: 's',
+    context_window: { used_percentage: 10, remaining_percentage: 90 },
+    cost: { total_cost_usd: 0, total_duration_ms: 0 },
+  };
+
+  it('extracts worktreeOriginalBranch when present', () => {
+    const input: ClaudeCodeInput = { ...base, worktree: { name: 'feat-wt', original_branch: 'main' } };
+    expect(normalize(input).worktreeOriginalBranch).toBe('main');
+  });
+
+  it('returns undefined when original_branch is absent', () => {
+    const input: ClaudeCodeInput = { ...base, worktree: { name: 'feat-wt' } };
+    expect(normalize(input).worktreeOriginalBranch).toBeUndefined();
+  });
+
+  it('returns undefined when worktree is absent', () => {
+    expect(normalize(base).worktreeOriginalBranch).toBeUndefined();
+  });
+
+  it('should_sanitize_original_branch_string_no_control_chars_no_zero_width_unicode', () => {
+    // sanitizeTermString strips C0 controls (\x00-\x1f) and zero-width Unicode.
+    // ESC (0x1b) is stripped; the remaining ANSI suffix chars are printable ASCII.
+    // Zero-width space (U+200B) is stripped.
+    const input: ClaudeCodeInput = { ...base, worktree: { name: 'wt', original_branch: 'main​suffix' } };
+    const result = normalize(input).worktreeOriginalBranch;
+    expect(result).toBe('mainsuffix');
+    // ESC itself is stripped
+    const input2: ClaudeCodeInput = { ...base, worktree: { name: 'wt', original_branch: 'pre\x1bpost' } };
+    const result2 = normalize(input2).worktreeOriginalBranch;
+    expect(result2).not.toContain('\x1b');
+  });
+});
+
 describe('isQwenInput discriminant', () => {
   it('returns true for valid Qwen input', () => {
     expect(isQwenInput(qwenInput)).toBe(true);

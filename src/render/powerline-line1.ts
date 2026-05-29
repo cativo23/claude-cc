@@ -23,19 +23,21 @@ import {
 /**
  * Build the line1 segment list for the powerline renderer. Segment priorities
  * control which get dropped first when the terminal is narrow (lower = drops first):
- *   model:        100  (always kept)
- *   branch:        80
- *   dir:           60
- *   task:          40
- *   duration:      35
- *   memory:        30
- *   tokenSpeed:    25
- *   linesChanged:  24
- *   worktree:      23
- *   agent:         22
- *   sessionName:   21
- *   version:       20
- *   style:         18  (dropped first)
+ *   model:             100  (always kept)
+ *   branch:             80
+ *   dir:                60
+ *   addedDirs:          59  (renders after dir; data-gated; evicts before dir under pressure)
+ *   task:               40
+ *   duration:           35
+ *   memory:             30
+ *   tokenSpeed:         25
+ *   linesChanged:       24
+ *   worktree:           23
+ *   worktreeBreadcrumb: 22.5 (between worktree@23 and agent@22; data-gated)
+ *   agent:              22
+ *   sessionName:        21
+ *   version:            20
+ *   style:              18  (dropped first)
  */
 function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import('./colors.js').Colors): PowerlineSegment[] {
   const { input, git, transcript, config: { display }, icons, memory, tokenSpeed } = ctx;
@@ -87,6 +89,16 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import(
       fg: palette.fg,
       priority: 60,
     });
+  }
+
+  if (display.addedDirs && input.addedDirsCount != null && input.addedDirsCount > 0) {
+    const badge = `+${input.addedDirsCount} dirs`;
+    const bg = input.addedDirsCount >= 5 ? palette.taskBg : palette.versionBg;
+    // Priority 59 — one BELOW directory@60. The badge annotates the directory,
+    // so it must evict before the directory under narrow-terminal pressure
+    // (applyPriorityEviction drops lowest-priority first). Insertion order is
+    // unchanged, so it still renders right after the directory.
+    segments.push({ text: badge, bg, fg: palette.fg, priority: 59 });
   }
 
   const activeTask = getActiveTodo(transcript);
@@ -152,6 +164,20 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import(
       fg: palette.fg,
       priority: 23,
     });
+  }
+
+  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch) {
+    const currentBranch = input.gitBranch || git.branch;
+    // Only render when there is a current branch to contrast against — the
+    // breadcrumb is meaningless without an anchor (no branch shown / branch off).
+    if (currentBranch && input.worktreeOriginalBranch !== currentBranch) {
+      segments.push({
+        text: `↳ ${truncField(input.worktreeOriginalBranch, 15)}`,
+        bg: palette.versionBg,
+        fg: palette.fg,
+        priority: 22.5,
+      });
+    }
   }
 
   // Mirrors classic line1: prefer the explicit input.agentName (subagent

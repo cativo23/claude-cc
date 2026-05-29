@@ -85,6 +85,12 @@ export interface NormalizedInput {
   /** Worktree name */
   worktreeName?: string;
 
+  /** Count of directories added via /add-dir or --add-dir (≥ 2.1.x) */
+  addedDirsCount?: number;
+
+  /** Original branch before entering the worktree session (≥ 2.1.x) */
+  worktreeOriginalBranch?: string;
+
   /** Reasoning effort level (≥ 2.1.x stdin, falls back to transcript regex) */
   effortLevel?: string;
 
@@ -293,6 +299,16 @@ export function normalize(input: RawInput): NormalizedInput {
       ? sanitizeTermString(claude.effort.level)
       : undefined,
     worktreeName: input.worktree?.name ? sanitizeTermString(input.worktree.name) : undefined,
+    addedDirsCount: (() => {
+      const dirs = (input as ClaudeCodeInput).workspace?.added_dirs;
+      if (!Array.isArray(dirs) || dirs.length === 0) return undefined;
+      return dirs.length;
+    })(),
+    worktreeOriginalBranch: (() => {
+      const orig = (input as ClaudeCodeInput).worktree?.original_branch;
+      if (!orig || typeof orig !== 'string') return undefined;
+      return sanitizeTermString(orig);
+    })(),
     rateLimits,
     cacheHitRate,
     raw: input,

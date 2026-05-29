@@ -6,6 +6,7 @@ import type { ClaudeCodeInput, GitStatus, RenderContext } from '../../src/types.
 import { NERD_ICONS } from '../../src/render/icons.js';
 import { normalize } from '../../src/normalize.js';
 import { displayWidth } from '../../src/render/text.js';
+import { applyPreset } from '../../src/config.js';
 
 const c = createColors('named');
 
@@ -283,6 +284,146 @@ describe('renderLine1', () => {
       const without = stripAnsi(renderLine1(makeCtx(), c));
       const withEmpty = stripAnsi(renderLine1(makeCtx({ customCommands: [] }), c));
       expect(withEmpty).toBe(without);
+    });
+  });
+
+  // ── Added dirs badge (issue #129) ────────────────────────────────────
+  describe('added dirs badge', () => {
+    it('should_not_show_added_dirs_badge_when_display_addedDirs_is_false', () => {
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: false } } },
+        { workspace: { current_dir: '/home/user/project', added_dirs: ['/a', '/b'] } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('dirs');
+    });
+
+    it('should_show_added_dirs_badge_when_count_gt_0_and_display_addedDirs_is_true', () => {
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } } },
+        { workspace: { current_dir: '/home/user/project', added_dirs: ['/a', '/b', '/c'] } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain('+3 dirs');
+    });
+
+    it('should_not_show_badge_when_added_dirs_is_empty_array', () => {
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } } },
+        { workspace: { current_dir: '/home/user/project', added_dirs: [] } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('dirs');
+    });
+
+    it('should_not_show_badge_when_added_dirs_is_missing_graceful_degrade', () => {
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } } },
+        { workspace: { current_dir: '/home/user/project' } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('dirs');
+    });
+
+    it('should_apply_warning_color_to_badge_when_count_gte_5', () => {
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } } },
+        { workspace: { current_dir: '/home/user/project', added_dirs: ['/1', '/2', '/3', '/4', '/5'] } },
+      );
+      const raw = renderLine1(ctx, c);
+      // orange = 256-color 208 escape
+      expect(raw).toContain('\x1b[38;5;208m');
+      expect(stripAnsi(raw)).toContain('+5 dirs');
+    });
+
+    it('should_format_count_correctly_plus_3_dirs_for_count_3', () => {
+      const ctx = makeCtx(
+        { config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } } },
+        { workspace: { current_dir: '/home/user/project', added_dirs: ['/x', '/y', '/z'] } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain('+3 dirs');
+      expect(out).not.toContain('+4 dirs');
+    });
+  });
+
+  // ── Worktree origin-branch breadcrumb (issue #130) ───────────────────
+  describe('worktree breadcrumb', () => {
+    it('should_render_breadcrumb_when_original_branch_present_and_differs_from_current', () => {
+      const ctx = makeCtx(
+        { git: { branch: 'feat/my-feature', staged: 0, modified: 0, untracked: 0 } },
+        { worktree: { name: 'feat-wt', original_branch: 'main' } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain('↳ main');
+    });
+
+    it('should_not_render_breadcrumb_when_original_branch_is_missing', () => {
+      const ctx = makeCtx(
+        { git: { branch: 'feat/x', staged: 0, modified: 0, untracked: 0 } },
+        { worktree: { name: 'feat-wt' } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('↳');
+    });
+
+    it('should_not_render_breadcrumb_when_original_branch_equals_current_branch', () => {
+      const ctx = makeCtx(
+        { git: { branch: 'main', staged: 0, modified: 0, untracked: 0 } },
+        { worktree: { name: 'wt', original_branch: 'main' } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('↳');
+    });
+
+    it('should_sanitize_original_branch_string_no_control_chars_no_zero_width_unicode', () => {
+      // U+200B (zero-width space) is stripped by sanitizeTermString
+      const ctx = makeCtx(
+        { git: { branch: 'feat/x', staged: 0, modified: 0, untracked: 0 } },
+        { worktree: { name: 'wt', original_branch: 'main​suffix' } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      // zero-width space stripped → appears as 'mainsuffix'
+      expect(out).toContain('↳ mainsuffix');
+      expect(out).not.toContain('​');
+    });
+
+    it('should_truncate_long_original_branch_names_to_15_chars', () => {
+      const longBranch = 'feat/' + 'x'.repeat(50);
+      const ctx = makeCtx(
+        { git: { branch: 'develop', staged: 0, modified: 0, untracked: 0 } },
+        { worktree: { name: 'wt', original_branch: longBranch } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).toContain('↳ ');
+      expect(out).not.toContain(longBranch);
+      expect(out).toContain('…');
+    });
+
+    it('should_respect_display_worktreeBreadcrumb_toggle', () => {
+      const ctx = makeCtx(
+        {
+          git: { branch: 'feat/my-feature', staged: 0, modified: 0, untracked: 0 },
+          config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktreeBreadcrumb: false } },
+        },
+        { worktree: { name: 'wt', original_branch: 'main' } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('↳');
+    });
+
+    it('should_not_render_breadcrumb_in_minimal_preset_toggle_defaults_to_false', () => {
+      // Exercise the real minimal-preset path: applyPreset must turn the
+      // breadcrumb off (DEFAULT_DISPLAY has it ON) so minimal stays clean.
+      const config = { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY } };
+      applyPreset(config, 'minimal');
+      expect(config.display.worktreeBreadcrumb).toBe(false);
+      const ctx = makeCtx(
+        { git: { branch: 'feat/my-feature', staged: 0, modified: 0, untracked: 0 }, config },
+        { worktree: { name: 'wt', original_branch: 'main' } },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('↳');
     });
   });
 });

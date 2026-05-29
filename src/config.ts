@@ -325,6 +325,8 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       // surface (see burnRate/rateLimits/paceDelta etc. above). Default
       // remains true; users on full/balanced see the widget out of the box.
       apiLatency: false,
+      addedDirs: false,
+      worktreeBreadcrumb: false,
     },
   },
 };

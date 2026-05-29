@@ -793,4 +793,218 @@ describe('renderPowerlineLine1', () => {
       expect(raw).toContain('\x1b[2m');
     });
   });
+
+  // ── Added dirs segment (issue #129) ─────────────────────────────────
+  describe('added dirs segment', () => {
+    it('should_add_segment_for_added_dirs_when_display_addedDirs_is_true_and_count_gt_0', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            workspace: { current_dir: '/tmp', added_dirs: ['/a', '/b'] },
+          }),
+        },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('+2 dirs');
+    });
+
+    it('should_not_add_segment_when_count_is_0', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            workspace: { current_dir: '/tmp', added_dirs: [] },
+          }),
+        },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('dirs');
+    });
+
+    it('should_place_added_dirs_segment_after_directory_with_priority_61', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            workspace: { current_dir: '/home/user/myproject', added_dirs: ['/x'] },
+          }),
+        },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      const dirIdx = out.indexOf('myproject');
+      const badgeIdx = out.indexOf('+1 dirs');
+      expect(dirIdx).toBeGreaterThanOrEqual(0);
+      expect(badgeIdx).toBeGreaterThanOrEqual(0);
+      expect(dirIdx).toBeLessThan(badgeIdx);
+    });
+
+    it('should_apply_warning_color_to_segment_when_count_gte_5', () => {
+      const dirs = ['/1', '/2', '/3', '/4', '/5'];
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            workspace: { current_dir: '/tmp', added_dirs: dirs },
+          }),
+        },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('+5 dirs');
+
+      // Pin the actual warning bg: DEFAULT_POWERLINE_PALETTE.taskBg is {128,96,24},
+      // rendered as a truecolor bg escape. count>=5 must use taskBg.
+      const warnRaw = renderPowerlineLine1(ctx, 'truecolor', null);
+      expect(warnRaw).toContain('\x1b[48;2;128;96;24m');
+
+      // count<5 uses versionBg {64,64,72} (not the taskBg warning slot).
+      const normCtx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            workspace: { current_dir: '/tmp', added_dirs: ['/1', '/2', '/3', '/4'] },
+          }),
+        },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, addedDirs: true } },
+      });
+      const normRaw = renderPowerlineLine1(normCtx, 'truecolor', null);
+      expect(normRaw).toContain('\x1b[48;2;64;64;72m');
+    });
+  });
+
+  // ── Worktree breadcrumb segment (issue #130) ─────────────────────────
+  describe('worktree breadcrumb segment', () => {
+    it('should_render_breadcrumb_when_original_branch_present_and_differs_from_current', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            worktree: { name: 'feat-wt', original_branch: 'main' },
+          }),
+        },
+        git: { ...EMPTY_GIT, branch: 'feat/my-feature' },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktreeBreadcrumb: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('↳ main');
+    });
+
+    it('should_not_render_breadcrumb_when_original_branch_is_missing', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            worktree: { name: 'feat-wt' },
+          }),
+        },
+        git: { ...EMPTY_GIT, branch: 'feat/x' },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('↳');
+    });
+
+    it('should_not_render_breadcrumb_when_original_branch_equals_current_branch', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            worktree: { name: 'wt', original_branch: 'main' },
+          }),
+        },
+        git: { ...EMPTY_GIT, branch: 'main' },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('↳');
+    });
+
+    it('should_truncate_long_original_branch_to_15_chars', () => {
+      const longBranch = 'feature/' + 'a'.repeat(50);
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            worktree: { name: 'wt', original_branch: longBranch },
+          }),
+        },
+        git: { ...EMPTY_GIT, branch: 'develop' },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktreeBreadcrumb: true } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('↳ ');
+      expect(out).not.toContain(longBranch);
+      expect(out).toContain('…');
+    });
+
+    it('should_respect_display_worktreeBreadcrumb_toggle', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            worktree: { name: 'wt', original_branch: 'main' },
+          }),
+        },
+        git: { ...EMPTY_GIT, branch: 'feat/x' },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktreeBreadcrumb: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('↳');
+    });
+
+    it('powerline_renderer_should_emit_breadcrumb_as_single_segment_with_correct_priority', () => {
+      const ctx = makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            worktree: { name: 'feat-wt', original_branch: 'develop' },
+          }),
+        },
+        git: { ...EMPTY_GIT, branch: 'feat/x' },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktree: true, worktreeBreadcrumb: true } },
+        cols: 250,
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      const worktreeIdx = out.indexOf('feat-wt');
+      const breadcrumbIdx = out.indexOf('↳ develop');
+      expect(worktreeIdx).toBeGreaterThanOrEqual(0);
+      expect(breadcrumbIdx).toBeGreaterThanOrEqual(0);
+      expect(worktreeIdx).toBeLessThan(breadcrumbIdx);
+    });
+  });
 });
