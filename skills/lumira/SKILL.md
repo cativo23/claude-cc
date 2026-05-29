@@ -44,7 +44,7 @@ Your job: read the user's current config, translate their natural-language reque
 
 Valid keys (anything else must be rejected):
 
-`model`, `branch`, `gitChanges`, `directory`, `contextBar`, `contextTokens`, `tokens`, `cost`, `burnRate`, `duration`, `tokenSpeed`, `rateLimits`, `paceDelta`, `quotaProjection`, `tools`, `todos`, `vim`, `effort`, `worktree`, `agent`, `agents`, `sessionName`, `style`, `version`, `linesChanged`, `memory`, `cacheMetrics`, `mcp`, `health`
+`model`, `branch`, `gitChanges`, `directory`, `contextBar`, `contextTokens`, `tokens`, `cost`, `burnRate`, `duration`, `tokenSpeed`, `rateLimits`, `paceDelta`, `quotaProjection`, `tools`, `todos`, `vim`, `effort`, `worktree`, `agent`, `agents`, `sessionName`, `style`, `version`, `linesChanged`, `memory`, `cacheMetrics`, `mcp`, `health`, `apiLatency`, `addedDirs`, `worktreeBreadcrumb`
 
 ### Display thresholds (`display.*`, numeric)
 
