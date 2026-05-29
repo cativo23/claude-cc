@@ -26,7 +26,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 
 > 3,400+ monthly downloads, zero marketing. Try it for one session — `npx lumira install`.
 
-> **What's new in v1.7.0:** added-dirs badge (`+N dirs`, orange at ≥5) and worktree origin-branch breadcrumb (`↳ <branch>`) — both togglable via `display.addedDirs` / `display.worktreeBreadcrumb`, on by default in `full`/`balanced`. Combined with the [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), recent releases add several diagnostic signals to the session.
+> **What's new in v1.8.0:** compaction counter (`⊙ N` on line 2) — tracks how many times the session has been compacted, pairing with the auto-compact proximity glyph ⚠. Togglable via `display.compactionCount`, on by default in `full`/`balanced`. Combined with the added-dirs badge and worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), recent releases add several diagnostic signals to the session.
 
 ## Table of contents
 
@@ -288,6 +288,7 @@ Create `~/.config/lumira/config.json`:
     "linesChanged": true,
     "memory": true,
     "agents": true,
+    "compactionCount": true,
     "health": false,
     "contextWarningThreshold": 70,
     "contextCriticalThreshold": 85
