@@ -26,7 +26,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 
 > 3,400+ monthly downloads, zero marketing. Try it for one session — `npx lumira install`.
 
-> **What's new in v1.8.1:** the GSD widget now mirrors get-shit-done (GSD)'s own statusline — phase/milestone lifecycle, a milestone progress bar, and `⬆ /gsd:update` / `⚠ stale hooks` indicators that show in any project. GSD support is on by default and self-gates (no GSD project → nothing renders). Earlier releases added the compaction counter `⊙ N` (v1.8.0), added-dirs badge + worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection (v1.3.0), and the auto-compact proximity glyph ⚠ (v1.4.1).
+> **What's new in v1.8.2:** the installer now writes a fast per-render command — it runs the compiled `lumira` binary directly (~10× faster than `npx lumira@latest`, which hit the npm registry on every render) and migrates existing setups automatically. v1.8.1 brought the GSD widget to parity with get-shit-done (GSD)'s own statusline — phase/milestone lifecycle, a milestone progress bar, and `⬆ /gsd:update` / `⚠ stale hooks` indicators that show in any project (on by default, self-gating). Earlier releases added the compaction counter `⊙ N` (v1.8.0), added-dirs badge + worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection (v1.3.0), and the auto-compact proximity glyph ⚠ (v1.4.1).
 
 ## Table of contents
 
