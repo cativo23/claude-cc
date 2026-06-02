@@ -1,9 +1,23 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { install, uninstall } from '../src/installer.js';
+import { install, uninstall, commandSpeed } from '../src/installer.js';
 import { createMockStdin, createMockStdout } from './tui/_mock-stdin.js';
+
+describe('commandSpeed', () => {
+  // 0 = npx@registry (slow), 1 = npx cached, 2 = direct binary (fast)
+  it.each([
+    ['npx lumira@latest', 0],
+    ['npx -y lumira@latest', 0],
+    ['npx lumira', 1],
+    ['lumira', 2],
+    ['node /home/u/lumira/dist/index.js', 2],
+    ['node "${CLAUDE_PLUGIN_ROOT}/dist/index.js"', 2],
+  ])('ranks %j as speed %i', (cmd, rank) => {
+    expect(commandSpeed(cmd as string)).toBe(rank);
+  });
+});
 
 describe('install', () => {
   let dir: string;
@@ -11,14 +25,26 @@ describe('install', () => {
   let backupPath: string;
   let configPath: string;
 
-  // Helper: non-TTY stdin + isolated home + temp config path. Installs run
-  // through the single interactive path with wizard defaults.
+  // Read back the statusLine command that was written.
+  const readCmd = () => JSON.parse(readFileSync(settingsPath, 'utf8')).statusLine.command;
+  const flush = () => new Promise((r) => setImmediate(r));
+  // Drive the 3-step wizard (preset → theme → icons) to its defaults.
+  const completeWizard = async (stdin: ReturnType<typeof createMockStdin>) => {
+    await flush(); stdin.pressKey('return');
+    await flush(); stdin.pressKey('return');
+    await flush(); stdin.pressKey('return');
+  };
+
+  // baseOpts: non-TTY, no global bin → resolves to the `npx lumira` fallback
+  // (no prompt). installGlobal is stubbed so the real `npm i -g` never runs.
   const baseOpts = () => ({
     settingsPath,
     configPath,
     homeOverride: dir,
     stdin: createMockStdin(false),
     confirm: async () => true,
+    hasGlobalBin: () => false,
+    installGlobal: () => true,
   });
 
   beforeEach(() => {
@@ -29,109 +55,157 @@ describe('install', () => {
   });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
-  it('creates settings file when none exists', async () => {
-    const output = await install(baseOpts());
-    expect(existsSync(settingsPath)).toBe(true);
-    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('npx lumira@latest');
-    expect(output).toContain('Configured');
+  // ── The fix: what per-render command gets written ────────────────
+  describe('statusLine command resolution', () => {
+    it('falls back to `npx lumira` when no global bin and non-TTY', async () => {
+      const output = await install(baseOpts());
+      expect(readCmd()).toBe('npx lumira');
+      expect(output).toContain('Configured');
+    });
+
+    it('writes the direct `lumira` binary when a global bin is present', async () => {
+      const installGlobal = vi.fn(() => true);
+      await install({ ...baseOpts(), hasGlobalBin: () => true, installGlobal });
+      expect(readCmd()).toBe('lumira');
+      expect(installGlobal).not.toHaveBeenCalled(); // already global, no install
+    });
+
+    it('offers a global install in a TTY and writes `lumira` on success', async () => {
+      const installGlobal = vi.fn(() => true);
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => false, installGlobal, confirm: async () => true,
+      });
+      await completeWizard(stdin);
+      await promise;
+      expect(installGlobal).toHaveBeenCalledOnce();
+      expect(readCmd()).toBe('lumira');
+    });
+
+    it('falls back to `npx lumira` and warns when the global install fails', async () => {
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => false, installGlobal: () => false, confirm: async () => true,
+      });
+      await completeWizard(stdin);
+      const output = await promise;
+      expect(readCmd()).toBe('npx lumira');
+      expect(output).toContain('Global install failed');
+    });
+
+    it('falls back to `npx lumira` when the user declines the global install', async () => {
+      const installGlobal = vi.fn(() => true);
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => false, installGlobal, confirm: async () => false,
+      });
+      await completeWizard(stdin);
+      await promise;
+      expect(installGlobal).not.toHaveBeenCalled();
+      expect(readCmd()).toBe('npx lumira');
+    });
+
+    it('migrates a legacy `npx lumira@latest` command to `npx lumira`', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 } }));
+      const output = await install(baseOpts());
+      expect(readCmd()).toBe('npx lumira');
+      expect(output).toContain('Upgraded');
+      expect(existsSync(backupPath)).toBe(false); // our own command — no backup
+    });
+
+    it('upgrades `npx lumira@latest` to the direct `lumira` when a global bin exists', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readCmd()).toBe('lumira');
+    });
+
+    it('leaves an already-direct `lumira` command untouched without prompting to install', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+      const installGlobal = vi.fn(() => true);
+      const output = await install({ ...baseOpts(), installGlobal });
+      expect(readCmd()).toBe('lumira');
+      expect(installGlobal).not.toHaveBeenCalled();
+      expect(output).toContain('already configured');
+    });
+
+    it('does not downgrade or churn an equal `npx lumira` command', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'npx lumira', padding: 0 } }));
+      const output = await install(baseOpts());
+      expect(readCmd()).toBe('npx lumira');
+      expect(output).toContain('already configured');
+      expect(existsSync(backupPath)).toBe(false);
+    });
   });
 
-  it('adds statusLine when settings exists without one', async () => {
-    writeFileSync(settingsPath, JSON.stringify({ hooks: {} }, null, 2));
-    await install(baseOpts());
-    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('npx lumira@latest');
-    expect(data.hooks).toEqual({});
-    expect(existsSync(backupPath)).toBe(false);
-  });
+  // ── settings.json read/merge/backup/atomicity ────────────────────
+  describe('settings file handling', () => {
+    it('creates settings.json with no backup when none exists', async () => {
+      const output = await install(baseOpts());
+      expect(existsSync(settingsPath)).toBe(true);
+      expect(existsSync(backupPath)).toBe(false);
+      expect(output).toContain('Configured');
+    });
 
-  it('backs up and replaces existing statusLine after confirmation', async () => {
-    const original = { statusLine: { type: 'command', command: 'other-tool', padding: 0 } };
-    writeFileSync(settingsPath, JSON.stringify(original, null, 2));
-    const output = await install(baseOpts());
-    expect(existsSync(backupPath)).toBe(true);
-    const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
-    expect(backup.statusLine.command).toBe('other-tool');
-    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('npx lumira@latest');
-    expect(output).toContain('Backed up');
-  });
+    it('preserves unrelated keys when settings exists without a statusLine', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ hooks: {} }, null, 2));
+      await install(baseOpts());
+      const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      expect(data.hooks).toEqual({});
+      expect(data.statusLine.command).toBe('npx lumira');
+      expect(existsSync(backupPath)).toBe(false);
+    });
 
-  it('skips when already configured with lumira', async () => {
-    const existing = { statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 } };
-    writeFileSync(settingsPath, JSON.stringify(existing, null, 2));
-    const output = await install(baseOpts());
-    expect(output).toContain('already configured');
-    expect(existsSync(backupPath)).toBe(false);
-  });
+    it('backs up and replaces a foreign statusLine after confirmation', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'other-tool', padding: 0 } }));
+      const output = await install(baseOpts());
+      expect(existsSync(backupPath)).toBe(true);
+      expect(JSON.parse(readFileSync(backupPath, 'utf8')).statusLine.command).toBe('other-tool');
+      expect(readCmd()).toBe('npx lumira');
+      expect(output).toContain('Backed up');
+    });
 
-  it('aborts when user declines replacement', async () => {
-    const original = { statusLine: { type: 'command', command: 'other-tool', padding: 0 } };
-    writeFileSync(settingsPath, JSON.stringify(original, null, 2));
-    const output = await install({ ...baseOpts(), confirm: async () => false });
-    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('other-tool');
-    expect(output).toContain('Aborted');
-  });
+    it('aborts and keeps the foreign statusLine when replacement is declined', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'other-tool', padding: 0 } }));
+      const output = await install({ ...baseOpts(), confirm: async () => false });
+      expect(readCmd()).toBe('other-tool');
+      expect(output).toContain('Aborted');
+    });
 
-  it('recovers from malformed settings.json and creates fresh settings', async () => {
-    writeFileSync(settingsPath, 'this is { not valid JSON!!');
-    const output = await install(baseOpts());
-    expect(output).toContain('Could not parse');
-    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('npx lumira@latest');
-    expect(output).toContain('Configured');
-  });
+    it.each([
+      ['malformed JSON', 'this is { not valid JSON!!'],
+      ['JSON null', 'null'],
+      ['a JSON array', '[1,2,3]'],
+    ])('recovers from %s and writes a fresh statusLine', async (_label, contents) => {
+      writeFileSync(settingsPath, contents);
+      const output = await install(baseOpts());
+      expect(output).toContain('Could not parse');
+      expect(readCmd()).toBe('npx lumira');
+    });
 
-  it('creates parent directory when it does not exist', async () => {
-    const nestedSettingsPath = join(dir, 'nested', 'deep', 'settings.json');
-    const output = await install({ ...baseOpts(), settingsPath: nestedSettingsPath });
-    expect(existsSync(nestedSettingsPath)).toBe(true);
-    const data = JSON.parse(readFileSync(nestedSettingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('npx lumira@latest');
-    expect(output).toContain('Configured');
-  });
+    it('creates parent directories that do not exist', async () => {
+      const nested = join(dir, 'nested', 'deep', 'settings.json');
+      await install({ ...baseOpts(), settingsPath: nested });
+      expect(existsSync(nested)).toBe(true);
+      expect(JSON.parse(readFileSync(nested, 'utf8')).statusLine.command).toBe('npx lumira');
+    });
 
-  it('handles settings.json containing JSON null (treats as fresh)', async () => {
-    writeFileSync(settingsPath, 'null');
-    const output = await install(baseOpts());
-    expect(output).toContain('Could not parse');
-    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('npx lumira@latest');
-  });
+    it('writes valid JSON atomically and leaves no .lumira.tmp file behind', async () => {
+      await install(baseOpts());
+      expect(() => JSON.parse(readFileSync(settingsPath, 'utf8'))).not.toThrow();
+      expect(readdirSync(dir).filter(f => f.includes('lumira.tmp'))).toHaveLength(0);
+    });
 
-  it('handles settings.json containing a JSON array (treats as fresh)', async () => {
-    writeFileSync(settingsPath, '[1,2,3]');
-    const output = await install(baseOpts());
-    expect(output).toContain('Could not parse');
-    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    expect(data.statusLine.command).toBe('npx lumira@latest');
-  });
-
-  it('writes settings.json atomically — result is valid JSON', async () => {
-    await install(baseOpts());
-    expect(() => JSON.parse(readFileSync(settingsPath, 'utf8'))).not.toThrow();
-  });
-
-  it('writes temp file in same dir as settingsPath (no cross-fs rename)', async () => {
-    // Temp file lives beside settings.json (same-fs rename). Includes process.pid
-    // so concurrent installs don't collide. Neither the PID-based name nor the
-    // legacy static name should remain after a successful install.
-    await install(baseOpts());
-    const leftover = readdirSync(dir).filter(f => f.includes('lumira.tmp'));
-    expect(leftover).toHaveLength(0);
-    expect(existsSync(settingsPath)).toBe(true);
-  });
-
-  it('strips ANSI escapes from foreign statusLine.command in the warning banner', async () => {
-    const malicious = '\x1b[31mevil\x1b[0m';
-    writeFileSync(settingsPath, JSON.stringify({
-      statusLine: { type: 'command', command: malicious, padding: 0 },
-    }, null, 2));
-    const output = await install({ ...baseOpts(), confirm: async () => false });
-    expect(output).not.toContain('\x1b[31m');
-    expect(output).toContain('evil');
+    it('strips ANSI escapes from a foreign command in the warning banner', async () => {
+      writeFileSync(settingsPath, JSON.stringify({
+        statusLine: { type: 'command', command: '\x1b[31mevil\x1b[0m', padding: 0 },
+      }));
+      const output = await install({ ...baseOpts(), confirm: async () => false });
+      expect(output).not.toContain('\x1b[31m');
+      expect(output).toContain('evil');
+    });
   });
 });
 

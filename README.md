@@ -103,6 +103,8 @@ npx lumira install
 
 The installer walks you through three choices — **preset** (`full` / `balanced` / `minimal`), **theme**, and **icons** — showing a live preview at each step. Press `Esc` to abort without writing anything. In non-interactive shells (piped stdin, CI), the installer skips the wizard and writes sensible defaults (`preset: balanced`, `icons: nerd`). If Qwen Code is detected (`~/.qwen/` exists), the `/lumira` skill is installed for both CLIs.
 
+For the fastest statusline (the command runs on **every** render), the installer offers to install lumira globally so it can invoke the compiled binary directly (`lumira`, ~60ms) instead of `npx` (which is ~10× slower). It also migrates older `npx lumira@latest` setups to the faster form automatically.
+
 Or install globally:
 
 ```bash
@@ -120,19 +122,19 @@ Your preferences are saved to `~/.config/lumira/config.json` — hand-edited key
 
 ### Manual setup
 
-Add to `~/.claude/settings.json`:
+The `statusLine.command` runs on every render, so prefer the **direct binary**. Install globally (`npm install -g lumira`), then add to `~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "npx lumira@latest",
+    "command": "lumira",
     "padding": 0
   }
 }
 ```
 
-If installed from source:
+If installed from source, point at the compiled entry:
 
 ```json
 {
@@ -143,6 +145,8 @@ If installed from source:
   }
 }
 ```
+
+> Without a global install you can use `"command": "npx lumira"` — it works, but resolves through npx on every render (~10× slower). Avoid `npx lumira@latest`: the `@latest` hits the npm registry on every render.
 
 ## Display
 

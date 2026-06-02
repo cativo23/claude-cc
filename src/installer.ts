@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync, mkdirSync, rmdirSync, renameSync, openSync, writeSync, fsyncSync, closeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { sanitizeTermString } from './normalize.js';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
@@ -20,11 +21,26 @@ const warn = (msg: string) => `${YELLOW}⚠${RST} ${msg}`;
 const header = () => `\n${CYAN} lumira installer${RST}\n`;
 
 // ── StatusLine value ────────────────────────────────────────────────
-const LUMIRA_STATUSLINE = {
-  type: 'command' as const,
-  command: 'npx lumira@latest',
-  padding: 0,
-};
+// The per-render command. `lumira` (a real global bin) runs the compiled
+// binary directly (~60ms). `npx lumira` resolves from cache (~150-300ms).
+// `npx lumira@latest` hits the npm registry EVERY render (~600ms) — never
+// write that form; it's the perf bug this installer migrates away from.
+function makeStatusLine(command: string) {
+  return { type: 'command' as const, command, padding: 0 };
+}
+
+// Rank a statusLine command by per-render speed (higher = faster).
+//   2 = direct binary  (`lumira`, `node …/dist/index.js`, ${CLAUDE_PLUGIN_ROOT})
+//   1 = npx, cached    (`npx lumira`)
+//   0 = npx, registry  (`npx lumira@latest` / any pinned `@version`)
+// Used to decide migration: only ever rewrite TOWARD a faster form.
+export function commandSpeed(command: string): 0 | 1 | 2 {
+  const c = command.trim();
+  if (/(^|\s)npx(\s|$)/.test(c)) {
+    return /@(latest|\d)/.test(c) ? 0 : 1;
+  }
+  return 2;
+}
 
 // ── Install options (DI for testing) ────────────────────────────────
 export interface InstallerOptions {
@@ -38,6 +54,58 @@ export interface InstallerOptions {
   });
   stdout?: NodeJS.WriteStream | (import('node:stream').Writable & { columns?: number });
   homeOverride?: string;
+  // Returns true if a global `lumira` bin is resolvable on PATH.
+  hasGlobalBin?: () => boolean;
+  // Runs `npm i -g lumira`; returns true on success. Injected in tests.
+  installGlobal?: () => boolean;
+}
+
+// Is `lumira` resolvable as a global bin on PATH?
+function defaultHasGlobalBin(): boolean {
+  const probe = process.platform === 'win32' ? 'where' : 'which';
+  try {
+    execFileSync(probe, ['lumira'], { stdio: 'ignore', timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Install lumira globally so the per-render command can invoke it directly.
+function defaultInstallGlobal(): boolean {
+  try {
+    execFileSync('npm', ['install', '-g', 'lumira'], { stdio: 'inherit', timeout: 120000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Resolve the fastest statusLine command available in this environment.
+// In a TTY with no global bin, offer to `npm i -g lumira` (confirmed) so the
+// command can be the direct `lumira`; otherwise fall back to cached `npx lumira`.
+async function resolveStatusLineCommand(ctx: {
+  isTTY: boolean;
+  confirm: (prompt: string) => Promise<boolean>;
+  hasGlobalBin: () => boolean;
+  installGlobal: () => boolean;
+  lines: string[];
+}): Promise<string> {
+  if (ctx.hasGlobalBin()) return 'lumira';
+
+  if (ctx.isTTY) {
+    const accepted = await ctx.confirm('Install lumira globally for ~10× faster rendering (npm i -g lumira)?');
+    if (accepted) {
+      if (ctx.installGlobal()) {
+        ctx.lines.push(ok('Installed lumira globally — statusline runs the compiled binary directly'));
+        return 'lumira';
+      }
+      ctx.lines.push(warn('Global install failed — using npx for now (run npm i -g lumira later for full speed)'));
+      return 'npx lumira';
+    }
+    ctx.lines.push(`  ${DIM}Tip: npm i -g lumira for ~10× faster rendering${RST}`);
+  }
+  return 'npx lumira';
 }
 
 function defaultSettingsPath(): string {
@@ -121,6 +189,8 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
   const confirm = opts.confirm ?? promptYN;
   const stdin = opts.stdin ?? process.stdin;
   const stdout = opts.stdout ?? process.stdout;
+  const hasGlobalBin = opts.hasGlobalBin ?? defaultHasGlobalBin;
+  const installGlobal = opts.installGlobal ?? defaultInstallGlobal;
   const lines: string[] = [];
 
   // Build banner prelude (shown on each wizard frame so it survives screen clears)
@@ -189,22 +259,45 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     lines.push(ok('Non-interactive mode — using defaults (preset: balanced, icons: nerd)'));
   }
 
-  // ── settings.json replace/backup ───────────────────────────────
-  if (settings.statusLine) {
-    if (isLumira(settings.statusLine)) {
-      lines.push(ok('lumira is already configured as your statusline'));
-      saveConfig(wizard, configPath);
-      lines.push(ok(`Saved config → ${DIM}${configPath}${RST}`));
-      emitFooter(lines, opts.homeOverride);
-      return lines.join('\n') + '\n';
-    }
+  // Save config + emit footer + render output. Shared by every exit below.
+  const finalize = (): string => {
+    saveConfig(wizard, configPath);
+    lines.push(ok(`Saved config → ${DIM}${configPath}${RST}`));
+    emitFooter(lines, opts.homeOverride);
+    return lines.join('\n') + '\n';
+  };
 
+  // ── settings.json replace / backup / migrate ───────────────────
+  const existingIsLumira = !!settings.statusLine && isLumira(settings.statusLine);
+  const existingCmd = existingIsLumira
+    ? String((settings.statusLine as Record<string, unknown>).command ?? '')
+    : '';
+
+  // Already on the fastest form (direct binary) — nothing to rewrite.
+  if (existingIsLumira && commandSpeed(existingCmd) >= 2) {
+    lines.push(ok('lumira is already configured (optimal command)'));
+    return finalize();
+  }
+
+  // Resolve the fastest per-render command this environment can offer.
+  const resolvedCmd = await resolveStatusLineCommand({
+    isTTY: !!stdin?.isTTY, confirm, hasGlobalBin, installGlobal, lines,
+  });
+
+  if (existingIsLumira) {
+    // Existing lumira command (npx form) — only rewrite if strictly faster,
+    // so we never downgrade a user's direct binary to npx.
+    if (commandSpeed(resolvedCmd) <= commandSpeed(existingCmd)) {
+      lines.push(ok('lumira is already configured'));
+      return finalize();
+    }
+  } else if (settings.statusLine) {
     // Foreign statusLine already confirmed above — back it up and replace.
     copyFileSync(settingsPath, backupPath);
     lines.push(ok(`Backed up existing settings → ${DIM}settings.json.lumira.bak${RST}`));
   }
 
-  settings.statusLine = { ...LUMIRA_STATUSLINE };
+  settings.statusLine = makeStatusLine(resolvedCmd);
   mkdirSync(dirname(settingsPath), { recursive: true });
   const tmp = `${settingsPath}.${process.pid}.${Date.now()}.lumira.tmp`;
   try {
@@ -217,13 +310,11 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     try { unlinkSync(tmp); } catch {}
     throw e;
   }
-  lines.push(ok('Configured lumira as statusline'));
+  lines.push(ok(existingIsLumira
+    ? `Upgraded statusline command → ${DIM}${resolvedCmd}${RST} (faster)`
+    : 'Configured lumira as statusline'));
 
-  saveConfig(wizard, configPath);
-  lines.push(ok(`Saved config → ${DIM}${configPath}${RST}`));
-
-  emitFooter(lines, opts.homeOverride);
-  return lines.join('\n') + '\n';
+  return finalize();
 }
 
 // ── Uninstall ───────────────────────────────────────────────────────

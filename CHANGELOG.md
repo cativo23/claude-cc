@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Installer writes a fast per-render command instead of `npx lumira@latest`.** The `statusLine.command` runs on every statusline refresh, and `npx lumira@latest` re-resolved "latest" from the npm registry each time (~600ms, cold ~1.3s) — ~10× slower than running the compiled binary directly (~60ms). `npx lumira install` now resolves the fastest available form: it writes the direct `lumira` binary when a global install exists, offers to `npm i -g lumira` in an interactive terminal (falling back to cached `npx lumira` if declined or non-interactive), and **migrates** existing `npx lumira@latest` setups to the faster form on re-install. Never downgrades a command that's already direct.
+
 ## [1.8.1] - 2026-06-02
 
 ### Fixed
