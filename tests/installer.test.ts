@@ -10,7 +10,10 @@ describe('commandSpeed', () => {
   it.each([
     ['npx lumira@latest', 0],
     ['npx -y lumira@latest', 0],
+    ['npx lumira@1.2.3', 0],
     ['npx lumira', 1],
+    ['npx -y lumira', 1],
+    ['/usr/local/bin/npx lumira', 1], // path-prefixed npx still counts as npx
     ['lumira', 2],
     ['node /home/u/lumira/dist/index.js', 2],
     ['node "${CLAUDE_PLUGIN_ROOT}/dist/index.js"', 2],
@@ -103,9 +106,10 @@ describe('install', () => {
         hasGlobalBin: () => false, installGlobal, confirm: async () => false,
       });
       await completeWizard(stdin);
-      await promise;
+      const output = await promise;
       expect(installGlobal).not.toHaveBeenCalled();
       expect(readCmd()).toBe('npx lumira');
+      expect(output).toContain('npm i -g lumira'); // tip toward the faster form
     });
 
     it('migrates a legacy `npx lumira@latest` command to `npx lumira`', async () => {
@@ -293,6 +297,9 @@ describe('install — wizard integration', () => {
       settingsPath, configPath,
       confirm: async () => true,
       stdin, stdout,
+      // Stub bin detection so a TTY install never shells out to `npm i -g`.
+      hasGlobalBin: () => false,
+      installGlobal: () => true,
     });
 
     // defaults: preset=balanced, theme=(none), icons=nerd

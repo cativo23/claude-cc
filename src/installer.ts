@@ -36,7 +36,8 @@ function makeStatusLine(command: string) {
 // Used to decide migration: only ever rewrite TOWARD a faster form.
 export function commandSpeed(command: string): 0 | 1 | 2 {
   const c = command.trim();
-  if (/(^|\s)npx(\s|$)/.test(c)) {
+  // `npx` as a bare word or a path basename (e.g. /usr/local/bin/npx, …\npx).
+  if (/(^|[\s/\\])npx(\s|$)/.test(c)) {
     return /@(latest|\d)/.test(c) ? 0 : 1;
   }
   return 2;
