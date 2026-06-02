@@ -321,6 +321,8 @@ describe('install — wizard integration', () => {
       settingsPath, configPath,
       confirm: async () => true,
       stdin,
+      hasGlobalBin: () => false,
+      installGlobal: () => true,
     });
 
     const cfg = JSON.parse(readFileSync(configPath, 'utf8'));
@@ -349,7 +351,7 @@ describe('install — wizard integration', () => {
     const settingsPath = join(dir, 'settings.json');
     const stdin = createMockStdin(false);
 
-    await install({ settingsPath, configPath, confirm: async () => true, stdin });
+    await install({ settingsPath, configPath, confirm: async () => true, stdin, hasGlobalBin: () => false, installGlobal: () => true });
     const cfg = JSON.parse(readFileSync(configPath, 'utf8'));
     expect(cfg.display).toEqual({ tokens: false });
     expect(cfg.preset).toBe('balanced');
@@ -379,6 +381,8 @@ describe('install — skill dual install for Qwen', () => {
       confirm: async () => true,
       stdin,
       homeOverride: tmpHome,
+      hasGlobalBin: () => false,
+      installGlobal: () => true,
     });
 
     expect(existsSync(join(claudeHome, 'skills', 'lumira', 'SKILL.md'))).toBe(true);
@@ -396,6 +400,8 @@ describe('install — skill dual install for Qwen', () => {
       confirm: async () => true,
       stdin,
       homeOverride: tmpHome,
+      hasGlobalBin: () => false,
+      installGlobal: () => true,
     });
 
     expect(existsSync(join(claudeHome, 'skills', 'lumira', 'SKILL.md'))).toBe(true);
