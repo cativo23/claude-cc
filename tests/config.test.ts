@@ -471,6 +471,9 @@ describe('mergeCliFlags', () => {
     expect(r.preset).toBe('full');
     expect(r.layout).toBe('multiline');
   });
+  it('gsd is on by default (self-gates to nothing when no GSD is present, mirroring GSD itself)', () => {
+    expect(DEFAULT_CONFIG.gsd).toBe(true);
+  });
   it('enables gsd', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i', '--gsd']).gsd).toBe(true); });
   it('no flags = unchanged', () => { expect(mergeCliFlags(DEFAULT_CONFIG, ['node', 'i'])).toEqual(DEFAULT_CONFIG); });
   it('--preset=balanced drives layout', () => {

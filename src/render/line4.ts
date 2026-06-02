@@ -7,14 +7,23 @@ export function renderLine4(ctx: RenderContext, c: Colors): string {
   const { gsd, icons } = ctx;
   const parts: string[] = [];
 
-  // GSD widget — only emit when GSD has something to display.
-  if (gsd && (gsd.currentTask || gsd.updateAvailable)) {
+  // GSD widget — only emit when GSD has something to display. Text and glyphs
+  // mirror GSD's own statusline (gsd-statusline.js) so the integration reads
+  // identically. The update/stale-hooks indicators render even without a
+  // current task, so a GSD update is visible in any project (gated only on the
+  // update-check cache, not on being inside a GSD project).
+  if (gsd && (gsd.currentTask || gsd.updateAvailable || gsd.staleHooks)) {
     parts.push(c.dim('GSD'));
     if (gsd.currentTask) {
-      parts.push(c.bold(`${icons.hammer} ${truncField(gsd.currentTask, 40)}`));
+      parts.push(c.bold(`${icons.hammer} ${truncField(gsd.currentTask, 60)}`));
     }
     if (gsd.updateAvailable) {
-      parts.push(c.yellow(`${icons.warning} GSD update available`));
+      parts.push(c.yellow('⬆ /gsd:update'));
+    }
+    if (gsd.staleHooks) {
+      parts.push(gsd.devInstall
+        ? c.yellow('⚠ dev install — re-run installer to sync hooks')
+        : c.red('⚠ stale hooks — run /gsd:update'));
     }
   }
 

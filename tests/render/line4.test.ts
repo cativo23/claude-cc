@@ -41,15 +41,35 @@ describe('renderLine4', () => {
     expect(out).toContain('Fix critical bug');
   });
 
-  it('shows update available warning', () => {
+  // Update indicator mirrors GSD's own statusline text (`⬆ /gsd:update`) and
+  // renders even without a current task — so a GSD update is visible in ANY
+  // project, whether or not it has a .planning/STATE.md.
+  it('shows the GSD update indicator with no task (global)', () => {
     const out = stripAnsi(renderLine4(makeCtx({ updateAvailable: true }), c));
-    expect(out).toContain('GSD update available');
+    expect(out).toContain('/gsd:update');
   });
 
-  it('shows both task and update', () => {
+  it('shows both task and update indicator', () => {
     const out = stripAnsi(renderLine4(makeCtx({ currentTask: 'My task', updateAvailable: true }), c));
     expect(out).toContain('My task');
-    expect(out).toContain('GSD update available');
+    expect(out).toContain('/gsd:update');
+  });
+
+  it('shows the stale-hooks warning', () => {
+    const out = stripAnsi(renderLine4(makeCtx({ staleHooks: true }), c));
+    expect(out).toContain('stale hooks');
+    expect(out).toContain('/gsd:update');
+  });
+
+  it('shows the dev-install warning instead of stale-hooks when devInstall is set', () => {
+    const out = stripAnsi(renderLine4(makeCtx({ staleHooks: true, devInstall: true }), c));
+    expect(out).toContain('dev install');
+    expect(out).not.toContain('stale hooks');
+  });
+
+  it('renders progress-bar scene content carried in currentTask', () => {
+    const out = stripAnsi(renderLine4(makeCtx({ currentTask: 'v2.0 Automation █████░░░░░ 50%' }), c));
+    expect(out).toContain('█████░░░░░ 50%');
   });
 
   // ── Custom commands (issue #143 phase 3) ─────────────────────────
