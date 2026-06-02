@@ -211,8 +211,20 @@ describe('getGsdInfo', () => {
     expect(info?.devInstall).toBe(true);
   });
 
-  it('does not flag a dev install when installed is equal to or behind latest', () => {
+  it('does not flag a dev install when installed is behind latest', () => {
     writeCache('{"stale_hooks":["a.js"],"installed":"1.42.0","latest":"1.42.3"}');
     expect(getGsdInfo(dir, opts)?.devInstall).toBeFalsy();
+  });
+
+  it('does not flag a dev install when installed equals latest', () => {
+    writeCache('{"stale_hooks":["a.js"],"installed":"1.42.3","latest":"1.42.3"}');
+    expect(getGsdInfo(dir, opts)?.devInstall).toBeFalsy();
+  });
+
+  it('does not flag a dev install when latest is unknown', () => {
+    writeCache('{"stale_hooks":["a.js"],"installed":"1.42.3","latest":"unknown"}');
+    const info = getGsdInfo(dir, opts);
+    expect(info?.staleHooks).toBe(true);
+    expect(info?.devInstall).toBeFalsy();
   });
 });

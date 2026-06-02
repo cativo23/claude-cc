@@ -109,7 +109,14 @@ export function parseStateMd(content: string): GsdState {
   return state;
 }
 
-/** Render a 10-segment progress bar: █████░░░░░ 50%. */
+/**
+ * Render a 10-segment progress bar: `█████░░░░░ 50%`.
+ *
+ * INTENTIONAL deviation from GSD's own statusline (gsd-statusline.js wraps the
+ * bar in brackets — `[█████░░░░░] 50%`). lumira drops the brackets so the
+ * milestone bar reads as distinct from the line-2 context bar. Do NOT re-add
+ * brackets when re-syncing GSD's format — this is a deliberate design choice.
+ */
 function renderProgressBar(percent: string | number | undefined): string {
   if (percent === undefined || percent === null) return '';
   const pct = Math.max(0, Math.min(100, parseInt(String(percent), 10)));
@@ -218,11 +225,17 @@ function readUpdateCache(sharedCacheFile: string, legacyCacheFile: string): Cach
       if (Array.isArray(parsed.stale_hooks) && parsed.stale_hooks.length > 0) {
         result.staleHooks = true;
       }
-      // DevInstall: stale_hooks present AND installed > latest
-      if (result.staleHooks && parsed.installed && parsed.latest) {
-        if (semverCompare(parsed.installed, parsed.latest) > 0) {
-          result.devInstall = true;
-        }
+      // DevInstall: stale_hooks present AND installed is ahead of latest.
+      // Guard against an unknown/missing latest explicitly (mirrors GSD's own
+      // check) rather than relying on NaN comparison semantics in semverCompare.
+      if (
+        result.staleHooks &&
+        parsed.installed &&
+        parsed.latest &&
+        parsed.latest !== 'unknown' &&
+        semverCompare(parsed.installed, parsed.latest) > 0
+      ) {
+        result.devInstall = true;
       }
       return result;
     } catch { /* ignore malformed */ }
