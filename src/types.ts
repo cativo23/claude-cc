@@ -119,6 +119,8 @@ export interface TodoEntry {
 export interface GsdInfo {
   currentTask?: string;
   updateAvailable?: boolean;
+  staleHooks?: boolean;
+  devInstall?: boolean;
 }
 
 export interface MemoryInfo {
@@ -408,7 +410,11 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
 
 export const DEFAULT_CONFIG: HudConfig = {
   layout: 'auto',
-  gsd: false,
+  // GSD on by default, mirroring GSD's own always-on statusline. Self-gates to
+  // nothing when there's no .planning/STATE.md and no update-check cache, so
+  // non-GSD users see no extra line and pay only a few cheap existsSync checks.
+  // Minimal/singleline returns early (renderMinimal) and never reaches line 4.
+  gsd: true,
   display: { ...DEFAULT_DISPLAY },
   colors: { mode: 'auto' },
   customCommands: { enabled: false, commands: [] },
