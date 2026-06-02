@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-06-02
+
+### Fixed
+
+- **GSD integration brought to parity with GSD 1.42.3.** lumira's GSD widget had drifted behind GSD's own statusline. It now mirrors GSD's lifecycle/progress format: parses `active_phase`, `next_action`/`next_phases`, and the nested `progress` block, and renders GSD's scenes (active phase, next action, milestone complete) plus a milestone progress bar. Stale-hooks and dev-install warnings are surfaced (`⚠ stale hooks — run /gsd:update`), and the update indicator (`⬆ /gsd:update`) now shows in **any** project — gated on GSD's update-check cache, not on the presence of a `.planning/STATE.md`. (#158)
+
+### Changed
+
+- **GSD support is on by default.** Mirroring GSD's own always-on statusline, the GSD widget no longer requires `--gsd`. It self-gates: with no `.planning/STATE.md` and no update-check cache it renders nothing, so non-GSD users see no change, and the `minimal`/single-line layout never reaches it. The milestone progress bar is rendered without brackets so it reads distinctly from the line-2 context bar. (#158)
+
 ## [1.8.0] - 2026-05-28
 
 ### Added

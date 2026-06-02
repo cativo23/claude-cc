@@ -26,7 +26,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 
 > 3,400+ monthly downloads, zero marketing. Try it for one session — `npx lumira install`.
 
-> **What's new in v1.8.0:** compaction counter (`⊙ N` on line 2) — tracks how many times the session has been compacted, pairing with the auto-compact proximity glyph ⚠. Togglable via `display.compactionCount`, on by default in `full`/`balanced`. Combined with the added-dirs badge and worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection warning (v1.3.0), and auto-compact proximity glyph ⚠ (v1.4.1), recent releases add several diagnostic signals to the session.
+> **What's new in v1.8.1:** the GSD widget now mirrors get-shit-done (GSD)'s own statusline — phase/milestone lifecycle, a milestone progress bar, and `⬆ /gsd:update` / `⚠ stale hooks` indicators that show in any project. GSD support is on by default and self-gates (no GSD project → nothing renders). Earlier releases added the compaction counter `⊙ N` (v1.8.0), added-dirs badge + worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection (v1.3.0), and the auto-compact proximity glyph ⚠ (v1.4.1).
 
 ## Table of contents
 
