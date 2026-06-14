@@ -14,7 +14,7 @@ You activate the **lumira** statusline for Claude Code after plugin installation
 1. **Find install path** — Read `~/.claude/plugins/installed_plugins.json`. Look for any key matching `lumira@*` (the exact marketplace key depends on how the user installed it). Extract `installPath` from the first match.
 2. **Verify binary** — Check that `<installPath>/dist/index.js` exists.
 3. **Read settings** — Read `~/.claude/settings.json`. If the file is **missing**, start from `{}`. If it is **present but invalid JSON**, stop and report the parse error — do not overwrite.
-4. **Check existing** — If `statusLine.command` is already set and contains "lumira", tell the user what's currently set and ask if they want to update it.
+4. **Check existing** — If `statusLine.command` is already set to any non-empty value, tell the user what's currently set and ask if they want to replace it. Do not proceed until they confirm. If it is empty or absent, skip this step.
 5. **Write command** — Set `statusLine.command` to `node "<installPath>/dist/index.js"`.
 6. **Init config** — If `~/.config/lumira/config.json` does not exist, create it with `{"preset": "balanced"}`. Never overwrite an existing config.
 7. **Confirm and instruct** — Tell the user what was written and that they must restart Claude Code.
