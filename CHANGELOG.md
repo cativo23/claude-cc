@@ -7,11 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
+## [1.10.0] - 2026-06-14
 
-- **GSD Core: plan-level progress within phase.** Parse `Plan: A of B in current phase` from STATE.md (gsd-core ≥ 1.4.x) and render it alongside the phase indicator — e.g. `Phase 3 p2/5 (auth)`. More granular than phase-only progress.
-- **GSD Core: continue-here indicator.** Parse `Resume file:` from STATE.md and show a `↩` icon on line 4 when an active `.continue-here.md` exists. Instant visual cue that a resume point is waiting.
-- **GSD Core: plan-based progress bar.** Use `completed_plans / total_plans` from the STATE.md frontmatter `progress` block for the milestone bar instead of phase-based `percent`. Finer granularity, especially in phases with many plans.
+### Added
+
+- **GSD Core: plan progress within the phase.** Parses `Plan: X of Y in current phase` (and the bare `X of Y` form) from STATE.md (gsd-core ≥ 1.4.x) and appends it to the phase scene as `pX/Y` — e.g. `auth (3/5) p2/9`. `Plan: —` (not started) is skipped. Surfaces plan-level granularity that GSD's own statusline leaves unrendered. (#172)
+- **GSD Core: resume-point indicator.** Parses `Resume file:` from STATE.md and shows a cyan `↩` glyph on line 4 when an active resume point exists; `Resume file: None` is treated as absent. (#172)
+- **Competitive comparison in the README.** New "How lumira compares" section with a feature-by-feature head-to-head against the other Claude Code statuslines, plus a full `docs/competitive-comparison.md` breakdown. (#173)
+
+### Notes
+
+- The milestone progress bar deliberately keeps reading GSD's frontmatter `percent` verbatim. gsd-core already computes it as `min(completed_plans/total_plans, completed_phases/total_phases)` — already plan-based — so lumira mirrors it rather than recomputing, with a guard test pinning the behavior.
+
+## [1.9.1] - 2026-06-14
+
+### Added
+
+- **`--help` / `-h` and `--version` / `-v` flags.** Print usage and version to stdout and exit 0. Unknown commands now print an error to stderr and exit 1 instead of falling through to the render path. (#166)
+- **GSD update indicator detects `@opengsd/gsd-core` (≥ 1.4.x).** Reads the new per-package update-check cache at `~/.cache/gsd/gsd-update-check-opengsd-gsd-core.json`, so users migrated from `get-shit-done-cc` to gsd-core still see the ⬆ update cue. (#170)
+
+### Fixed
+
+- **Context bar no longer jitters between turns.** `realUsedPercentage` excluded `output_tokens` from the numerator — they are per-turn and reset each call, making the bar jump down at the start of every turn. Context fill is determined by what was read, not output. (#167)
+- **`CLAUDE_CODE_AUTO_COMPACT_WINDOW` rejects non-integers.** Switched from `parseInt` (which silently truncated `75.5` → `75`) to `Number()` + `Number.isInteger()`. (#167)
+- **Transcript stats no longer inflate counts 2–4×.** Duplicate JSONL message IDs were double-counting tokens and cost; usage/cost are now gated on first occurrence of each message ID. (#168)
+- **`/lumira:setup` no longer overwrites an existing config.** The skill now guards with an explicit `test -f` check before writing `~/.config/lumira/config.json`. (#169)
+- **Removed unsupported `homepage` field from the plugin manifest** that triggered marketplace warnings. (#165)
 
 ## [1.9.0] - 2026-06-14
 
