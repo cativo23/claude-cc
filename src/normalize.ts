@@ -222,14 +222,18 @@ export function normalize(input: RawInput): NormalizedInput {
   // [threshold-gap, threshold) window. Uses realUsedPercentage when available
   // (more accurate; excludes output tokens), falls back to usedPercentage for
   // legacy payloads. Gated by platform (different thresholds Claude vs Qwen).
-  // For claude-code, honors CLAUDE_CODE_AUTO_COMPACT_WINDOW env var when set to
-  // a valid integer in [1, 100]; falls back to the hardcoded default otherwise.
+  // For claude-code, honors CLAUDE_CODE_AUTO_COMPACT_WINDOW env var — a fill-%
+  // threshold (1-100) that mirrors Claude Code's own auto-compact trigger point.
+  // Users who changed this setting in Claude Code should set the same value here.
+  // Falls back to the hardcoded 80% default when absent or invalid.
   const effectivePct = realUsedPercentage ?? contextWindow.used_percentage ?? 0;
   let platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
   if (platform === 'claude-code') {
     const envVal = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
     if (envVal !== undefined) {
-      const parsed = parseInt(envVal, 10);
+      // Use Number() + Number.isInteger() so floats ("75.5") and trailing-junk
+      // strings ("80abc") are rejected rather than silently truncated by parseInt.
+      const parsed = Number(envVal);
       if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 100) {
         platformAutoCompactThreshold = parsed;
       }
