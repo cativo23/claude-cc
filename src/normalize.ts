@@ -126,15 +126,18 @@ const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 type CurrentUsageObject = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
 
 /**
- * Sum all four token categories from `context_window.current_usage` to compute
- * a real context usage total (input + output + cache_read + cache_creation).
+ * Sum input token categories from `context_window.current_usage` to compute
+ * a real context usage total (input + cache_read + cache_creation).
+ * Excludes output_tokens: they are per-turn and reset each call, which would
+ * cause the context bar to jitter (jump down at the start of every new turn).
+ * Context window fill is determined by what was READ from the context, not
+ * by how many tokens were output.
  * Returns undefined when `cu` is absent or not an object shape.
  */
 function getRealUsageTotal(cu: unknown): number | undefined {
   if (typeof cu !== 'object' || !cu) return undefined;
   const obj = cu as CurrentUsageObject;
   const total = (obj.input_tokens ?? 0)
-    + (obj.output_tokens ?? 0)
     + (obj.cache_read_input_tokens ?? 0)
     + (obj.cache_creation_input_tokens ?? 0);
   return total;
@@ -217,10 +220,21 @@ export function normalize(input: RawInput): NormalizedInput {
 
   // Auto-compact proximity warning: fires when context fill is in the
   // [threshold-gap, threshold) window. Uses realUsedPercentage when available
-  // (more accurate; includes output+cache), falls back to usedPercentage for
+  // (more accurate; excludes output tokens), falls back to usedPercentage for
   // legacy payloads. Gated by platform (different thresholds Claude vs Qwen).
+  // For claude-code, honors CLAUDE_CODE_AUTO_COMPACT_WINDOW env var when set to
+  // a valid integer in [1, 100]; falls back to the hardcoded default otherwise.
   const effectivePct = realUsedPercentage ?? contextWindow.used_percentage ?? 0;
-  const platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
+  let platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
+  if (platform === 'claude-code') {
+    const envVal = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    if (envVal !== undefined) {
+      const parsed = parseInt(envVal, 10);
+      if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 100) {
+        platformAutoCompactThreshold = parsed;
+      }
+    }
+  }
   const nearAutoCompact = effectivePct >= (platformAutoCompactThreshold - AUTO_COMPACT_WARNING_GAP)
     && effectivePct < platformAutoCompactThreshold;
 
