@@ -1,0 +1,46 @@
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { debug } from '../utils/debug.js';
+const log = debug('mcp');
+const defaultReader = { existsSync, readFileSync };
+/**
+ * Read MCP server configurations from .mcp.json files.
+ * Checks both cwd and ~/.claude/ for server definitions.
+ */
+export function getMcpInfo(cwd, reader = defaultReader) {
+    const servers = [];
+    const paths = [
+        join(cwd, '.mcp.json'),
+        join(homedir(), '.claude', '.mcp.json'),
+    ];
+    for (const p of paths) {
+        if (!reader.existsSync(p))
+            continue;
+        try {
+            const raw = JSON.parse(reader.readFileSync(p, 'utf8'));
+            const mcpServers = raw?.mcpServers;
+            if (!mcpServers || typeof mcpServers !== 'object' || Array.isArray(mcpServers))
+                continue;
+            const added = [];
+            for (const name of Object.keys(mcpServers)) {
+                // Avoid duplicates if same server in both files
+                if (servers.some(s => s.name === name))
+                    continue;
+                servers.push({ name, status: 'ok' });
+                added.push(name);
+            }
+            // SECURITY: only log server names. `raw.mcpServers[name]` values contain
+            // `env` / `args` which often carry API tokens — never log the raw object.
+            if (log.enabled && added.length > 0)
+                log('loaded from', p, added);
+        }
+        catch (err) {
+            log('malformed JSON:', p, err.message);
+        }
+    }
+    if (servers.length === 0)
+        return null;
+    return { servers };
+}
+//# sourceMappingURL=mcp.js.map

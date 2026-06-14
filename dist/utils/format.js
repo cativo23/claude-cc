@@ -1,0 +1,36 @@
+export function formatTokens(n) {
+    if (n == null || !Number.isFinite(n))
+        return '';
+    if (n >= 1_000_000)
+        return (n / 1_000_000).toFixed(1) + 'M';
+    if (n >= 1_000)
+        return Math.round(n / 1_000) + 'k';
+    return String(n);
+}
+export function formatDuration(ms) {
+    if (ms == null || !Number.isFinite(ms))
+        return '';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0)
+        return `${h}h${String(m).padStart(2, '0')}m`;
+    if (m > 0)
+        return `${m}m${String(s).padStart(2, '0')}s`;
+    return `${s}s`;
+}
+export function formatCost(usd) {
+    if (usd == null || !Number.isFinite(usd) || usd < 0)
+        return '';
+    if (usd < 0.01)
+        return '$' + usd.toFixed(4);
+    return '$' + usd.toFixed(2);
+}
+export function formatBurnRate(costUsd, durationMs) {
+    if (!Number.isFinite(costUsd) || !Number.isFinite(durationMs) || costUsd <= 0 || durationMs <= 60_000)
+        return null;
+    const perHour = costUsd / (durationMs / 3_600_000);
+    return '$' + perHour.toFixed(2) + '/h';
+}
+//# sourceMappingURL=format.js.map

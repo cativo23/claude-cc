@@ -1,6 +1,8 @@
 node_modules/
-dist/
 coverage/
+# dist/ is committed — the plugin system clones the repo directly and needs the built binary
+dist/**/*.map
+dist/**/*.d.ts
 *.tgz
 .claude/
 

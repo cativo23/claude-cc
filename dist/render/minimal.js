@@ -1,0 +1,118 @@
+import { basename } from 'node:path';
+import { truncField } from './text.js';
+import { buildContextBar, formatGitChanges, formatQwenMetrics, SEP_MINIMAL } from './shared.js';
+import { formatTokens, formatDuration, formatCost } from '../utils/format.js';
+import { renderLine3 } from './line3.js';
+export function renderMinimal(ctx, c) {
+    const { input, git, transcript, tokenSpeed, gsd, config: { display }, cols, icons } = ctx;
+    const parts = [];
+    // Directory
+    const cwd = input.cwd;
+    if (display.directory && cwd) {
+        const dirName = basename(cwd) || cwd;
+        const dirLen = cols < 60 ? 12 : cols < 80 ? 20 : 30;
+        parts.push(c.brightBlue(truncField(dirName, dirLen)));
+    }
+    // Branch
+    const branchName = input.gitBranch || git.branch;
+    if (display.branch && branchName) {
+        const branchLen = cols < 60 ? 12 : cols < 80 ? 20 : branchName.length;
+        let branchStr = c.magenta(truncField(branchName, branchLen));
+        if (display.gitChanges) {
+            const changeParts = formatGitChanges(git, c);
+            if (changeParts.length > 0)
+                branchStr += ' ' + changeParts.join(' ');
+        }
+        parts.push(branchStr);
+    }
+    // Model
+    if (display.model) {
+        if (input.model)
+            parts.push(c.cyan(truncField(input.model, 20)));
+    }
+    // Context bar
+    if (display.contextBar) {
+        // `showHint: false` — the minimal preset targets tight single-line terminals,
+        // where the /compact hint's ~10 trailing chars pushes truncation earlier. Users
+        // on minimal can still read the blinking skull icon as an at-risk signal.
+        const pct = input.context.realUsedPercentage ?? input.context.usedPercentage;
+        parts.push(buildContextBar(pct, c, {
+            segments: 10,
+            iconSet: icons,
+            showHint: false,
+            warningThreshold: display.contextWarningThreshold,
+            criticalThreshold: display.contextCriticalThreshold,
+            nearAutoCompact: input.context.nearAutoCompact,
+        }));
+    }
+    // Only add these if cols >= 60
+    if (cols >= 60) {
+        // Tokens
+        if (display.tokens) {
+            const inTokens = input.tokens.input;
+            const outTokens = input.tokens.output;
+            const tParts = [];
+            if (inTokens > 0)
+                tParts.push(`${formatTokens(inTokens)}↑`);
+            if (outTokens > 0)
+                tParts.push(`${formatTokens(outTokens)}↓`);
+            if (tParts.length > 0)
+                parts.push(tParts.join(' '));
+        }
+        // Cost (Claude only)
+        if (display.cost && input.cost != null) {
+            parts.push(formatCost(input.cost));
+        }
+        // Duration (Claude only)
+        if (display.duration && input.durationMs != null) {
+            parts.push(formatDuration(input.durationMs));
+        }
+        // Token speed
+        if (display.tokenSpeed && tokenSpeed != null) {
+            parts.push(c.dim(`${tokenSpeed} tok/s`));
+        }
+        // Lines changed
+        if (display.linesChanged) {
+            const added = input.linesAdded;
+            const removed = input.linesRemoved;
+            if (added > 0 || removed > 0) {
+                parts.push(`${c.green(`+${added}`)}${c.red(`-${removed}`)}`);
+            }
+        }
+        // Qwen metrics (shared helper)
+        parts.push(...formatQwenMetrics(input, c, icons));
+        // Style
+        if (display.style && input.outputStyle) {
+            parts.push(c.dim(input.outputStyle));
+        }
+        // Version
+        if (display.version && input.version) {
+            parts.push(c.dim(`v${input.version}`));
+        }
+        // GSD current task
+        if (gsd?.currentTask) {
+            parts.push(c.yellow(truncField(gsd.currentTask, 20)));
+        }
+        // Worktree
+        if (display.worktree && input.worktreeName) {
+            parts.push(c.dim(`${icons.tree} ${truncField(input.worktreeName, 12)}`));
+        }
+        // Agent
+        if (display.agent && input.agentName) {
+            parts.push(c.dim(`${icons.cubes} ${truncField(input.agentName, 12)}`));
+        }
+    }
+    const mainLine = parts.join(SEP_MINIMAL);
+    // Append tools/todos as extra line. Custom commands are intentionally NOT
+    // surfaced in minimal mode — the preset targets tight single-line terminals
+    // and arbitrary user widgets would fight every other widget for space.
+    // Users who want custom commands should switch to full or balanced.
+    // We strip customCommands from the ctx before delegating so line3's own
+    // custom-command handling never fires here.
+    const minimalCtx = ctx.customCommands ? { ...ctx, customCommands: undefined } : ctx;
+    const l3 = renderLine3(minimalCtx, c);
+    if (l3)
+        return mainLine + '\n' + l3;
+    return mainLine;
+}
+//# sourceMappingURL=minimal.js.map

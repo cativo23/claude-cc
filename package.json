@@ -50,6 +50,7 @@
   "files": [
     "dist",
     "skills",
+    ".claude-plugin",
     "!dist/**/*.map",
     "!dist/**/*.d.ts"
   ]
