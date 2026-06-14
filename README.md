@@ -8,6 +8,17 @@ Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen 
 
 ## Quick start
 
+**Via Claude Code plugin (recommended):**
+
+```
+/plugin marketplace add cativo23/lumira
+/lumira:setup
+```
+
+No npm required. The `/lumira:setup` skill writes `statusLine.command` automatically. Restart Claude Code when done.
+
+**Via npm:**
+
 ```bash
 npx lumira install
 ```
@@ -24,9 +35,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 ![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-2d3748?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCI+PHBhdGggZD0iTTY0IDEyOEMzNS44IDEyOCAxMyAxMDUuMiAxMyA3N0MxMyA0OC44IDM1LjggMjYgNjQgMjZjMjguMiAwIDUxIDIyLjggNTEgNTFzLTIyLjggNTEtNTEgNTF6IiBmaWxsPSIjMjQyNTJGIi8+PC9zdmc+)
 ![Qwen Code](https://img.shields.io/badge/Qwen_Code-compatible-6156FF)
 
-> 3,400+ monthly downloads, zero marketing. Try it for one session — `npx lumira install`.
-
-> **What's new in v1.8.2:** the installer now writes a fast per-render command — it runs the compiled `lumira` binary directly (~10× faster than `npx lumira@latest`, which hit the npm registry on every render) and migrates existing setups automatically. v1.8.1 brought the GSD widget to parity with get-shit-done (GSD)'s own statusline — phase/milestone lifecycle, a milestone progress bar, and `⬆ /gsd:update` / `⚠ stale hooks` indicators that show in any project (on by default, self-gating). Earlier releases added the compaction counter `⊙ N` (v1.8.0), added-dirs badge + worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection (v1.3.0), and the auto-compact proximity glyph ⚠ (v1.4.1).
+> **What's new in v1.9.0:** lumira is now a **Claude Code plugin** — install with `/plugin marketplace add cativo23/lumira`, no npm required. Run `/lumira:setup` to activate. v1.8.2 made the installer write a fast per-render command (~10× faster). v1.8.1 brought the GSD widget to parity with GSD 1.42.3. Earlier: compaction counter `⊙ N` (v1.8.0), added-dirs badge + worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection (v1.3.0).
 
 ## Table of contents
 
@@ -95,15 +104,26 @@ Inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud); takes a dif
 
 ## Install
 
-The wizard at the top is the fastest path. For the long form:
+### Option 1 — Claude Code plugin (recommended)
+
+No npm required. Works with the Claude Code plugin marketplace:
+
+```
+/plugin marketplace add cativo23/lumira
+/lumira:setup
+```
+
+`/lumira:setup` finds the cached binary, writes `statusLine.command` to `~/.claude/settings.json`, and creates a default config. Restart Claude Code when done. To customize afterward: `/lumira:lumira`.
+
+### Option 2 — npm
 
 ```bash
 npx lumira install
 ```
 
-The installer walks you through three choices — **preset** (`full` / `balanced` / `minimal`), **theme**, and **icons** — showing a live preview at each step. Press `Esc` to abort without writing anything. In non-interactive shells (piped stdin, CI), the installer skips the wizard and writes sensible defaults (`preset: balanced`, `icons: nerd`). If Qwen Code is detected (`~/.qwen/` exists), the `/lumira` skill is installed for both CLIs.
+The installer walks you through **preset** (`full` / `balanced` / `minimal`), **theme**, and **icons** — showing a live preview at each step. Press `Esc` to abort without writing anything. In non-interactive shells (piped stdin, CI), the installer skips the wizard and writes sensible defaults (`preset: balanced`, `icons: nerd`). If Qwen Code is detected (`~/.qwen/` exists), the `/lumira` skill is installed for both CLIs.
 
-For the fastest statusline (the command runs on **every** render), the installer offers to install lumira globally so it can invoke the compiled binary directly (`lumira`, ~60ms) instead of `npx` (which is ~10× slower). It also migrates older `npx lumira@latest` setups to the faster form automatically.
+For the fastest statusline (the command runs on **every** render), the installer offers to install lumira globally so it can invoke the compiled binary directly (`lumira`, ~60ms) instead of `npx` (~10× slower). It also migrates older `npx lumira@latest` setups to the faster form automatically.
 
 Or install globally:
 
