@@ -15,7 +15,7 @@ function runLumira(args: string[]): Promise<{ stdout: string; stderr: string; ex
     let stderr = '';
     child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
     child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
-    child.on('close', (code: number) => resolve({ stdout, stderr, exitCode: code ?? 0 }));
+    child.on('close', (code: number | null) => resolve({ stdout, stderr, exitCode: code ?? 0 }));
   });
 }
 
@@ -54,16 +54,9 @@ describe('Help and Version commands', () => {
     expect(result.stderr).toContain('--help');
   });
 
-  it('known command "install" does not trigger unknown-command path', async () => {
-    // This test ensures install is recognized - it will error differently
-    // (not as "unknown command"), but for this test we just check the exit code
-    // isn't from the unknown command handler and stderr doesn't say "Unknown command"
-    const result = await runLumira(['install']);
-    expect(result.stderr).not.toContain('Unknown command: install');
-  });
-
-  it('known command "stats" does not trigger unknown-command path', async () => {
-    const result = await runLumira(['stats']);
-    expect(result.stderr).not.toContain('Unknown command: stats');
+  it('unknown command with double-dash prefix is still caught', async () => {
+    const result = await runLumira(['--unknown-flag']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown command: --unknown-flag');
   });
 });

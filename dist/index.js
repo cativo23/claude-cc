@@ -100,9 +100,10 @@ function isDirectRun() {
 }
 function getVersion() {
     try {
+        // Assumes this file lives at dist/index.js — one level below package.json.
         const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), '../package.json');
         const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-        return pkg.version;
+        return pkg.version ?? 'unknown';
     }
     catch {
         return 'unknown';
