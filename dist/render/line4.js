@@ -13,6 +13,12 @@ export function renderLine4(ctx, c) {
         if (gsd.currentTask) {
             parts.push(c.bold(`${icons.hammer} ${truncField(gsd.currentTask, 60)}`));
         }
+        // Resume-point indicator (gsd-core ≥ 1.4.x). A ↩ glyph signals STATE.md has
+        // an active `.continue-here`/spec resume file — a cue that work can be picked
+        // up where it left off. Cyan: informational, distinct from update/stale warns.
+        if (gsd.hasResume) {
+            parts.push(c.cyan('↩'));
+        }
         if (gsd.updateAvailable) {
             parts.push(c.yellow('⬆ /gsd:update'));
         }

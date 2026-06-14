@@ -121,6 +121,8 @@ export interface GsdInfo {
   updateAvailable?: boolean;
   staleHooks?: boolean;
   devInstall?: boolean;
+  /** True when STATE.md declares an active resume point (gsd-core ≥ 1.4.x `Resume file:`). */
+  hasResume?: boolean;
 }
 
 export interface MemoryInfo {
