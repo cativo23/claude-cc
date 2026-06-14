@@ -1,5 +1,5 @@
 ---
-name: lumira:setup
+name: setup
 description: Use after installing the lumira plugin to activate the statusline. Writes statusLine.command to ~/.claude/settings.json pointing to the plugin-cached binary. Run this once after /plugin marketplace add cativo23/lumira.
 allowed-tools: Bash, Read, Write
 license: MIT
@@ -13,7 +13,7 @@ You activate the **lumira** statusline for Claude Code after plugin installation
 
 1. **Find install path** — Read `~/.claude/plugins/installed_plugins.json`. Look for any key matching `lumira@*` (the exact marketplace key depends on how the user installed it). Extract `installPath` from the first match.
 2. **Verify binary** — Check that `<installPath>/dist/index.js` exists.
-3. **Read settings** — Read `~/.claude/settings.json`. If missing or invalid JSON, start from `{}`.
+3. **Read settings** — Read `~/.claude/settings.json`. If the file is **missing**, start from `{}`. If it is **present but invalid JSON**, stop and report the parse error — do not overwrite.
 4. **Check existing** — If `statusLine.command` is already set and contains "lumira", tell the user what's currently set and ask if they want to update it.
 5. **Write command** — Set `statusLine.command` to `node "<installPath>/dist/index.js"`.
 6. **Init config** — If `~/.config/lumira/config.json` does not exist, create it with `{"preset": "balanced"}`. Never overwrite an existing config.
