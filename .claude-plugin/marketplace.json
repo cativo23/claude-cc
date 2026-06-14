@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Real-time statusline HUD for Claude Code and Qwen Code — analytics, quota projection, themes, powerline",
-    "version": "1.8.2",
+    "version": "1.9.0",
     "homepage": "https://github.com/cativo23/lumira"
   },
   "plugins": [
@@ -13,7 +13,7 @@
       "name": "lumira",
       "source": "./",
       "description": "Real-time statusline HUD for Claude Code and Qwen Code. Session analytics, API latency widget, 7-day quota projection, auto-compact warnings, 7 themes, powerline support. Zero runtime dependencies. Run /lumira:setup after install to activate.",
-      "version": "1.8.2",
+      "version": "1.9.0",
       "author": {
         "name": "Carlos Cativo"
       },
@@ -33,5 +33,5 @@
       ]
     }
   ],
-  "version": "1.8.2"
+  "version": "1.9.0"
 }
