@@ -29,8 +29,12 @@ export function sanitizeTermString(s) {
 /** Allowed values for the reasoning effort level field (CC ≥ 2.1.x). */
 const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 /**
- * Sum all four token categories from `context_window.current_usage` to compute
- * a real context usage total (input + output + cache_read + cache_creation).
+ * Sum input token categories from `context_window.current_usage` to compute
+ * a real context usage total (input + cache_read + cache_creation).
+ * Excludes output_tokens: they are per-turn and reset each call, which would
+ * cause the context bar to jitter (jump down at the start of every new turn).
+ * Context window fill is determined by what was READ from the context, not
+ * by how many tokens were output.
  * Returns undefined when `cu` is absent or not an object shape.
  */
 function getRealUsageTotal(cu) {
@@ -38,7 +42,6 @@ function getRealUsageTotal(cu) {
         return undefined;
     const obj = cu;
     const total = (obj.input_tokens ?? 0)
-        + (obj.output_tokens ?? 0)
         + (obj.cache_read_input_tokens ?? 0)
         + (obj.cache_creation_input_tokens ?? 0);
     return total;
@@ -100,9 +103,9 @@ export function normalize(input) {
     if (claude) {
         ({ denominator: cacheTurnDenominator } = getCacheFields(claude.context_window?.current_usage));
     }
-    // Real context usage percentage (Claude only): includes output tokens in the numerator,
-    // unlike the hook-provided `used_percentage` which excludes them. This gives an accurate
-    // picture of actual context consumption, especially near auto-compact thresholds.
+    // Real context usage percentage (Claude only): sums input + cache_read + cache_creation
+    // (output_tokens excluded — per-turn, resets each call, causes bar jitter). More stable
+    // than the hook-provided `used_percentage` near auto-compact thresholds.
     let realUsedPercentage;
     if (claude) {
         const total = getRealUsageTotal(claude.context_window?.current_usage);
@@ -113,10 +116,25 @@ export function normalize(input) {
     }
     // Auto-compact proximity warning: fires when context fill is in the
     // [threshold-gap, threshold) window. Uses realUsedPercentage when available
-    // (more accurate; includes output+cache), falls back to usedPercentage for
+    // (more accurate; excludes output tokens), falls back to usedPercentage for
     // legacy payloads. Gated by platform (different thresholds Claude vs Qwen).
+    // For claude-code, honors CLAUDE_CODE_AUTO_COMPACT_WINDOW env var — a fill-%
+    // threshold (1-100) that mirrors Claude Code's own auto-compact trigger point.
+    // Users who changed this setting in Claude Code should set the same value here.
+    // Falls back to the hardcoded 80% default when absent or invalid.
     const effectivePct = realUsedPercentage ?? contextWindow.used_percentage ?? 0;
-    const platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
+    let platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
+    if (platform === 'claude-code') {
+        const envVal = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+        if (envVal !== undefined) {
+            // Use Number() + Number.isInteger() so floats ("75.5") and trailing-junk
+            // strings ("80abc") are rejected rather than silently truncated by parseInt.
+            const parsed = Number(envVal);
+            if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 100) {
+                platformAutoCompactThreshold = parsed;
+            }
+        }
+    }
     const nearAutoCompact = effectivePct >= (platformAutoCompactThreshold - AUTO_COMPACT_WARNING_GAP)
         && effectivePct < platformAutoCompactThreshold;
     // Performance (Qwen only)

@@ -53,6 +53,14 @@ export async function aggregateStats(transcriptPath) {
         throw new Error(`Transcript file not found: ${transcriptPath}`);
     }
     const stats = emptyStats();
+    // Dedup guard: Claude Code streams one JSONL entry per content block for
+    // the same logical message (thinking → text → tool_use all share one
+    // message.id). Each entry carries the full usage block for that turn, so
+    // naively accumulating every entry inflates tokens/cost by the number of
+    // content blocks. Track seen message IDs and skip usage+cost on repeats.
+    // Content extraction (tool_use, tool_result) is NOT gated — each block
+    // appears exactly once in its own entry and must still be counted.
+    const seenMessageIds = new Set();
     let fileStream = null;
     try {
         fileStream = createReadStream(resolved);
@@ -81,10 +89,20 @@ export async function aggregateStats(transcriptPath) {
                 }
             }
             const message = (entry.message ?? null);
+            // Determine whether this is the first time we're seeing this message.id.
+            // Entries without a message.id (e.g. user turns, summary lines) are
+            // always treated as first-occurrence so they're never suppressed.
+            const messageId = message !== null && typeof message.id === 'string' ? message.id : null;
+            const isFirstOccurrence = messageId === null || !seenMessageIds.has(messageId);
+            if (messageId !== null)
+                seenMessageIds.add(messageId);
             // Usage block (assistant turns only). The mere presence of a usage
             // payload flips hasCostData=true even if all counts are zero — see
             // the "zero-cost-with-usage" test for why this matters.
-            if (entry.type === 'assistant' && message && typeof message === 'object') {
+            //
+            // Gated on isFirstOccurrence: duplicate entries for the same message.id
+            // carry identical usage blocks; accumulating them inflates counts 2-3×.
+            if (isFirstOccurrence && entry.type === 'assistant' && message && typeof message === 'object') {
                 const usage = message.usage;
                 if (usage && typeof usage === 'object') {
                     stats.hasCostData = true;
@@ -104,10 +122,14 @@ export async function aggregateStats(transcriptPath) {
             // undefined`), not truthiness — Anthropic emits `total_cost_usd: 0` for
             // fully-cached turns, and a `topCost || msgCost` short-circuit would
             // incorrectly fall through to the message field in that case.
-            const topCost = safeNumber(entry.total_cost_usd);
-            const msgCost = message ? safeNumber(message.total_cost_usd) : 0;
-            const costContribution = entry.total_cost_usd !== undefined ? topCost : msgCost;
-            stats.costUsd += costContribution;
+            //
+            // Also gated on isFirstOccurrence for the same dedup reason as usage above.
+            if (isFirstOccurrence) {
+                const topCost = safeNumber(entry.total_cost_usd);
+                const msgCost = message ? safeNumber(message.total_cost_usd) : 0;
+                const costContribution = entry.total_cost_usd !== undefined ? topCost : msgCost;
+                stats.costUsd += costContribution;
+            }
             // Tool / agent / error extraction from the message.content array.
             const content = message?.content;
             if (!Array.isArray(content))
