@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { fileURLToPath } from 'node:url';
-import { realpathSync } from 'node:fs';
+import { realpathSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { readStdin as defaultReadStdin, StdinParseError } from './stdin.js';
 import { parseGitStatus } from './parsers/git.js';
 import { parseTranscript } from './parsers/transcript.js';
@@ -108,9 +108,47 @@ function isDirectRun(): boolean {
   }
 }
 
+function getVersion(): string {
+  try {
+    const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), '../package.json');
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+    return pkg.version;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function printHelp(): void {
+  const version = getVersion();
+  const usage = `lumira v${version}
+
+Usage: lumira [command]
+
+Commands:
+  install       Interactive setup wizard
+  uninstall     Remove statusline configuration
+  stats [path]  Show session statistics
+  themes        Browse and preview themes
+  custom        Manage custom commands
+
+Options:
+  --help, -h    Show this help
+  --version, -v Print version
+
+Run lumira with no arguments to render the statusline (requires Claude Code stdin).
+`;
+  process.stdout.write(usage);
+}
+
 if (isDirectRun()) {
   const cmd = process.argv[2];
-  if (cmd === 'install') {
+  if (cmd === '--help' || cmd === '-h') {
+    printHelp();
+    process.exit(0);
+  } else if (cmd === '--version' || cmd === '-v') {
+    process.stdout.write(`${getVersion()}\n`);
+    process.exit(0);
+  } else if (cmd === 'install') {
     const configPath = join(homedir(), '.config', 'lumira', 'config.json');
     install({ configPath }).then(o => process.stdout.write(o)).catch(e => process.stderr.write(`Install error: ${e.message}\n`));
   } else if (cmd === 'uninstall') {
@@ -143,6 +181,9 @@ if (isDirectRun()) {
     // single custom command's cache entry without keeping the renderer's
     // event loop refed. Reads the spec JSON from its own stdin.
     runCustomRefreshFromStdin().then(() => process.exit(0)).catch(() => process.exit(0));
+  } else if (cmd !== undefined) {
+    process.stderr.write(`Unknown command: ${cmd}. Run with --help for usage.\n`);
+    process.exit(1);
   } else {
     main().then(o => process.stdout.write(o)).catch(e => { if (!(e instanceof StdinParseError)) process.stderr.write(`Statusline error: ${e.message}\n`); });
   }
