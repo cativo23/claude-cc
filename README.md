@@ -64,25 +64,25 @@ Claude Code's default statusline shows the model name and current directory. Tha
 - **Active tools, agents, and todo progress** — parsed from the live transcript, updated every render.
 - **Cross-platform** — same config drives Claude Code and Qwen Code; Qwen sessions auto-collapse to single-line.
 
-Inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud); takes a different stance on opt-in powerline rendering, theme contrast guarantees, and Qwen Code compatibility.
+Inspired by [GSD's](https://github.com/open-gsd/gsd-core) statusline; takes its own stance on opt-in powerline rendering, theme contrast guarantees, and Qwen Code compatibility.
 
 ## How lumira compares
 
-The Claude Code statusline space has several good tools. Here's an honest head-to-head against the other true statuslines (data verified 2026-06-14 via `gh api` + npm registry; feature claims checked against each tool's current README):
+The Claude Code statusline space has several good tools. Here's an honest head-to-head on **features** against the other true statuslines (feature claims checked against each tool's current README, 2026-06-14):
 
-| Tool | Runtime / deps | Distribution | Platforms | Config UX | Powerline + themes | Session-intel widgets | Stars | npm dl/mo |
-|---|---|---|---|---|---|---|---|---|
-| **lumira** | TS / **0 runtime deps** | npm + npx + plugin (+ Qwen skill) | **Claude Code + Qwen Code** | Wizard + JSON + CLI flags | Yes (7 styles) + 7 themes, **WCAG-AA guard** | **Quota projection, pace delta, API-latency, auto-compact glyph + counter, cache, agents, MCP, todos, tools** + `stats` CLI | 1 | 2.2k |
-| ccstatusline | TS / bundled | npm + npx | Claude Code | **Ink TUI** (live preview) | Yes + themes | Context, cost, usage %, block timer, compaction count, git; no quota/pace/latency | **10.7k** | **153k** |
-| claude-hud | JS / Node 18+ | Plugin marketplace | Claude Code (v1.0.80+) | Guided `/configure` + JSON | No / no themes | Context, 5h/7d usage, cost, git, tools, agents, todos, cache TTL; no quota ETA/pace/latency | **25.1k** | 1.8k |
-| CCometixLine | Rust binary | npm + binary + source | Claude Code | TUI (TOML) | Yes + themes | Model, dir, git, context %, usage, cost, time, output-style | 3.2k | 3.9k |
-| claude-pace | Bash + jq | curl + plugin + npx | Claude Code 2.1.80+ | JSON block | No / no | 5h+7d %, pace delta, reset countdown, git diff; ~10ms (lightest) | 207 | 451 |
-| cship | Rust binary | binary / script / cargo | Claude Code | TOML (Starship-style) | Yes (Starship) + themes | Cost, context bar, usage limits, model, effort, agent, session, peak-time | 374 | n/a |
-| starship-claude | Shell / needs Starship | Plugin + manual | Claude Code (no tmux) | Wizard + TOML | Via Starship + palettes | Context bar, model, session | 124 | n/a |
+| Tool | Runtime / deps | Distribution | Platforms | Config UX | Powerline + themes | Session-intel widgets |
+|---|---|---|---|---|---|---|
+| **lumira** | TS / **0 runtime deps** | npm + npx + plugin (+ Qwen skill) | **Claude Code + Qwen Code** | Wizard + JSON + CLI flags | Yes (7 styles) + 7 themes, **WCAG-AA guard** | **Quota projection, pace delta, API-latency, auto-compact glyph + counter, cache, agents, MCP, todos, tools** + `stats` CLI |
+| ccstatusline | TS / bundled | npm + npx | Claude Code | **Ink TUI** (live preview) | Yes + themes | Context, cost, usage %, block timer, compaction count, git; no quota/pace/latency |
+| claude-hud | JS / Node 18+ | Plugin marketplace | Claude Code (v1.0.80+) | Guided `/configure` + JSON | No / no themes | Context, 5h/7d usage, cost, git, tools, agents, todos, cache TTL; no quota ETA/pace/latency |
+| CCometixLine | Rust binary | npm + binary + source | Claude Code | TUI (TOML) | Yes + themes | Model, dir, git, context %, usage, cost, time, output-style |
+| claude-pace | Bash + jq | curl + plugin + npx | Claude Code 2.1.80+ | JSON block | No / no | 5h+7d %, pace delta, reset countdown, git diff; ~10ms (lightest) |
+| cship | Rust binary | binary / script / cargo | Claude Code | TOML (Starship-style) | Yes (Starship) + themes | Cost, context bar, usage limits, model, effort, agent, session, peak-time |
+| starship-claude | Shell / needs Starship | Plugin + manual | Claude Code (no tmux) | Wizard + TOML | Via Starship + palettes | Context bar, model, session |
 
-**Honest headline:** lumira leads on *breadth of session-intelligence widgets*, *zero runtime deps*, *dual-platform (Qwen Code)*, and *accessibility (WCAG-AA contrast enforced in CI)* — but **loses badly on adoption** (1 star / 2.2k dl vs ccstatusline 10.7k★ and claude-hud 25.1k★) and has **no Ink-style interactive widget builder** (config is a wizard + JSON, not a live drag-and-drop TUI).
+**Where lumira leads:** breadth of session-intelligence widgets — sole owner of an API-latency widget, a 7-day quota *projection ETA*, an MCP-server count, and a bundled `stats` analytics CLI, on top of the full pace / agents / todos / cache set. Plus zero runtime deps, dual-platform (Claude Code **and** Qwen Code), and WCAG-AA contrast enforced in CI on every theme. **Where it doesn't:** no Ink-style interactive widget builder — config is a wizard + JSON, not a live drag-and-drop TUI.
 
-See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the full breakdown — distribution, config UX, a per-widget matrix across all tools, momentum/maturity data, and the analytics-first tools (ccusage, agentsview) for context.
+See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the full per-widget matrix, config-UX detail, and distribution breakdown across every tool.
 
 ## Requirements
 
