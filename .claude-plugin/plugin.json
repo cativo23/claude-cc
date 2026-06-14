@@ -1,0 +1,25 @@
+{
+  "name": "lumira",
+  "version": "1.8.2",
+  "description": "Real-time statusline HUD for Claude Code and Qwen Code — session analytics, API latency, 7-day quota projection, auto-compact warnings, 7 themes, powerline. Zero runtime deps.",
+  "author": {
+    "name": "Carlos Cativo"
+  },
+  "repository": "https://github.com/cativo23/lumira",
+  "homepage": "https://github.com/cativo23/lumira#readme",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "qwen-code",
+    "statusline",
+    "hud",
+    "terminal",
+    "analytics",
+    "session",
+    "metrics",
+    "nerd-font",
+    "powerline",
+    "themes"
+  ],
+  "skills": "./skills/"
+}

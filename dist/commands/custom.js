@@ -1,0 +1,280 @@
+/**
+ * `lumira custom` subcommand (issue #143 phase 4).
+ *
+ * Provides a CLI interface for managing the custom commands feature:
+ *
+ *   lumira custom list             List configured commands from config file
+ *   lumira custom enable           Set enabled:true in config file
+ *   lumira custom disable          Set enabled:false in config file
+ *   lumira custom test <id>        Run a command once, print output + timing
+ *   lumira custom logs             Show cached outputs from the cache file
+ *
+ * Design constraints:
+ * - No runtime deps beyond Node built-ins.
+ * - All FS reads in try/catch — graceful errors, exit 1 on failure.
+ * - Color: process.stdout.isTTY ? 'named' : 'none'.
+ * - Return type: Promise<{ output: string; exitCode: number }> so the
+ *   dispatcher can set process.exitCode.
+ */
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { execBg } from '../utils/exec-bg.js';
+import { createColors } from '../render/colors.js';
+import { loadConfig } from '../config.js';
+import { readCacheFile } from '../utils/custom-cache.js';
+// ── constants ──────────────────────────────────────────────────────────────
+const CONFIG_FILE = 'config.json';
+const CONFIG_DIR = join('.config', 'lumira');
+const CACHE_FILE = 'custom-commands.json';
+const CACHE_DIR = join('.cache', 'lumira');
+// ── helpers ────────────────────────────────────────────────────────────────
+function configPath() {
+    return join(homedir(), CONFIG_DIR, CONFIG_FILE);
+}
+function cachePath() {
+    return join(homedir(), CACHE_DIR, CACHE_FILE);
+}
+function ok(output) {
+    return { output, exitCode: 0 };
+}
+function fail(output) {
+    return { output, exitCode: 1 };
+}
+/**
+ * Read the raw config JSON from disk. Returns an empty object `{}` if the
+ * file doesn't exist, throws on malformed JSON so the caller can surface a
+ * useful error.
+ */
+function readConfigRaw() {
+    const p = configPath();
+    if (!existsSync(p))
+        return {};
+    const raw = readFileSync(p, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        return {};
+    return parsed;
+}
+/**
+ * Write (or create) the config file. Creates the parent directory if needed.
+ * The value is always pretty-printed with 2-space indents.
+ */
+function writeConfigRaw(value) {
+    const p = configPath();
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, JSON.stringify(value, null, 2), { encoding: 'utf8', mode: 0o600 });
+}
+/**
+ * Extract the `customCommands` block from the raw config. Returns a minimal
+ * default when the block is missing or malformed.
+ */
+function readCustomCommandsBlock(raw) {
+    const cc = raw.customCommands;
+    if (!cc || typeof cc !== 'object' || Array.isArray(cc)) {
+        return { enabled: false, commands: [] };
+    }
+    const obj = cc;
+    const enabled = typeof obj.enabled === 'boolean' ? obj.enabled : false;
+    const commands = Array.isArray(obj.commands) ? obj.commands : [];
+    return { enabled, commands };
+}
+// ── color ──────────────────────────────────────────────────────────────────
+/**
+ * Only use color when stdout is a real TTY and NO_COLOR is not set.
+ * In pipe/test contexts or when NO_COLOR is in env, produces no escape
+ * sequences, keeping output clean for programmatic use.
+ */
+function makeColors() {
+    const noColor = 'NO_COLOR' in process.env || process.env.TERM === 'dumb';
+    if (noColor || !process.stdout.isTTY)
+        return null;
+    return createColors('named');
+}
+// ── subcommands ────────────────────────────────────────────────────────────
+async function cmdEnable() {
+    try {
+        const raw = readConfigRaw();
+        const cc = readCustomCommandsBlock(raw);
+        const updated = {
+            ...raw,
+            customCommands: {
+                ...cc,
+                enabled: true,
+            },
+        };
+        writeConfigRaw(updated);
+        return ok(`Custom commands enabled.\nConfig written to: ${configPath()}\n`);
+    }
+    catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return fail(`lumira custom enable: ${msg}\n`);
+    }
+}
+async function cmdDisable() {
+    try {
+        const raw = readConfigRaw();
+        const cc = readCustomCommandsBlock(raw);
+        const updated = {
+            ...raw,
+            customCommands: {
+                ...cc,
+                enabled: false,
+            },
+        };
+        writeConfigRaw(updated);
+        return ok(`Custom commands disabled.\nConfig written to: ${configPath()}\n`);
+    }
+    catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return fail(`lumira custom disable: ${msg}\n`);
+    }
+}
+async function cmdList() {
+    const c = makeColors();
+    let enabled = false;
+    let commands = [];
+    try {
+        const cfg = loadConfig();
+        enabled = cfg.customCommands.enabled;
+        commands = cfg.customCommands.commands;
+    }
+    catch {
+        // config unreadable — fall through with empty defaults
+    }
+    const statusLine = enabled
+        ? `Custom commands: ${c ? c.green('enabled') : 'enabled'}\n`
+        : `Custom commands: ${c ? c.yellow('disabled') : 'disabled'}\n`;
+    if (commands.length === 0) {
+        return ok(statusLine
+            + '\nNo custom commands configured.\n'
+            + `Add commands to ${configPath()} under customCommands.commands.\n`);
+    }
+    // Table: id | line | refresh | cmd
+    const header = `${'id'.padEnd(20)} ${'line'.padEnd(6)} ${'refresh'.padEnd(10)} cmd`;
+    const sep = '-'.repeat(header.length);
+    const rows = commands.map(cmd => {
+        const id = cmd.id.padEnd(20);
+        const line = String(cmd.line).padEnd(6);
+        const refresh = `${cmd.refreshMs}ms`.padEnd(10);
+        const cmdStr = cmd.command.join(' ');
+        return `${id} ${line} ${refresh} ${cmdStr}`;
+    });
+    const table = [header, sep, ...rows].join('\n');
+    return ok(`${statusLine}\n${table}\n`);
+}
+async function cmdTest(id) {
+    if (!id) {
+        return fail('lumira custom test: missing command id.\n\n'
+            + 'Usage: lumira custom test <id>\n'
+            + "Use 'lumira custom list' to see configured command ids.\n");
+    }
+    let commands;
+    try {
+        commands = loadConfig().customCommands.commands;
+    }
+    catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return fail(`lumira custom test: could not read config: ${msg}\n`);
+    }
+    const cmd = commands.find(c => c.id === id);
+    if (!cmd) {
+        const knownIds = commands.map(c => c.id).join(', ');
+        return fail(`lumira custom test: command id "${id}" not found.\n`
+            + (knownIds ? `Known ids: ${knownIds}\n` : 'No commands configured.\n'));
+    }
+    const result = await execBg({
+        command: cmd.command,
+        timeoutMs: cmd.timeoutMs,
+        maxBytes: cmd.maxBytes,
+    });
+    const lines = [
+        `Command: ${cmd.command.join(' ')}`,
+        `Duration: ${result.durationMs}ms`,
+    ];
+    if (result.kind === 'ok') {
+        lines.push(`Exit: 0 (ok)`);
+        lines.push(`Output:\n${result.stdout || '(empty)'}`);
+    }
+    else if (result.kind === 'nonzero') {
+        lines.push(`Exit: ${result.exitCode} (nonzero)`);
+        if (result.stdout)
+            lines.push(`Stdout:\n${result.stdout}`);
+        if (result.stderr)
+            lines.push(`Stderr:\n${result.stderr}`);
+    }
+    else if (result.kind === 'timeout') {
+        lines.push(`Exit: timeout (killed after ${cmd.timeoutMs}ms)`);
+        if (result.stdout)
+            lines.push(`Stdout (partial):\n${result.stdout}`);
+    }
+    else {
+        // spawn-error
+        lines.push(`Exit: spawn-error — ${result.message}`);
+    }
+    return ok(lines.join('\n') + '\n');
+}
+async function cmdLogs() {
+    const p = cachePath();
+    const cacheData = readCacheFile(p);
+    const entries = Object.entries(cacheData);
+    if (entries.length === 0) {
+        return ok(`No cache file found at ${p}.\n`
+            + "Run lumira once with custom commands enabled to populate the cache.\n");
+    }
+    const lines = [`Cache: ${p}`, ''];
+    for (const [id, entry] of entries) {
+        const { text, capturedAt, state } = entry;
+        const dateStr = capturedAt > 0
+            ? new Date(capturedAt).toLocaleString()
+            : 'unknown';
+        const truncated = text.length > 100 ? text.slice(0, 100) + '…' : text;
+        lines.push(`id: ${id}`);
+        lines.push(`  state:      ${state}`);
+        lines.push(`  capturedAt: ${dateStr}`);
+        lines.push(`  text:       ${truncated || '(empty)'}`);
+        lines.push('');
+    }
+    return ok(lines.join('\n'));
+}
+function helpText() {
+    return [
+        'Usage: lumira custom <subcommand>',
+        '',
+        'Subcommands:',
+        '  list               List configured custom commands',
+        '  enable             Enable custom commands in config',
+        '  disable            Disable custom commands in config',
+        '  test <id>          Run a command once and print output + timing',
+        '  logs               Show cached command outputs',
+        '',
+    ].join('\n');
+}
+// ── entry point ────────────────────────────────────────────────────────────
+/**
+ * Execute `lumira custom [subcommand] [...args]`.
+ *
+ * argv is the full process.argv; 'custom' starts at argv[2], the subcommand
+ * at argv[3], additional arguments from argv[4] onward.
+ *
+ * Returns `{ output, exitCode }` — the dispatcher writes output to stdout and
+ * sets process.exitCode from the returned value.
+ */
+export async function runCustomCommand(argv) {
+    const sub = argv[3];
+    switch (sub) {
+        case 'enable':
+            return cmdEnable();
+        case 'disable':
+            return cmdDisable();
+        case 'list':
+            return cmdList();
+        case 'test':
+            return cmdTest(argv[4]);
+        case 'logs':
+            return cmdLogs();
+        default:
+            return fail(helpText());
+    }
+}
+//# sourceMappingURL=custom.js.map

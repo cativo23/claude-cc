@@ -1,0 +1,328 @@
+import { createReadStream, existsSync } from 'node:fs';
+import { createInterface } from 'node:readline';
+import { resolve } from 'node:path';
+import { EMPTY_TRANSCRIPT } from '../types.js';
+import { isMtimeFresh, getMtimeState } from '../utils/cache.js';
+import { sanitizeTermString } from '../normalize.js';
+import { isUnderAllowedRoot, LUMIRA_ALLOWED_ROOTS } from '../utils/path.js';
+import { debug } from '../utils/debug.js';
+import { scanSubagentsDir, readSubagentDetails, subagentsDirStateEqual } from './subagents.js';
+const log = debug('transcript');
+// Full re-parse on cache miss is intentional. Incremental byte-offset parsing
+// was evaluated and rejected (see #43): real transcripts are low-thousands of
+// lines, parse cost stays under the statusline budget, and stateful
+// accumulation breaks under concurrent ticks, file replacement (TOCTOU), and
+// TaskUpdate's numeric-taskId index semantics. Each call uses local maps
+// (toolMap, agentMap, todos below) — that locality is what keeps the parser
+// concurrent-tick safe. Don't refactor it into shared mutable state.
+//
+// LRU bound: long-running shells switch transcript paths across sessions, so
+// the cache would otherwise grow one entry per session forever (#69). Map
+// iteration order is insertion order, which gives us a free LRU: re-insert
+// on hit to refresh recency, drop the first key when size > cap.
+export const TRANSCRIPT_CACHE_CAP = 10;
+const transcriptCache = new Map();
+// Shallow clone of TranscriptData so callers can't mutate the cached arrays.
+// IMPORTANT: this is *shallow*. Caller can still mutate per-entry fields
+// (e.g. `result.tools[0].status = 'evil'`) and corrupt the cache. All current
+// renderers (src/render/line1.ts, line3.ts, powerline-line1.ts,
+// powerline-line3.ts) treat entries as read-only — verified by review. If a
+// future consumer mutates per-entry fields, switch to Object.freeze on each
+// entry or to a structuredClone.
+function cloneShallow(result) {
+    return {
+        ...result,
+        tools: result.tools.slice(),
+        agents: result.agents.slice(),
+        todos: result.todos.slice(),
+    };
+}
+function touchCache(key, value) {
+    if (transcriptCache.has(key))
+        transcriptCache.delete(key);
+    transcriptCache.set(key, value);
+    // Size briefly hits CAP+1 between set() above and delete() below, but
+    // touchCache is synchronous — no await boundary exists here, so no other
+    // code can observe that window. Each call leaves the map at or below cap.
+    if (transcriptCache.size > TRANSCRIPT_CACHE_CAP) {
+        const oldest = transcriptCache.keys().next().value;
+        if (oldest !== undefined)
+            transcriptCache.delete(oldest);
+    }
+}
+// Test-only inspectors. Underscore prefix signals "internal" — do not call
+// from production code paths.
+export function _transcriptCacheSize() {
+    return transcriptCache.size;
+}
+export function _transcriptCacheKeys() {
+    return Array.from(transcriptCache.keys());
+}
+export function _clearTranscriptCache() {
+    transcriptCache.clear();
+}
+export const MAX_LINES = 50_000;
+// Warn-once flag for the MAX_LINES truncation path (#70). Long-running sessions
+// that produce >50k JSONL lines silently lose data after the cap; flagging once
+// per process surfaces the condition in `LUMIRA_DEBUG=1` logs and lets tests
+// observe it. We set the flag regardless of `log.enabled` so the diagnostic is
+// available even when debug logging is off.
+let truncationWarned = false;
+export function _truncationWarned() {
+    return truncationWarned;
+}
+export function _resetTruncationWarned() {
+    truncationWarned = false;
+}
+export function normalizeTodoStatus(status) {
+    if (!status)
+        return 'pending';
+    const s = String(status).toLowerCase();
+    if (s === 'completed' || s === 'done')
+        return 'completed';
+    if (s === 'in_progress' || s === 'in-progress' || s === 'running')
+        return 'in_progress';
+    return 'pending';
+}
+export function extractToolTarget(toolName, input) {
+    if (!input)
+        return undefined;
+    const raw = (() => {
+        switch (toolName) {
+            case 'Read':
+            case 'Write':
+            case 'Edit':
+                return (input.file_path ?? input.path);
+            case 'Glob':
+            case 'Grep':
+                return input.pattern;
+            case 'Bash': {
+                const cmd = input.command || '';
+                return cmd.length > 30 ? cmd.slice(0, 30) + '...' : cmd;
+            }
+            default: return undefined;
+        }
+    })();
+    return typeof raw === 'string' ? sanitizeTermString(raw) : raw;
+}
+// Allowed roots, snapshotted once at module load. We include both the
+// as-returned form and the realpath form of homedir()/tmpdir() so platforms
+// like macOS work transparently — `os.tmpdir()` returns `/var/folders/...`
+// while the kernel realpath is `/private/var/folders/...`. Either form on
+// the candidate side will match.
+//
+// We deliberately do NOT realpath the candidate path inside parseTranscript:
+// (a) it would 5–10× the syscalls on the cache hit path, and
+// (b) it would break legitimate user setups like `~/.claude → /data/claude`,
+//     where the canonical target sits outside `homedir()`.
+// Symlink-traversal hardening (defense against attacker-placed symlinks
+// under an allowed root pointing at /etc/passwd) is tracked separately;
+// the threat is narrow because `transcript_path` arrives from Claude Code
+// itself, not arbitrary external input.
+// `realpathSafe` and `LUMIRA_ALLOWED_ROOTS` previously lived here; both are
+// now in `src/utils/path.ts` so other parsers (e.g. `subagents.ts`) share the
+// same canonicalisation and allow-list semantics. See `path.ts` for caveats
+// about the string-level (non-symlink-following) nature of the check.
+export async function parseTranscript(transcriptPath) {
+    const result = { ...EMPTY_TRANSCRIPT, tools: [], agents: [], todos: [], compactionCount: 0 };
+    if (!transcriptPath || !existsSync(transcriptPath)) {
+        if (log.enabled)
+            log('skip — transcript path missing or nonexistent:', transcriptPath || '(empty)');
+        // File may have been deleted/rotated between calls — drop any stale entry
+        // so the LRU slot doesn't pin an inaccessible path.
+        if (transcriptPath)
+            transcriptCache.delete(resolve(transcriptPath));
+        return result;
+    }
+    // path.resolve, NOT realpathSafe — symlink resolution is deliberately not
+    // done here (and not in subagents.ts either). See `src/utils/path.ts`
+    // header for the string-level threat model rationale.
+    const resolved = resolve(transcriptPath);
+    if (!isUnderAllowedRoot(resolved, LUMIRA_ALLOWED_ROOTS)) {
+        log('skip — path outside allowed roots:', resolved);
+        transcriptCache.delete(resolved);
+        return result;
+    }
+    const currentMtime = getMtimeState(resolved);
+    // The subagents/ dir lives outside the main JSONL's stat scope, so a quiet
+    // subagent's progress (or a `stop_reason: end_turn` flush) wouldn't change
+    // anything the cache can see. A single `scanSubagentsDir` produces both
+    // the cache fingerprint AND the per-file candidates we'll feed to
+    // `readSubagentDetails` on a miss — eliminates the double readdir+stat
+    // pass that an independent fingerprint call would force.
+    const subagentsScan = await scanSubagentsDir(resolved);
+    const currentSubagentsState = subagentsScan.state;
+    const cached = transcriptCache.get(resolved);
+    if (currentMtime && cached && isMtimeFresh(resolved, cached.mtime)
+        && subagentsDirStateEqual(cached.subagentsDir, currentSubagentsState)) {
+        log('cache hit:', resolved);
+        touchCache(resolved, cached);
+        return cloneShallow(cached.result);
+    }
+    const parseStart = log.enabled ? Date.now() : 0;
+    const toolMap = new Map();
+    const agentMap = new Map();
+    let todos = [];
+    const taskIdToIndex = new Map();
+    let thinkingEffort = '';
+    const effortRegex = /Set model to .+? with (low|medium|high|max|xhigh) effort/;
+    let fileStream = null;
+    try {
+        fileStream = createReadStream(resolved);
+        const rl = createInterface({ input: fileStream, crlfDelay: Infinity });
+        let lineCount = 0;
+        for await (const line of rl) {
+            if (!line.trim())
+                continue;
+            if (++lineCount > MAX_LINES) {
+                if (!truncationWarned) {
+                    truncationWarned = true;
+                    log(`warn — transcript exceeded MAX_LINES (${MAX_LINES}), output may be stale`);
+                }
+                break;
+            }
+            try {
+                const entry = JSON.parse(line);
+                if (!result.sessionStart && entry.timestamp)
+                    result.sessionStart = new Date(entry.timestamp);
+                if (entry.type === 'system' && entry.subtype === 'compact_boundary')
+                    result.compactionCount++;
+                const effortMatch = Array.isArray(entry.message?.content)
+                    ? entry.message.content
+                        .filter((b) => b.type === 'text')
+                        .map((b) => b.text ?? '')
+                        .join('\n')
+                        .match(effortRegex)
+                    : null;
+                if (effortMatch)
+                    thinkingEffort = effortMatch[1];
+                const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
+                const content = entry.message?.content;
+                if (!content || !Array.isArray(content))
+                    continue;
+                for (const block of content) {
+                    if (block.type === 'tool_use' && block.id && block.name) {
+                        // Claude Code occasionally re-emits a tool_use after its tool_result
+                        // has already landed (observed when a subagent dispatch fails with
+                        // "Agent type not found"). Treat the first completion as final —
+                        // never downgrade completed/error back to running on re-registration.
+                        const existingTool = toolMap.get(block.id);
+                        if (!existingTool || existingTool.status === 'running') {
+                            toolMap.set(block.id, { id: block.id, name: sanitizeTermString(block.name), target: extractToolTarget(block.name, block.input), status: 'running', startTime: timestamp });
+                        }
+                        // Claude Code ≥ 2.1.x renamed the subagent dispatch tool from
+                        // `Task` to `Agent`. Both shapes carry the same fields
+                        // (subagent_type, description, model, prompt). Accept either so the
+                        // live agent count widget works on both versions.
+                        if (block.name === 'Task' || block.name === 'Agent') {
+                            const existingAgent = agentMap.get(block.id);
+                            if (!existingAgent || existingAgent.status === 'running') {
+                                const inp = block.input || {};
+                                agentMap.set(block.id, {
+                                    id: block.id,
+                                    type: sanitizeTermString(inp.subagent_type || 'unknown'),
+                                    model: typeof inp.model === 'string' ? sanitizeTermString(inp.model) : inp.model,
+                                    description: typeof inp.description === 'string' ? sanitizeTermString(inp.description) : inp.description,
+                                    status: 'running',
+                                    startTime: timestamp,
+                                });
+                            }
+                        }
+                        if (block.name === 'TodoWrite' && block.input?.todos && Array.isArray(block.input.todos)) {
+                            const existingById = new Map(todos.map(t => [t.id || t.content, t]));
+                            todos = block.input.todos.map((t) => {
+                                const id = t.id || t.content || '';
+                                const existing = existingById.get(id);
+                                if (existing) {
+                                    const contentSame = (t.content || '') === (existing.content || '');
+                                    const statusSame = !t.status || t.status === existing.status;
+                                    if (contentSame && statusSame)
+                                        return existing;
+                                    // Content or status changed — rebuild, preserving whichever field didn't change.
+                                    return {
+                                        id: t.id || existing.id || '',
+                                        content: sanitizeTermString(t.content || existing.content || ''),
+                                        status: t.status ? normalizeTodoStatus(t.status) : existing.status,
+                                    };
+                                }
+                                return { id: t.id || '', content: sanitizeTermString(t.content || ''), status: normalizeTodoStatus(t.status) };
+                            });
+                        }
+                        if (block.name === 'TaskCreate') {
+                            const inp = block.input || {};
+                            const todoContent = (typeof inp.subject === 'string' ? inp.subject : '') || (typeof inp.description === 'string' ? inp.description : '') || 'Untitled task';
+                            todos.push({ id: inp.taskId || block.id, content: sanitizeTermString(todoContent), status: normalizeTodoStatus(inp.status) });
+                            if (inp.taskId || block.id)
+                                taskIdToIndex.set(String(inp.taskId || block.id), todos.length - 1);
+                        }
+                        if (block.name === 'TaskUpdate') {
+                            const inp = block.input || {};
+                            let index = inp.taskId && taskIdToIndex.has(String(inp.taskId)) ? taskIdToIndex.get(String(inp.taskId)) : null;
+                            if (index === null && typeof inp.taskId === 'string' && /^\d+$/.test(inp.taskId)) {
+                                const n = parseInt(inp.taskId, 10) - 1;
+                                if (n >= 0 && n < todos.length)
+                                    index = n;
+                            }
+                            if (index !== null && todos[index]) {
+                                if (inp.status)
+                                    todos[index].status = normalizeTodoStatus(inp.status);
+                                const subj = typeof inp.subject === 'string' ? inp.subject : '';
+                                const desc = typeof inp.description === 'string' ? inp.description : '';
+                                if (subj || desc)
+                                    todos[index].content = sanitizeTermString(subj || desc);
+                            }
+                        }
+                    }
+                    if (block.type === 'tool_result' && block.tool_use_id) {
+                        const tool = toolMap.get(block.tool_use_id);
+                        if (tool) {
+                            tool.status = block.is_error ? 'error' : 'completed';
+                            tool.endTime = timestamp;
+                        }
+                        const agent = agentMap.get(block.tool_use_id);
+                        if (agent) {
+                            agent.status = 'completed';
+                            agent.endTime = timestamp;
+                        }
+                    }
+                }
+            }
+            catch { /* skip malformed */ }
+        }
+    }
+    catch { /* partial results */ }
+    finally {
+        fileStream?.destroy();
+    }
+    result.tools = Array.from(toolMap.values()).slice(-20);
+    result.agents = Array.from(agentMap.values()).slice(-10);
+    result.todos = todos;
+    result.thinkingEffort = thinkingEffort;
+    // The subagents/ dir alongside the main JSONL is Claude Code's own
+    // per-subagent transcript store. It records every agent that ran in this
+    // session — including quiet/background ones whose tool_use entry stays
+    // buffered in the parent JSONL — and exposes a definitive completion
+    // marker via stop_reason. When present, prefer it over the main-JSONL
+    // pairing heuristic. When absent (older Claude Code, layout change), fall
+    // back to whatever main-JSONL parsing produced.
+    const subagentDirAgents = await readSubagentDetails(subagentsScan.candidates);
+    if (subagentDirAgents.length > 0) {
+        if (log.enabled)
+            log('subagents-dir override:', subagentDirAgents.length, 'agents replace', result.agents.length, 'from main JSONL');
+        result.agents = subagentDirAgents;
+    }
+    if (currentMtime) {
+        touchCache(resolved, { result, mtime: currentMtime, subagentsDir: currentSubagentsState });
+    }
+    if (log.enabled) {
+        log('parsed', resolved, {
+            tools: result.tools.length,
+            agents: result.agents.length,
+            todos: result.todos.length,
+            thinkingEffort: result.thinkingEffort || null,
+            durationMs: Date.now() - parseStart,
+        });
+    }
+    return cloneShallow(result);
+}
+//# sourceMappingURL=transcript.js.map
