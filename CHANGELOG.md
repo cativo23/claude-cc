@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-06-14
+
+### Added
+
+- **Claude Code plugin marketplace support.** lumira can now be installed without npm via the Claude Code plugin system: `/plugin marketplace add cativo23/lumira`. After install, run `/lumira:setup` — the new activation skill reads the plugin cache path from `~/.claude/plugins/installed_plugins.json` and writes `statusLine.command` to `~/.claude/settings.json` pointing to the bundled binary. No `npm install` required. The `dist/` directory is now committed to git so the plugin system can use the binary directly from the cloned repo. A `scripts/bump-plugin-version.mjs` npm `version` lifecycle hook keeps `.claude-plugin/*.json` versions in sync with `package.json` on every release. (#162)
+
 ## [1.8.2] - 2026-06-02
 
 ### Fixed
