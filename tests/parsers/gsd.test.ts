@@ -102,6 +102,35 @@ status: executing
     expect(s.totalPhases).toBe('6');
     expect(s.percent).toBe('50');
   });
+
+  // ── gsd-core ≥ 1.4.x body fields (Plan, Resume file) ──────────────────────
+  it('parses the compound Plan line "X of Y in current phase"', () => {
+    const s = parseStateMd(`---\nstatus: executing\n---\n\nPhase: 16 of 5 (auth)\nPlan: 2 of 9 in current phase`);
+    expect(s.planNum).toBe('2');
+    expect(s.planTotal).toBe('9');
+  });
+
+  it('parses the bare Plan line "X of Y"', () => {
+    const s = parseStateMd(`---\nstatus: executing\n---\n\nPlan: 3 of 7`);
+    expect(s.planNum).toBe('3');
+    expect(s.planTotal).toBe('7');
+  });
+
+  it('treats "Plan: —" (not started) as no plan progress', () => {
+    const s = parseStateMd(`---\nstatus: planning\n---\n\nPlan: —`);
+    expect(s.planNum).toBeUndefined();
+    expect(s.planTotal).toBeUndefined();
+  });
+
+  it('parses a Resume file path', () => {
+    const s = parseStateMd(`---\nstatus: executing\n---\n\nResume file: .planning/phases/16-x/16-UI-SPEC.md`);
+    expect(s.resumeFile).toBe('.planning/phases/16-x/16-UI-SPEC.md');
+  });
+
+  it('treats "Resume file: None" as no resume file', () => {
+    const s = parseStateMd(`---\nstatus: executing\n---\n\nResume file: None`);
+    expect(s.resumeFile).toBeUndefined();
+  });
 });
 
 describe('getGsdInfo', () => {
@@ -208,6 +237,40 @@ describe('getGsdInfo', () => {
   it('renders "milestone complete" at percent 100', () => {
     writeState(`---\nmilestone: v2.0\nprogress:\n  completed_phases: 6\n  total_phases: 6\n  percent: 100\n---`);
     expect(getGsdInfo(dir, opts)?.currentTask).toContain('milestone complete');
+  });
+
+  // ── gsd-core ≥ 1.4.x: plan progress + resume indicator (Option B) ──────────
+  it('appends plan progress "pX/Y" to the phase scene', () => {
+    writeState(`---\nstatus: executing\n---\n\nPhase: 3 of 5 (auth)\nPlan: 2 of 9 in current phase`);
+    expect(getGsdInfo(dir, opts)?.currentTask).toContain('auth (3/5) p2/9');
+  });
+
+  it('appends plan progress to the active_phase scene', () => {
+    writeState(`---\nactive_phase: "4.5"\nstatus: executing\n---\n\nPlan: 1 of 4`);
+    expect(getGsdInfo(dir, opts)?.currentTask).toContain('Phase 4.5 executing p1/4');
+  });
+
+  it('sets hasResume when a Resume file is present', () => {
+    writeState(`---\nstatus: executing\n---\n\nPhase: 3 of 5 (auth)\nResume file: .planning/phases/3-auth/UI-SPEC.md`);
+    expect(getGsdInfo(dir, opts)?.hasResume).toBe(true);
+  });
+
+  it('leaves hasResume undefined when Resume file is None', () => {
+    writeState(`---\nstatus: executing\n---\n\nPhase: 3 of 5 (auth)\nResume file: None`);
+    expect(getGsdInfo(dir, opts)?.hasResume).toBeUndefined();
+  });
+
+  // Guard: lumira's bar percent must mirror GSD's frontmatter `percent` VERBATIM.
+  // gsd-core ≥ 1.4.x computes percent = min(completed_plans/total_plans,
+  // completed_phases/total_phases) × 100 (already plan-based). lumira must NOT
+  // recompute it — if GSD ever changes its ceiling formula, this test catches
+  // silent divergence rather than mirroring the wrong number.
+  it('mirrors GSD frontmatter percent verbatim in the bar (does not recompute from plans)', () => {
+    // plans 12/25 = 48%, but GSD already published percent: 20 (its min() formula).
+    writeState(`---\nmilestone: v3.0\nmilestone_name: "X"\nprogress:\n  total_phases: 5\n  completed_phases: 1\n  total_plans: 25\n  completed_plans: 12\n  percent: 20\n---`);
+    const task = getGsdInfo(dir, opts)?.currentTask ?? '';
+    expect(task).toContain('20%');
+    expect(task).not.toContain('48%');
   });
 
   it('preserves the default "<status> · <phase>" scene when no lifecycle fields are present', () => {

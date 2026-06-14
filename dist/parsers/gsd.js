@@ -83,6 +83,22 @@ export function parseStateMd(content) {
         state.phaseTotal = phaseMatch[2];
         state.phaseName = phaseMatch[3];
     }
+    // Plan progress within the current phase (gsd-core ≥ 1.4.x). Accepts both the
+    // compound "X of Y in current phase" and the bare "X of Y" forms. A "Plan: —"
+    // (not started) line has no digits and is correctly skipped.
+    const planMatch = content.match(/^Plan:\s*(\d+)\s+of\s+(\d+)/m);
+    if (planMatch) {
+        state.planNum = planMatch[1];
+        state.planTotal = planMatch[2];
+    }
+    // Resume point (gsd-core ≥ 1.4.x). "Resume file: None" means no active resume
+    // point and is treated as absent.
+    const resumeMatch = content.match(/^Resume file:\s*(.+)/m);
+    if (resumeMatch) {
+        const path = resumeMatch[1].trim();
+        if (path && path.toLowerCase() !== 'none')
+            state.resumeFile = path;
+    }
     if (!state.status) {
         // Fallback: parse body Status line when frontmatter status is missing
         const bodyStatus = content.match(/^Status:\s*(.+)/m);
@@ -145,9 +161,13 @@ function formatState(s) {
     }
     // Scene selection: activePhase → nextAction → milestone-complete → default
     const phasesStr = s.nextPhases?.length ? s.nextPhases.join('/') : null;
+    // Plan progress within the phase (gsd-core ≥ 1.4.x), appended to the phase
+    // descriptor in the active/default scenes — e.g. "auth (3/5) p2/9".
+    const planSuffix = s.planNum && s.planTotal ? ` p${s.planNum}/${s.planTotal}` : '';
     if (s.activePhase) {
         // Scene 1: activePhase (with optional status)
-        parts.push(s.status ? `Phase ${s.activePhase} ${s.status}` : `Phase ${s.activePhase}`);
+        const phase = s.status ? `Phase ${s.activePhase} ${s.status}` : `Phase ${s.activePhase}`;
+        parts.push(`${phase}${planSuffix}`);
     }
     else if (s.nextAction && phasesStr) {
         // Scene 2: nextAction + phases when idle
@@ -163,7 +183,7 @@ function formatState(s) {
             parts.push(s.status);
         if (s.phaseNum && s.phaseTotal) {
             const phase = s.phaseName ? `${s.phaseName} (${s.phaseNum}/${s.phaseTotal})` : `ph ${s.phaseNum}/${s.phaseTotal}`;
-            parts.push(phase);
+            parts.push(`${phase}${planSuffix}`);
         }
     }
     return parts.join(' · ');
@@ -234,11 +254,13 @@ export function getGsdInfo(cwd, opts = {}) {
     const legacyCacheFile = join(claudeDir, 'cache', 'gsd-update-check.json');
     const cacheData = readUpdateCache(openGsdCacheFile, sharedCacheFile, legacyCacheFile);
     let currentTask;
+    let hasResume = false;
     const stateFile = findStateMd(cwd || process.cwd());
     if (stateFile) {
         log('STATE.md found:', stateFile);
         try {
             const state = parseStateMd(readFileSync(stateFile, 'utf8'));
+            hasResume = state.resumeFile !== undefined;
             const formatted = formatState(state);
             if (formatted) {
                 currentTask = sanitizeTermString(formatted);
@@ -261,6 +283,7 @@ export function getGsdInfo(cwd, opts = {}) {
         staleHooks: cacheData.staleHooks || undefined,
         devInstall: cacheData.devInstall || undefined,
         currentTask,
+        hasResume: hasResume || undefined,
     };
 }
 //# sourceMappingURL=gsd.js.map
