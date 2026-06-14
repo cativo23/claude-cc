@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -7,6 +8,8 @@ import { dirname } from 'node:path';
 const testDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(testDir, '../../');
 const distPath = join(projectRoot, 'dist/index.js');
+const pkg = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf-8')) as { version: string };
+const version = pkg.version;
 
 function runLumira(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
@@ -38,13 +41,13 @@ describe('Help and Version commands', () => {
   it('--version prints version to stdout and exits 0', async () => {
     const result = await runLumira(['--version']);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('1.9.0');
+    expect(result.stdout).toContain(version);
   });
 
   it('-v prints version to stdout and exits 0', async () => {
     const result = await runLumira(['-v']);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('1.9.0');
+    expect(result.stdout).toContain(version);
   });
 
   it('unknown command prints error to stderr and exits 1', async () => {
