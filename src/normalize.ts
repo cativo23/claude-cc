@@ -206,9 +206,9 @@ export function normalize(input: RawInput): NormalizedInput {
     ({ denominator: cacheTurnDenominator } = getCacheFields(claude.context_window?.current_usage));
   }
 
-  // Real context usage percentage (Claude only): includes output tokens in the numerator,
-  // unlike the hook-provided `used_percentage` which excludes them. This gives an accurate
-  // picture of actual context consumption, especially near auto-compact thresholds.
+  // Real context usage percentage (Claude only): sums input + cache_read + cache_creation
+  // (output_tokens excluded — per-turn, resets each call, causes bar jitter). More stable
+  // than the hook-provided `used_percentage` near auto-compact thresholds.
   let realUsedPercentage: number | undefined;
   if (claude) {
     const total = getRealUsageTotal(claude.context_window?.current_usage);

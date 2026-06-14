@@ -41,8 +41,8 @@ describe('renderLine2', () => {
   });
 
   it('context bar uses realUsedPercentage when available (not usedPercentage)', () => {
-    // usedPercentage=42 but realUsedPercentage=48.5 (red test — passes after Task 3 updates renderer)
-    // (input 70k + output 12k + cache_read 10k + cache_creation 5k) / 200k * 100 = 48.5
+    // usedPercentage=42 but realUsedPercentage=42.5 (output_tokens excluded — per-turn jitter)
+    // (input 70k + cache_read 10k + cache_creation 5k) / 200k * 100 = 42.5
     const inputOverride = {
       context_window: {
         used_percentage: 42,
@@ -59,9 +59,9 @@ describe('renderLine2', () => {
       },
     };
     const out = stripAnsi(renderLine2(makeCtx({}, inputOverride), c));
-    // Must show 49% (realUsedPercentage 48.5 rounds to 49) not 42% (input-only %)
-    // buildContextBar uses Math.round, so 48.5 → 49%
-    expect(out).toContain('49%');
+    // Must show 43% (realUsedPercentage 42.5 rounds to 43) not 42% (hook used_percentage)
+    // buildContextBar uses Math.round, so 42.5 → 43%
+    expect(out).toContain('43%');
     expect(out).not.toContain('42%');
   });
 
