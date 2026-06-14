@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalize, sanitizeTermString, isQwenInput } from '../src/normalize.js';
@@ -130,9 +130,29 @@ describe('normalize', () => {
   });
 
   describe('realUsedPercentage', () => {
+    it('excludes output_tokens from realUsedPercentage to prevent bar jitter', () => {
+      // output_tokens should NOT contribute to realUsedPercentage
+      // input_tokens: 40000, output_tokens: 10000, cache_read: 5000, cache_creation: 2000
+      // Expected: (40000 + 5000 + 2000) / 100000 * 100 = 47 (not 57)
+      const input = {
+        ...modernInput,
+        context_window: {
+          ...modernInput.context_window,
+          context_window_size: 100000,
+          current_usage: {
+            input_tokens: 40000,
+            output_tokens: 10000,
+            cache_read_input_tokens: 5000,
+            cache_creation_input_tokens: 2000,
+          },
+        },
+      };
+      expect(normalize(input).context.realUsedPercentage).toBeCloseTo(47, 1);
+    });
+
     it('modern payload calculates real percentage from all token categories', () => {
-      // (70000 + 12000 + 10000 + 5000) / 200000 * 100 = 48.5
-      expect(normalize(modernInput).context.realUsedPercentage).toBeCloseTo(48.5, 1);
+      // output_tokens excluded: (70000 + 10000 + 5000) / 200000 * 100 = 42.5
+      expect(normalize(modernInput).context.realUsedPercentage).toBeCloseTo(42.5, 1);
     });
 
     it('legacy payload without full current_usage shape returns undefined', () => {
@@ -170,7 +190,7 @@ describe('normalize', () => {
           },
         },
       };
-      // 140000 / 100000 * 100 = 140 → clamped to 100
+      // output_tokens excluded: (80000 + 20000 + 10000) / 100000 * 100 = 110 → clamped to 100
       expect(normalize(input).context.realUsedPercentage).toBe(100);
     });
 
@@ -242,7 +262,9 @@ describe('normalize', () => {
 
     it('modern Claude payload uses realUsedPercentage to gate the flag', () => {
       // Construct current_usage so the real usage sum is 152000 / 200000 = 76%
-      // while used_percentage (hook-provided, input-only) stays at 42%.
+      // (output_tokens excluded — only input + cache_read + cache_creation count).
+      // used_percentage (hook-provided, input-only) stays at 42% to confirm that
+      // the nearAutoCompact flag is driven by realUsedPercentage, not usedPercentage.
       const input: ClaudeCodeInput = {
         ...modernInput,
         context_window: {
@@ -250,7 +272,7 @@ describe('normalize', () => {
           context_window_size: 200000,
           used_percentage: 42,
           current_usage: {
-            input_tokens: 120000,
+            input_tokens: 132000,
             output_tokens: 12000,
             cache_read_input_tokens: 15000,
             cache_creation_input_tokens: 5000,
@@ -258,7 +280,7 @@ describe('normalize', () => {
         },
       };
       const result = normalize(input);
-      // Sanity: realUsedPercentage should land at 76 (in [75, 80))
+      // Sanity: realUsedPercentage = (132000 + 15000 + 5000) / 200000 = 76 (in [75, 80))
       expect(result.context.realUsedPercentage).toBeCloseTo(76, 1);
       expect(result.context.nearAutoCompact).toBe(true);
     });
@@ -270,6 +292,23 @@ describe('normalize', () => {
       };
       expect(normalize(input).context.nearAutoCompact).toBe(false);
     });
+
+    it('nearAutoCompact honors CLAUDE_CODE_AUTO_COMPACT_WINDOW env var', () => {
+      // With env var = 60, the warning window is [55, 60).
+      // 57% context fill should trigger nearAutoCompact = true.
+      vi.stubEnv('CLAUDE_CODE_AUTO_COMPACT_WINDOW', '60');
+      const input = claudeAt(57);
+      expect(normalize(input).context.nearAutoCompact).toBe(true);
+
+      // Without env var (default threshold = 80), [75, 80).
+      // 57% should NOT trigger nearAutoCompact.
+      vi.unstubAllEnvs();
+      expect(normalize(claudeAt(57)).context.nearAutoCompact).toBe(false);
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('cost and duration (Claude only)', () => {
