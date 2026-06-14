@@ -1,6 +1,6 @@
 {
   "name": "lumira",
-  "version": "1.9.1",
+  "version": "1.10.0",
   "description": "Real-time statusline HUD for Claude Code and Qwen Code. Includes session analytics CLI, API latency overhead widget, 7d quota projection, auto-compact proximity warnings, themes, and powerline. Zero deps.",
   "type": "module",
   "main": "dist/index.js",
