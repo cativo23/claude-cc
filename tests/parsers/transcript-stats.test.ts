@@ -229,6 +229,54 @@ describe('aggregateStats — edge cases', () => {
     expect(stats.hasCostData).toBe(true);
   });
 
+  it('counts tokens only once when Claude Code emits multiple entries for the same message.id', async () => {
+    // Real transcripts: Claude Code streams one JSONL entry *per content block*
+    // for the same logical message (thinking → text → tool_use all share one
+    // message.id). Every entry carries the full usage block for that message.
+    // aggregateStats must dedup by message.id so tokens are counted once,
+    // not once-per-content-block.
+    //
+    // This fixture mirrors the real pattern: one logical message (msg_dup)
+    // split across three lines — thinking, text, tool_use — each with
+    // identical usage counts. A second message (msg_unique) appears once.
+    // Expected: inputTokens = 100 (msg_dup) + 50 (msg_unique) = 150, not
+    //           100*3 + 50 = 350.
+    const p = join(workDir, 'duplicate-message-id.jsonl');
+    const makeEntry = (id: string, contentType: string, inputTokens: number) => JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-05-23T05:00:00.000Z',
+      total_cost_usd: 0.01,
+      message: {
+        id,
+        content: [{ type: contentType, text: 'x' }],
+        usage: {
+          input_tokens: inputTokens,
+          output_tokens: 10,
+          cache_read_input_tokens: 200,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    });
+    writeFileSync(p, [
+      makeEntry('msg_dup', 'thinking', 100),  // first content block for msg_dup
+      makeEntry('msg_dup', 'text', 100),       // second content block — same id, same usage
+      makeEntry('msg_dup', 'tool_use', 100),   // third content block — same id, same usage
+      makeEntry('msg_unique', 'text', 50),     // different message, counted once
+    ].join('\n') + '\n');
+
+    const stats = await aggregateStats(p);
+    // msg_dup contributes 100 input tokens (not 300), msg_unique contributes 50.
+    expect(stats.inputTokens).toBe(150);
+    // output_tokens: 10 each × 2 unique messages = 20
+    expect(stats.outputTokens).toBe(20);
+    // cacheReadTokens: 200 each × 2 unique messages = 400
+    expect(stats.cacheReadTokens).toBe(400);
+    // costUsd: 0.01 per entry — but cost lives on the entry, not the message.
+    // With dedup on message.id, cost is also counted once per unique message.
+    expect(stats.costUsd).toBeCloseTo(0.02, 5);
+    expect(stats.hasCostData).toBe(true);
+  });
+
   it('prefers top-level total_cost_usd:0 over a non-zero message.total_cost_usd', async () => {
     // Regression: Anthropic emits `total_cost_usd: 0` for fully-cached turns.
     // The aggregator must treat that explicit 0 as authoritative and NOT
