@@ -16,7 +16,17 @@ You activate the **lumira** statusline for Claude Code after plugin installation
 3. **Read settings** — Read `~/.claude/settings.json`. If the file is **missing**, start from `{}`. If it is **present but invalid JSON**, stop and report the parse error — do not overwrite.
 4. **Check existing** — If `statusLine.command` is already set to any non-empty value, tell the user what's currently set and ask if they want to replace it. Do not proceed until they confirm. If it is empty or absent, skip this step.
 5. **Write command** — Set `statusLine.command` to `node "<installPath>/dist/index.js"`.
-6. **Init config** — If `~/.config/lumira/config.json` does not exist, create it with `{"preset": "balanced"}`. Never overwrite an existing config.
+6. **Init config** — Only create `~/.config/lumira/config.json` if it does not already exist. Run the following Bash — the `test -f` guard is mandatory, do not skip it:
+   ```bash
+   if [ ! -f ~/.config/lumira/config.json ]; then
+     mkdir -p ~/.config/lumira
+     printf '{"preset": "balanced"}\n' > ~/.config/lumira/config.json
+     echo "Created default config at ~/.config/lumira/config.json"
+   else
+     echo "Config already exists at ~/.config/lumira/config.json — not modified"
+   fi
+   ```
+   Never overwrite an existing config under any circumstances.
 7. **Confirm and instruct** — Tell the user what was written and that they must restart Claude Code.
 
 ## Finding the install path
