@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+
+- **GSD Core: plan-level progress within phase.** Parse `Plan: A of B in current phase` from STATE.md (gsd-core ≥ 1.4.x) and render it alongside the phase indicator — e.g. `Phase 3 p2/5 (auth)`. More granular than phase-only progress.
+- **GSD Core: continue-here indicator.** Parse `Resume file:` from STATE.md and show a `↩` icon on line 4 when an active `.continue-here.md` exists. Instant visual cue that a resume point is waiting.
+- **GSD Core: plan-based progress bar.** Use `completed_plans / total_plans` from the STATE.md frontmatter `progress` block for the milestone bar instead of phase-based `percent`. Finer granularity, especially in phases with many plans.
+
 ## [1.9.0] - 2026-06-14
 
 ### Added

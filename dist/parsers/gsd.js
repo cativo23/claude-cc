@@ -185,14 +185,16 @@ function semverCompare(a, b) {
     return 0;
 }
 /**
- * Read GSD update-check cache. Checks the shared tool-agnostic cache first
- * (`~/.cache/gsd/`, introduced by GSD #1421), then falls back to the legacy
- * per-runtime location (`~/.claude/cache/`) for older GSD installs.
+ * Read GSD update-check cache. Checks candidates in order — first match wins:
+ * 1. open-gsd per-package cache (`gsd-update-check-opengsd-gsd-core.json`, gsd-core ≥ 1.4.x)
+ * 2. Legacy shared tool-agnostic cache (`gsd-update-check.json`, get-shit-done-cc ≥ 1.x)
+ * 3. Legacy per-runtime location (`~/.claude/cache/`) for older installs
  * Returns update status, stale hooks flag, and dev install flag.
  */
-function readUpdateCache(sharedCacheFile, legacyCacheFile) {
+function readUpdateCache(openGsdCacheFile, sharedCacheFile, legacyCacheFile) {
     const result = { updateAvailable: false, staleHooks: false, devInstall: false };
     const candidates = [
+        ['open-gsd', openGsdCacheFile],
         ['shared', sharedCacheFile],
         ['legacy', legacyCacheFile],
     ];
@@ -226,9 +228,11 @@ function readUpdateCache(sharedCacheFile, legacyCacheFile) {
 }
 export function getGsdInfo(cwd, opts = {}) {
     const claudeDir = opts.claudeDir ?? process.env['CLAUDE_CONFIG_DIR'] ?? join(homedir(), '.claude');
-    const sharedCacheFile = opts.sharedCacheFile ?? join(homedir(), '.cache', 'gsd', 'gsd-update-check.json');
+    const gsdCacheDir = join(homedir(), '.cache', 'gsd');
+    const openGsdCacheFile = opts.openGsdCacheFile ?? join(gsdCacheDir, 'gsd-update-check-opengsd-gsd-core.json');
+    const sharedCacheFile = opts.sharedCacheFile ?? join(gsdCacheDir, 'gsd-update-check.json');
     const legacyCacheFile = join(claudeDir, 'cache', 'gsd-update-check.json');
-    const cacheData = readUpdateCache(sharedCacheFile, legacyCacheFile);
+    const cacheData = readUpdateCache(openGsdCacheFile, sharedCacheFile, legacyCacheFile);
     let currentTask;
     const stateFile = findStateMd(cwd || process.cwd());
     if (stateFile) {
