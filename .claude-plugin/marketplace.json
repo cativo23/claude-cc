@@ -5,8 +5,7 @@
   },
   "metadata": {
     "description": "Real-time statusline HUD for Claude Code and Qwen Code — analytics, quota projection, themes, powerline",
-    "version": "1.9.0",
-    "homepage": "https://github.com/cativo23/lumira"
+    "version": "1.9.0"
   },
   "plugins": [
     {
