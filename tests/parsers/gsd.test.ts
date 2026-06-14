@@ -107,15 +107,19 @@ status: executing
 describe('getGsdInfo', () => {
   let dir: string;
   let claudeDir: string;
-  let opts: { claudeDir: string; sharedCacheFile: string };
+  let opts: { claudeDir: string; sharedCacheFile: string; openGsdCacheFile: string };
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'gsd-cwd-'));
     claudeDir = mkdtempSync(join(tmpdir(), 'gsd-claude-'));
     mkdirSync(join(claudeDir, 'cache'), { recursive: true });
-    // Point the shared cache at a path inside claudeDir so tests never read the
-    // real ~/.cache/gsd on the dev machine.
-    opts = { claudeDir, sharedCacheFile: join(claudeDir, 'shared-cache.json') };
+    // Point all cache paths inside claudeDir so tests never read the real
+    // ~/.cache/gsd on the dev machine.
+    opts = {
+      claudeDir,
+      sharedCacheFile: join(claudeDir, 'shared-cache.json'),
+      openGsdCacheFile: join(claudeDir, 'open-gsd-cache.json'),
+    };
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -132,6 +136,10 @@ describe('getGsdInfo', () => {
   function writeCache(json: string): void {
     writeFileSync(join(claudeDir, 'cache', 'gsd-update-check.json'), json);
   }
+  /** Write the open-gsd per-package update-check cache (gsd-core ≥ 1.4.x). */
+  function writeOpenGsdCache(json: string): void {
+    writeFileSync(opts.openGsdCacheFile, json);
+  }
 
   // ── signal gating ─────────────────────────────────────────────────────────
   it('returns null when there is no STATE.md ancestor and no update cache', () => {
@@ -140,6 +148,17 @@ describe('getGsdInfo', () => {
 
   it('reads update_available from the legacy per-runtime cache', () => {
     writeCache('{"update_available":true}');
+    expect(getGsdInfo(dir, opts)?.updateAvailable).toBe(true);
+  });
+
+  it('reads update_available from the open-gsd per-package cache (gsd-core ≥ 1.4.x)', () => {
+    writeOpenGsdCache('{"update_available":true,"installed":"1.4.5","latest":"1.5.0"}');
+    expect(getGsdInfo(dir, opts)?.updateAvailable).toBe(true);
+  });
+
+  it('open-gsd cache takes priority over legacy shared cache', () => {
+    writeOpenGsdCache('{"update_available":true}');
+    writeCache('{"update_available":false}');
     expect(getGsdInfo(dir, opts)?.updateAvailable).toBe(true);
   });
 
