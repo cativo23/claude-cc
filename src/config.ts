@@ -282,6 +282,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
     layout: 'auto',
     display: {
       agents: true,
+      pr: true,
       burnRate: false,
       duration: false,
       tokenSpeed: false,
@@ -328,6 +329,7 @@ const PRESET_DEFS: Record<NonNullable<HudConfig['preset']>, PresetDef> = {
       addedDirs: false,
       worktreeBreadcrumb: false,
       compactionCount: false,
+      pr: false,
     },
   },
 };

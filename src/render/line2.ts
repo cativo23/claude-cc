@@ -7,6 +7,7 @@ import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
 import { computeQuotaProjection, formatProjectionWarning } from './quota-projection.js';
+import { hyperlink } from './hyperlink.js';
 import type { RenderContext } from '../types.js';
 
 const SEVEN_DAY_WINDOW_SEC = 7 * 24 * 3600;
@@ -119,6 +120,20 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     } else {
       leftParts.push(c.dim(`MCP ${total}`));
     }
+  }
+
+  // PR widget (CC ≥ 2.1.145)
+  if (display.pr && input.pr) {
+    const { number, url, reviewState } = input.pr;
+    const stateStr = reviewState ?? '';
+    const colorFn: (s: string) => string =
+      reviewState === 'approved'          ? c.green  :
+      reviewState === 'pending'           ? c.yellow :
+      reviewState === 'changes_requested' ? c.orange :
+      c.dim; // draft or unknown
+    const text = `${icons.pr} #${number}${stateStr ? ` ${stateStr}` : ''}`;
+    const colored = colorFn(text);
+    leftParts.push(url ? hyperlink(url, colored) : colored);
   }
 
   // Qwen metrics (shared helper)

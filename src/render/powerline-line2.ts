@@ -36,6 +36,21 @@ function getCacheHitBg(rate: number, palette: PowerlinePalette): RGB {
   }
 }
 
+// Maps PR review state to a powerline bg slot (urgency via background, not text color).
+// approved  → dirBg   (neutral — PR is ready, low urgency)
+// pending   → taskBg  (warm — waiting on reviewers)
+// changes_requested → branchDirtyBg (hot — action needed from author)
+// draft     → dirBg   (neutral — not ready for review)
+function getPrReviewBg(reviewState: string | undefined, palette: PowerlinePalette): RGB {
+  switch (reviewState) {
+    case 'changes_requested': return palette.branchDirtyBg;
+    case 'pending':           return palette.taskBg;
+    case 'approved':
+    case 'draft':
+    default:                  return palette.dirBg;
+  }
+}
+
 // Maps the API latency tier (SSOT in colors.ts) to a powerline bg slot.
 // healthy/notable → dirBg (neutral; api is fast or only slightly slow)
 // warn            → taskBg (warm; api is dominating session time)
@@ -240,6 +255,15 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     const errors = mcp.servers.filter(s => s.status === 'error').length;
     const mcpText = errors > 0 ? `MCP ${total - errors}/${total}` : `MCP ${total}`;
     segments.push({ text: mcpText, bg: palette.taskBg, fg: palette.fg, priority: 50 });
+  }
+
+  // PR widget (CC ≥ 2.1.145)
+  if (display.pr && input.pr) {
+    const { number, reviewState } = input.pr;
+    const stateStr = reviewState ?? '';
+    const text = `${icons.pr} #${number}${stateStr ? ` ${stateStr}` : ''}`;
+    const bg = getPrReviewBg(reviewState, palette);
+    segments.push({ text, bg, fg: palette.fg, priority: 55 });
   }
 
   // Qwen metrics
