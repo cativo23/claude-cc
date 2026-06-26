@@ -21,6 +21,20 @@ function getCacheHitBg(rate, palette) {
         case 'critical': return palette.branchDirtyBg;
     }
 }
+// Maps PR review state to a powerline bg slot (urgency via background, not text color).
+// approved  → dirBg   (neutral — PR is ready, low urgency)
+// pending   → taskBg  (warm — waiting on reviewers)
+// changes_requested → branchDirtyBg (hot — action needed from author)
+// draft     → dirBg   (neutral — not ready for review)
+function getPrReviewBg(reviewState, palette) {
+    switch (reviewState) {
+        case 'changes_requested': return palette.branchDirtyBg;
+        case 'pending': return palette.taskBg;
+        case 'approved':
+        case 'draft':
+        default: return palette.dirBg;
+    }
+}
 // Maps the API latency tier (SSOT in colors.ts) to a powerline bg slot.
 // healthy/notable → dirBg (neutral; api is fast or only slightly slow)
 // warn            → taskBg (warm; api is dominating session time)
@@ -210,6 +224,14 @@ function buildSegments(ctx, palette, c) {
         const mcpText = errors > 0 ? `MCP ${total - errors}/${total}` : `MCP ${total}`;
         segments.push({ text: mcpText, bg: palette.taskBg, fg: palette.fg, priority: 50 });
     }
+    // PR widget (CC ≥ 2.1.145)
+    if (display.pr && input.pr) {
+        const { number, reviewState } = input.pr;
+        const stateStr = reviewState ?? '';
+        const text = `${icons.pr} #${number}${stateStr ? ` ${stateStr}` : ''}`;
+        const bg = getPrReviewBg(reviewState, palette);
+        segments.push({ text, bg, fg: palette.fg, priority: 55 });
+    }
     // Qwen metrics
     const qwenParts = formatQwenMetrics(input, c, icons);
     for (const part of qwenParts) {
@@ -223,6 +245,9 @@ function buildSegments(ctx, palette, c) {
     const effort = input.effortLevel || thinkingEffort;
     if (display.effort && effort && effort !== 'medium') {
         segments.push({ text: `^${effort}`, bg: palette.versionBg, fg: palette.fg, priority: 30 });
+    }
+    if (display.thinking && input.thinkingEnabled) {
+        segments.push({ text: icons.thinking, bg: palette.dirBg, fg: palette.fg, priority: 28 });
     }
     // Config health hints (opt-in, lowest priority — evicted first on narrow terminals)
     if (display.health && input.cwd) {

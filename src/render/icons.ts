@@ -23,6 +23,8 @@ export interface IconSet {
   lightning: string;
   /** Git pull-request glyph (CC ≥ 2.1.145 PR widget). */
   pr: string;
+  /** Extended thinking indicator (CC ≥ 2.1.x thinking widget). */
+  thinking: string;
   /**
    * Battery glyph keyed by usedPercentage. Replaces the bolt prefix on
    * rate-limit segments with a visual fuel gauge so the icon itself signals
@@ -95,6 +97,7 @@ export const NERD_ICONS: IconSet = {
   turtle:    '🐢',  // turtle — pace-behind indicator
   lightning: '⚡',  // lightning bolt — cache hit rate
   pr:        '',  // nf-cod-git_pull_request
+  thinking:  '󱠤',  // nf-md-brain
   battery:   nerdBattery,
 };
 
@@ -120,6 +123,7 @@ export const EMOJI_ICONS: IconSet = {
   turtle:    '\u{1F422}',  // 🐢 — turtle
   lightning: '⚡',         // ⚡ — cache hit rate
   pr:        '\u{1F500}',  // 🔀 — twisted rightwards arrows (PR)
+  thinking:  '\u{1F4AD}',  // 💭 — thought bubble
   battery:   (pct: number) => {
     if (!Number.isFinite(pct) || pct < 0) return '\u{1F50B}'; // 🔋 — no data / invalid input
     if (Math.round(pct) >= 100) return '\u{1F480}';            // 💀 — quota exhausted
@@ -150,6 +154,7 @@ export const NO_ICONS: IconSet = {
   turtle:    '',
   lightning: '',
   pr:        'PR',
+  thinking:  'think',
   // No-icon mode keeps the legacy bolt fallback (currently empty) so users who
   // opted out of icons see no shape change from this feature.
   battery:   () => '',

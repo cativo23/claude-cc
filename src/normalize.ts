@@ -94,6 +94,9 @@ export interface NormalizedInput {
   /** Reasoning effort level (≥ 2.1.x stdin, falls back to transcript regex) */
   effortLevel?: string;
 
+  /** Extended thinking enabled (Claude only, CC ≥ 2.1.x) */
+  thinkingEnabled?: boolean;
+
   /** Rate limits (Claude only) */
   rateLimits?: {
     fiveHour?: { usedPercentage: number; resetsAt?: number };
@@ -345,6 +348,7 @@ export function normalize(input: RawInput): NormalizedInput {
     effortLevel: claude?.effort?.level && VALID_EFFORT_LEVELS.has(claude.effort.level)
       ? sanitizeTermString(claude.effort.level)
       : undefined,
+    thinkingEnabled: claude?.thinking?.enabled === true ? true : undefined,
     worktreeName: input.worktree?.name ? sanitizeTermString(input.worktree.name) : undefined,
     addedDirsCount: (() => {
       const dirs = (input as ClaudeCodeInput).workspace?.added_dirs;

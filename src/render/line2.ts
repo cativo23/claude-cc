@@ -264,6 +264,10 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
     rightParts.push(c.dim(`^${effort}`));
   }
 
+  if (display.thinking && input.thinkingEnabled) {
+    rightParts.push(c.dim(icons.thinking));
+  }
+
   // Config health hints (opt-in, default off). Sit on the right side as
   // auxiliary signals next to vim/effort, and are dropped silently when the
   // projected line width would overflow `cols` — they are advisory, never

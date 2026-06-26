@@ -3,7 +3,7 @@
 // Single internal format that all renderers can consume.
 // Platform-specific quirks are handled once here.
 // Renderers check field presence, not platform identity.
-import { AUTO_COMPACT_THRESHOLD, AUTO_COMPACT_WARNING_GAP } from './types.js';
+import { AUTO_COMPACT_THRESHOLD, AUTO_COMPACT_WARNING_GAP, PR_REVIEW_STATES } from './types.js';
 export function isQwenInput(input) {
     const raw = input;
     if (!raw.metrics || typeof raw.metrics !== 'object' || !('models' in raw.metrics))
@@ -28,6 +28,8 @@ export function sanitizeTermString(s) {
 }
 /** Allowed values for the reasoning effort level field (CC ≥ 2.1.x). */
 const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
+/** Allowed values for PR review state (CC ≥ 2.1.145). */
+const VALID_PR_REVIEW_STATES = new Set(PR_REVIEW_STATES);
 /**
  * Sum input token categories from `context_window.current_usage` to compute
  * a real context usage total (input + cache_read + cache_creation).
@@ -174,6 +176,30 @@ export function normalize(input) {
     const cacheHitRate = (cached != null && cacheTurnDenominator && platform === 'claude-code')
         ? Math.min(100, Math.round((cached / cacheTurnDenominator) * 100))
         : undefined;
+    // PR widget (Claude only, CC ≥ 2.1.145).
+    // number must be a positive integer — drop the whole object if invalid.
+    // url: sanitize then accept only https:// scheme (OSC 8 injection guard).
+    // reviewState: sanitize then gate against the PR_REVIEW_STATES allowlist.
+    let pr;
+    if (claude?.pr != null) {
+        const rawPr = claude.pr;
+        const n = rawPr.number;
+        if (typeof n === 'number' && Number.isInteger(n) && n > 0) {
+            let prUrl;
+            if (typeof rawPr.url === 'string') {
+                const sanitized = sanitizeTermString(rawPr.url);
+                if (sanitized.startsWith('https://'))
+                    prUrl = sanitized;
+            }
+            let prReviewState;
+            if (typeof rawPr.review_state === 'string') {
+                const sanitized = sanitizeTermString(rawPr.review_state);
+                if (VALID_PR_REVIEW_STATES.has(sanitized))
+                    prReviewState = sanitized;
+            }
+            pr = { number: n, url: prUrl, reviewState: prReviewState };
+        }
+    }
     return {
         platform,
         model: sanitizeTermString(modelName),
@@ -208,6 +234,7 @@ export function normalize(input) {
         effortLevel: claude?.effort?.level && VALID_EFFORT_LEVELS.has(claude.effort.level)
             ? sanitizeTermString(claude.effort.level)
             : undefined,
+        thinkingEnabled: claude?.thinking?.enabled === true ? true : undefined,
         worktreeName: input.worktree?.name ? sanitizeTermString(input.worktree.name) : undefined,
         addedDirsCount: (() => {
             const dirs = input.workspace?.added_dirs;
@@ -223,6 +250,7 @@ export function normalize(input) {
         })(),
         rateLimits,
         cacheHitRate,
+        pr,
         raw: input,
     };
 }

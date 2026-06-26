@@ -38,6 +38,7 @@ export const CUSTOM_COMMAND_COLORS = ['dim', 'green', 'yellow', 'orange', 'red',
  * `POWERLINE_STYLES` in `src/render/powerline.ts` — that map's keys
  * MUST match this list.
  */
+export const PR_REVIEW_STATES = ['approved', 'pending', 'changes_requested', 'draft'];
 export const POWERLINE_STYLE_NAMES = [
     'arrow', 'flame', 'slant', 'round', 'diamond', 'compatible', 'plain', 'auto',
 ];
@@ -108,6 +109,8 @@ export const DEFAULT_DISPLAY = {
     addedDirs: true,
     worktreeBreadcrumb: true,
     compactionCount: true,
+    pr: true,
+    thinking: true,
     contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
     contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };

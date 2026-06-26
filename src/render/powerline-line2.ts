@@ -284,6 +284,10 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
     segments.push({ text: `^${effort}`, bg: palette.versionBg, fg: palette.fg, priority: 30 });
   }
 
+  if (display.thinking && input.thinkingEnabled) {
+    segments.push({ text: icons.thinking, bg: palette.dirBg, fg: palette.fg, priority: 28 });
+  }
+
   // Config health hints (opt-in, lowest priority — evicted first on narrow terminals)
   if (display.health && input.cwd) {
     const colorMode = ctx.config.colors.mode === 'auto' ? detectColorMode() : ctx.config.colors.mode;

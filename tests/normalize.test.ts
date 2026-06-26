@@ -123,6 +123,25 @@ describe('normalize', () => {
       expect(normalize(input2).effortLevel).toBeUndefined();
     });
 
+    it('sets thinkingEnabled to true when thinking.enabled is true (Claude)', () => {
+      const input = { ...claudeInput, thinking: { enabled: true } };
+      expect(normalize(input).thinkingEnabled).toBe(true);
+    });
+
+    it('does not set thinkingEnabled when thinking.enabled is false', () => {
+      const input = { ...claudeInput, thinking: { enabled: false } };
+      expect(normalize(input).thinkingEnabled).toBeUndefined();
+    });
+
+    it('does not set thinkingEnabled when thinking field is absent', () => {
+      expect(normalize(claudeInput).thinkingEnabled).toBeUndefined();
+    });
+
+    it('does not set thinkingEnabled for Qwen input', () => {
+      const input = { ...qwenInput, thinking: { enabled: true } } as unknown as typeof qwenInput;
+      expect(normalize(input).thinkingEnabled).toBeUndefined();
+    });
+
     it('window size is undefined for Claude', () => {
       const result = normalize(claudeInput);
       expect(result.context.windowSize).toBeUndefined();

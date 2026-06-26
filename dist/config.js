@@ -248,6 +248,8 @@ const PRESET_DEFS = {
         layout: 'auto',
         display: {
             agents: true,
+            pr: true,
+            thinking: true,
             burnRate: false,
             duration: false,
             tokenSpeed: false,
@@ -294,6 +296,8 @@ const PRESET_DEFS = {
             addedDirs: false,
             worktreeBreadcrumb: false,
             compactionCount: false,
+            pr: false,
+            thinking: false,
         },
     },
 };

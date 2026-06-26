@@ -60,6 +60,8 @@ export const NERD_ICONS = {
     car: '🏎️', // racing car — pace-ahead indicator
     turtle: '🐢', // turtle — pace-behind indicator
     lightning: '⚡', // lightning bolt — cache hit rate
+    pr: '', // nf-cod-git_pull_request
+    thinking: '󱠤', // nf-md-brain
     battery: nerdBattery,
 };
 export const EMOJI_ICONS = {
@@ -83,6 +85,8 @@ export const EMOJI_ICONS = {
     car: '\u{1F3CE}️', // 🏎️ — racing car
     turtle: '\u{1F422}', // 🐢 — turtle
     lightning: '⚡', // ⚡ — cache hit rate
+    pr: '\u{1F500}', // 🔀 — twisted rightwards arrows (PR)
+    thinking: '\u{1F4AD}', // 💭 — thought bubble
     battery: (pct) => {
         if (!Number.isFinite(pct) || pct < 0)
             return '\u{1F50B}'; // 🔋 — no data / invalid input
@@ -114,6 +118,8 @@ export const NO_ICONS = {
     car: '',
     turtle: '',
     lightning: '',
+    pr: 'PR',
+    thinking: 'think',
     // No-icon mode keeps the legacy bolt fallback (currently empty) so users who
     // opted out of icons see no shape change from this feature.
     battery: () => '',
