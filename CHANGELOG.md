@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-06-26
+
+### Added
+
+- **Extended thinking indicator.** When Claude Code ≥ 2.1.x sends `thinking.enabled: true`, lumira now renders a 💭 badge (nerd font: `󱠤`) on line2 and powerline-line2, positioned after the effort level widget. The badge is self-gating — invisible when the field is absent (CC < 2.1.x) or `false`. Configurable via `display.thinking`; on by default for `full` and `balanced` presets, off for `minimal`. (#178)
+
+## [1.11.0] - 2026-06-26
+
+### Added
+
+- **PR review state widget.** When Claude Code ≥ 2.1.145 sends a `pr` payload, lumira surfaces the open PR number, review state (`approved` / `pending` / `changes_requested` / `draft`), and an OSC 8 hyperlink to the PR page on both classic and powerline renderers. URL scheme is validated (https-only); review state is gated against an allowlist; `number` must be a positive integer — full security validation at the normalize boundary. (#177)
+
 ## [1.10.0] - 2026-06-14
 
 ### Added
