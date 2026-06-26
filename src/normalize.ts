@@ -4,8 +4,8 @@
 // Platform-specific quirks are handled once here.
 // Renderers check field presence, not platform identity.
 
-import type { ClaudeCodeInput, QwenInput, RawInput } from './types.js';
-import { AUTO_COMPACT_THRESHOLD, AUTO_COMPACT_WARNING_GAP } from './types.js';
+import type { ClaudeCodeInput, QwenInput, RawInput, PrReviewState } from './types.js';
+import { AUTO_COMPACT_THRESHOLD, AUTO_COMPACT_WARNING_GAP, PR_REVIEW_STATES } from './types.js';
 
 export function isQwenInput(input: RawInput): input is QwenInput {
   const raw = input as unknown as Record<string, unknown>;
@@ -103,6 +103,9 @@ export interface NormalizedInput {
   /** Cache hit rate percentage (Claude only) */
   cacheHitRate?: number;
 
+  /** Open PR for the current branch (Claude only, CC ≥ 2.1.145) */
+  pr?: { number: number; url?: string; reviewState?: PrReviewState };
+
   /** Escape hatch: access raw platform data for platform-specific widgets */
   raw: RawInput;
 }
@@ -122,6 +125,9 @@ export function sanitizeTermString(s: string): string {
 
 /** Allowed values for the reasoning effort level field (CC ≥ 2.1.x). */
 const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
+
+/** Allowed values for PR review state (CC ≥ 2.1.145). */
+const VALID_PR_REVIEW_STATES = new Set<string>(PR_REVIEW_STATES);
 
 type CurrentUsageObject = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
 
@@ -282,6 +288,29 @@ export function normalize(input: RawInput): NormalizedInput {
     ? Math.min(100, Math.round((cached / cacheTurnDenominator) * 100))
     : undefined;
 
+  // PR widget (Claude only, CC ≥ 2.1.145).
+  // number must be a positive integer — drop the whole object if invalid.
+  // url: sanitize then accept only https:// scheme (OSC 8 injection guard).
+  // reviewState: sanitize then gate against the PR_REVIEW_STATES allowlist.
+  let pr: NormalizedInput['pr'];
+  if (claude?.pr != null) {
+    const rawPr = claude.pr;
+    const n = rawPr.number;
+    if (typeof n === 'number' && Number.isInteger(n) && n > 0) {
+      let prUrl: string | undefined;
+      if (typeof rawPr.url === 'string') {
+        const sanitized = sanitizeTermString(rawPr.url);
+        if (sanitized.startsWith('https://')) prUrl = sanitized;
+      }
+      let prReviewState: PrReviewState | undefined;
+      if (typeof rawPr.review_state === 'string') {
+        const sanitized = sanitizeTermString(rawPr.review_state);
+        if (VALID_PR_REVIEW_STATES.has(sanitized)) prReviewState = sanitized as PrReviewState;
+      }
+      pr = { number: n, url: prUrl, reviewState: prReviewState };
+    }
+  }
+
   return {
     platform,
     model: sanitizeTermString(modelName),
@@ -329,6 +358,7 @@ export function normalize(input: RawInput): NormalizedInput {
     })(),
     rateLimits,
     cacheHitRate,
+    pr,
     raw: input,
   };
 }

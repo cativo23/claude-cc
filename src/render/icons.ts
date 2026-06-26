@@ -21,6 +21,8 @@ export interface IconSet {
   car: string;
   turtle: string;
   lightning: string;
+  /** Git pull-request glyph (CC ≥ 2.1.145 PR widget). */
+  pr: string;
   /**
    * Battery glyph keyed by usedPercentage. Replaces the bolt prefix on
    * rate-limit segments with a visual fuel gauge so the icon itself signals
@@ -92,6 +94,7 @@ export const NERD_ICONS: IconSet = {
   car:       '🏎️',  // racing car — pace-ahead indicator
   turtle:    '🐢',  // turtle — pace-behind indicator
   lightning: '⚡',  // lightning bolt — cache hit rate
+  pr:        '',  // nf-cod-git_pull_request
   battery:   nerdBattery,
 };
 
@@ -116,6 +119,7 @@ export const EMOJI_ICONS: IconSet = {
   car:       '\u{1F3CE}️', // 🏎️ — racing car
   turtle:    '\u{1F422}',  // 🐢 — turtle
   lightning: '⚡',         // ⚡ — cache hit rate
+  pr:        '\u{1F500}',  // 🔀 — twisted rightwards arrows (PR)
   battery:   (pct: number) => {
     if (!Number.isFinite(pct) || pct < 0) return '\u{1F50B}'; // 🔋 — no data / invalid input
     if (Math.round(pct) >= 100) return '\u{1F480}';            // 💀 — quota exhausted
@@ -145,6 +149,7 @@ export const NO_ICONS: IconSet = {
   car:       '',
   turtle:    '',
   lightning: '',
+  pr:        'PR',
   // No-icon mode keeps the legacy bolt fallback (currently empty) so users who
   // opted out of icons see no shape change from this feature.
   battery:   () => '',

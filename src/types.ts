@@ -44,6 +44,8 @@ export interface ClaudeCodeInput {
   effort?: { level?: string };
   /** Modern (≥ 2.1.x) — extended thinking enabled state. */
   thinking?: { enabled?: boolean };
+  /** Modern (≥ 2.1.145) — open PR for the current branch. */
+  pr?: { number?: number; url?: string; review_state?: string };
 }
 
 export interface RateLimitWindow {
@@ -276,6 +278,9 @@ export const CUSTOM_COMMAND_COLORS = ['dim', 'green', 'yellow', 'orange', 'red',
  * `POWERLINE_STYLES` in `src/render/powerline.ts` — that map's keys
  * MUST match this list.
  */
+export const PR_REVIEW_STATES = ['approved', 'pending', 'changes_requested', 'draft'] as const;
+export type PrReviewState = typeof PR_REVIEW_STATES[number];
+
 export const POWERLINE_STYLE_NAMES = [
   'arrow', 'flame', 'slant', 'round', 'diamond', 'compatible', 'plain', 'auto',
 ] as const;
@@ -315,6 +320,7 @@ export interface DisplayToggles {
   addedDirs: boolean;
   worktreeBreadcrumb: boolean;
   compactionCount: boolean;
+  pr: boolean;
   /**
    * Percentage at which the context bar turns orange and shows the fire icon. Default 65. Clamped [0,100].
    * Setting this ≤ 50 collapses the yellow zone; the bar jumps green→orange directly at this value.
@@ -406,6 +412,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   addedDirs: true,
   worktreeBreadcrumb: true,
   compactionCount: true,
+  pr: true,
   contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
   contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };
