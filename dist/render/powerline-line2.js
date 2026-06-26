@@ -246,6 +246,8 @@ function buildSegments(ctx, palette, c) {
     if (display.effort && effort && effort !== 'medium') {
         segments.push({ text: `^${effort}`, bg: palette.versionBg, fg: palette.fg, priority: 30 });
     }
+    // Extended thinking indicator — priority 28 (one below effort/vim at 30) so it
+    // evicts before them on narrow terminals; thinking is informational, not urgent.
     if (display.thinking && input.thinkingEnabled) {
         segments.push({ text: icons.thinking, bg: palette.dirBg, fg: palette.fg, priority: 28 });
     }
