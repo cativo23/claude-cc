@@ -291,6 +291,27 @@ describe('renderLine2', () => {
     expect(out).toContain('^low');
   });
 
+  it('shows thinking icon when thinking is enabled', () => {
+    const ctx = makeCtx({ icons: EMOJI_ICONS }, { thinking: { enabled: true } });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).toContain('💭');
+  });
+
+  it('hides thinking icon when display.thinking is false', () => {
+    const ctx = makeCtx(
+      { icons: EMOJI_ICONS, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, thinking: false } } },
+      { thinking: { enabled: true } },
+    );
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('💭');
+  });
+
+  it('hides thinking icon when thinking is not enabled', () => {
+    const ctx = makeCtx({ icons: EMOJI_ICONS });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('💭');
+  });
+
   it('shows cache hit rate when current_usage provides per-turn token fields', () => {
     const inputOverride = {
       context_window: {

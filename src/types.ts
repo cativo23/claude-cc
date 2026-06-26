@@ -321,6 +321,7 @@ export interface DisplayToggles {
   worktreeBreadcrumb: boolean;
   compactionCount: boolean;
   pr: boolean;
+  thinking: boolean;
   /**
    * Percentage at which the context bar turns orange and shows the fire icon. Default 65. Clamped [0,100].
    * Setting this ≤ 50 collapses the yellow zone; the bar jumps green→orange directly at this value.
@@ -413,6 +414,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   worktreeBreadcrumb: true,
   compactionCount: true,
   pr: true,
+  thinking: true,
   contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
   contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };

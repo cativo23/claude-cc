@@ -7,6 +7,7 @@ import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
 import { computeQuotaProjection, formatProjectionWarning } from './quota-projection.js';
+import { hyperlink } from './hyperlink.js';
 const SEVEN_DAY_WINDOW_SEC = 7 * 24 * 3600;
 const SEVEN_DAY_MIN_ELAPSED_SEC = 3600; // 1h floor — see quota-projection.ts
 export function formatCountdown(resetsAt) {
@@ -114,6 +115,18 @@ export function renderLine2(ctx, c) {
         else {
             leftParts.push(c.dim(`MCP ${total}`));
         }
+    }
+    // PR widget (CC ≥ 2.1.145)
+    if (display.pr && input.pr) {
+        const { number, url, reviewState } = input.pr;
+        const stateStr = reviewState ?? '';
+        const colorFn = reviewState === 'approved' ? c.green :
+            reviewState === 'pending' ? c.yellow :
+                reviewState === 'changes_requested' ? c.orange :
+                    c.dim; // draft or unknown
+        const text = `${icons.pr} #${number}${stateStr ? ` ${stateStr}` : ''}`;
+        const colored = colorFn(text);
+        leftParts.push(url ? hyperlink(url, colored) : colored);
     }
     // Qwen metrics (shared helper)
     leftParts.push(...formatQwenMetrics(input, c, icons));
@@ -232,6 +245,9 @@ export function renderLine2(ctx, c) {
     const effort = input.effortLevel || thinkingEffort;
     if (display.effort && effort && effort !== 'medium') {
         rightParts.push(c.dim(`^${effort}`));
+    }
+    if (display.thinking && input.thinkingEnabled) {
+        rightParts.push(c.dim(icons.thinking));
     }
     // Config health hints (opt-in, default off). Sit on the right side as
     // auxiliary signals next to vim/effort, and are dropped silently when the
