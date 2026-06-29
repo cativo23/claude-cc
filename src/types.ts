@@ -53,6 +53,35 @@ export interface RateLimitWindow {
   resets_at?: number;
 }
 
+// ── Subagent status-line stdin JSON (CC ≥ 2.1.x `subagentStatusLine`) ──
+//
+// A SEPARATE entry point from the main statusline: Claude Code invokes the
+// registered command once per render with every visible subagent row, and
+// expects one JSON line per row back (`{ id, content }`). This is NOT part of
+// the `RawInput` union — the schema and the output contract are both distinct.
+
+export interface SubagentTask {
+  id: string;
+  name: string;
+  type?: string;
+  /** running | completed | error — but treat as open-ended; unknown states render plainly. */
+  status?: string;
+  description?: string;
+  label?: string;
+  /** Unix epoch ms when the subagent started. */
+  startTime?: number;
+  tokenCount?: number;
+  /** Opaque sampling structure from CC — not consumed by the renderer. */
+  tokenSamples?: unknown;
+  cwd?: string;
+}
+
+export interface SubagentInput {
+  /** Terminal width CC budgeted for the row — content is truncated to fit. */
+  columns?: number;
+  tasks?: SubagentTask[];
+}
+
 // ── Parser outputs ──────────────────────────────────────────────────
 
 export interface GitStatus {
