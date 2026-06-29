@@ -25,8 +25,8 @@ describe('default context thresholds (issue #138)', () => {
 });
 
 describe('AUTO_COMPACT_THRESHOLD (issue #138)', () => {
-  it('Claude Code auto-compacts at 85%', () => {
-    expect(AUTO_COMPACT_THRESHOLD['claude-code']).toBe(85);
+  it('Claude Code auto-compacts at 84%', () => {
+    expect(AUTO_COMPACT_THRESHOLD['claude-code']).toBe(84);
   });
 
   it('Qwen Code auto-compacts at 70%', () => {

@@ -255,20 +255,20 @@ describe('normalize', () => {
       },
     });
 
-    it('Claude at 80% → true (lower edge of warning window)', () => {
-      expect(normalize(claudeAt(80)).context.nearAutoCompact).toBe(true);
+    it('Claude at 79% → true (lower edge of warning window)', () => {
+      expect(normalize(claudeAt(79)).context.nearAutoCompact).toBe(true);
     });
 
-    it('Claude at 84% → true (just below auto-compact threshold)', () => {
-      expect(normalize(claudeAt(84)).context.nearAutoCompact).toBe(true);
+    it('Claude at 83% → true (just below auto-compact threshold)', () => {
+      expect(normalize(claudeAt(83)).context.nearAutoCompact).toBe(true);
     });
 
-    it('Claude at 85% → false (at threshold, past the warning window)', () => {
-      expect(normalize(claudeAt(85)).context.nearAutoCompact).toBe(false);
+    it('Claude at 84% → false (at threshold, past the warning window)', () => {
+      expect(normalize(claudeAt(84)).context.nearAutoCompact).toBe(false);
     });
 
-    it('Claude at 79% → false (below warning window)', () => {
-      expect(normalize(claudeAt(79)).context.nearAutoCompact).toBe(false);
+    it('Claude at 78% → false (below warning window)', () => {
+      expect(normalize(claudeAt(78)).context.nearAutoCompact).toBe(false);
     });
 
     it('Qwen at 65% → true (window starts 5pp earlier for Qwen)', () => {
