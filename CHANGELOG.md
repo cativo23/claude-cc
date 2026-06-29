@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-06-29
+
+### Added
+
+- **Repo identity segment.** When Claude Code exposes `workspace.repo` (`{host, owner, name}`, parsed from the origin remote), line1 renders an `owner/name` segment after the directory breadcrumb, wrapped in an OSC 8 hyperlink to the repo on its host. Present in both classic and powerline modes. New `repo` nerd glyph (`U+EA62`). Toggle via `display.repo` — on for `full`/`balanced`, off for `minimal`. host/owner/name are sanitized and strict-pattern validated before the link is built. (#181)
+- **`workspace.git_worktree` fallback.** The worktree breadcrumb now falls back to `workspace.git_worktree` (which CC populates for any git worktree) when the top-level `worktree.name` is absent, so the breadcrumb renders in worktree sessions that aren't started with `--worktree`. (#181)
+
+### Fixed
+
+- **Auto-compact warning threshold calibrated 80 → 84.** The `nearAutoCompact` glyph fired ~4pp too early. Calibrated by capturing the live statusline payload through a real auto-compaction on CC v2.1.193: the last render before context dropped was `166177/200000 = 83.09%`. Set to 84 so the warning window `[79, 84)` covers the real ~83.1% trigger. (#181)
+
+### Docs
+
+- Documented the Nerd Fonts v3.0+ recommendation (newer Material Design Icons codepoints render as blank/tofu on older font builds) and the repo identity segment. (#181)
+
 ## [1.12.2] - 2026-06-29
 
 ### Fixed
