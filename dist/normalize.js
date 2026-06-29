@@ -250,7 +250,13 @@ export function normalize(input) {
             ? sanitizeTermString(claude.effort.level)
             : undefined,
         thinkingEnabled: claude?.thinking?.enabled === true ? true : undefined,
-        worktreeName: input.worktree?.name ? sanitizeTermString(input.worktree.name) : undefined,
+        // Prefer the top-level worktree.name; fall back to workspace.git_worktree,
+        // which CC populates for ANY git worktree (verified on v2.1.193) — even
+        // sessions not started with --worktree, where worktree.name is absent.
+        worktreeName: (() => {
+            const n = input.worktree?.name ?? input.workspace?.git_worktree;
+            return n ? sanitizeTermString(n) : undefined;
+        })(),
         addedDirsCount: (() => {
             const dirs = input.workspace?.added_dirs;
             if (!Array.isArray(dirs) || dirs.length === 0)

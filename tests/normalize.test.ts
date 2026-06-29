@@ -509,6 +509,14 @@ describe('normalize sanitizes string fields', () => {
     const result = normalize(malicious);
     expect(result.worktreeName).toBe('tree');
   });
+  it('falls back to workspace.git_worktree when worktree.name is absent', () => {
+    const input = { ...claudeInput, worktree: undefined, workspace: { current_dir: '/x', git_worktree: 'my-wt' } };
+    expect(normalize(input).worktreeName).toBe('my-wt');
+  });
+  it('prefers worktree.name over workspace.git_worktree when both present', () => {
+    const input = { ...claudeInput, worktree: { name: 'top-level' }, workspace: { current_dir: '/x', git_worktree: 'fallback' } };
+    expect(normalize(input).worktreeName).toBe('top-level');
+  });
   it('sanitizes cwd', () => {
     const malicious = { ...claudeInput, cwd: '/tmp/\x1b[31mhacked' };
     const result = normalize(malicious);
