@@ -63,7 +63,7 @@ export function renderSubagentContent(task, icons, colors, columns) {
     const metaW = metaPlain.length ? displayWidth(` · ${metaPlain.join(' · ')}`) : 0;
     // Fit the name to whatever width is left after the fixed glyph + meta.
     let shownName = name;
-    if (columns && columns > 0) {
+    if (columns !== undefined && columns > 0) {
         const budget = columns - prefixW - metaW;
         if (budget < displayWidth(name))
             shownName = budget > 1 ? truncField(name, budget) : '';
@@ -100,7 +100,7 @@ export function renderSubagentTasks(input, icons, colors) {
  * assertion is "is a plain object", which our payload satisfies). Any failure
  * degrades to empty stdout + exit 0 so CC's panel is never broken.
  */
-export async function runSubagentCommand(_argv, opts = {}) {
+export async function runSubagentCommand(opts = {}) {
     const log = debug('subagent');
     let raw;
     try {

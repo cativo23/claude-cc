@@ -183,7 +183,10 @@ function emitFooter(lines, homeOverride) {
  */
 async function maybeRegisterSubagent(args) {
     const { settings, baseCmd, confirm, isTTY, lines } = args;
-    if (isLumira(settings.subagentStatusLine))
+    // Only register when the key is absent. If it's already lumira there's nothing
+    // to do; if it's a *foreign* command we leave it untouched rather than clobber
+    // a user's own subagent renderer without an explicit backup/replace flow.
+    if (settings.subagentStatusLine != null)
         return false;
     if (!isTTY)
         return false;
@@ -374,7 +377,9 @@ export function uninstall(opts = {}) {
         return lines.join('\n') + '\n';
     }
     delete uninstSettings.statusLine;
-    delete uninstSettings.subagentStatusLine;
+    // Only remove the subagent hook if it's ours — never wipe a foreign renderer.
+    if (isLumira(uninstSettings.subagentStatusLine))
+        delete uninstSettings.subagentStatusLine;
     writeSettingsAtomic(uninstSettings, settingsPath);
     lines.push(ok('Removed lumira statusline from settings'));
     // Remove skill from both destinations (best effort)

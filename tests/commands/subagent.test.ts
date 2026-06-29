@@ -22,6 +22,7 @@ import {
 } from '../../src/commands/subagent.js';
 import { NERD_ICONS, EMOJI_ICONS, NO_ICONS } from '../../src/render/icons.js';
 import { createColors, stripAnsi } from '../../src/render/colors.js';
+import { displayWidth } from '../../src/render/text.js';
 import type { SubagentTask, SubagentInput, HudConfig } from '../../src/types.js';
 
 const colors = createColors('named');
@@ -80,8 +81,13 @@ describe('renderSubagentContent', () => {
     const longName = 'a-really-long-subagent-name-that-overflows-the-row';
     const out = renderSubagentContent(task({ name: longName }), NO_ICONS, colors, 24);
     const plain = stripAnsi(out);
-    expect(plain.length).toBeLessThanOrEqual(24);
+    expect(displayWidth(plain)).toBeLessThanOrEqual(24);
     expect(plain).toContain('…'); // ellipsis
+  });
+
+  it('renders tokenCount of 0 as "0 tok" (a just-started agent), not blank', () => {
+    const out = renderSubagentContent(task({ tokenCount: 0 }), NO_ICONS, colors);
+    expect(stripAnsi(out)).toContain('0 tok');
   });
 
   it('emits no leading glyph in none-icons mode for running (clock is empty)', () => {
@@ -133,7 +139,7 @@ describe('runSubagentCommand', () => {
 
   it('reads stdin and prints one JSON line per task, exit 0', async () => {
     const payload = JSON.stringify({ columns: 100, tasks: [task({ id: 'z9' })] });
-    const r = await runSubagentCommand(['node', 'lumira', 'subagent'], {
+    const r = await runSubagentCommand({
       stream: streamOf(payload),
       config: cfg,
     });
@@ -144,7 +150,7 @@ describe('runSubagentCommand', () => {
   });
 
   it('never crashes CC on malformed stdin — empty stdout, exit 0', async () => {
-    const r = await runSubagentCommand(['node', 'lumira', 'subagent'], {
+    const r = await runSubagentCommand({
       stream: streamOf('not json at all'),
       config: cfg,
     });
@@ -153,7 +159,7 @@ describe('runSubagentCommand', () => {
   });
 
   it('emits nothing when there are no tasks', async () => {
-    const r = await runSubagentCommand(['node', 'lumira', 'subagent'], {
+    const r = await runSubagentCommand({
       stream: streamOf(JSON.stringify({ columns: 80, tasks: [] })),
       config: cfg,
     });

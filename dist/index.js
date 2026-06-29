@@ -187,7 +187,7 @@ if (isDirectRun()) {
         // CC's subagentStatusLine hook: reads the tasks JSON from its own stdin and
         // emits one JSON line per row. Degrades to empty output on any error so a
         // bad payload never breaks CC's agent panel.
-        runSubagentCommand(process.argv).then(r => {
+        runSubagentCommand().then(r => {
             if (r.stdout)
                 process.stdout.write(r.stdout);
             if (r.stderr)

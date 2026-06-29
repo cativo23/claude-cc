@@ -94,7 +94,7 @@ export function renderSubagentContent(
 
   // Fit the name to whatever width is left after the fixed glyph + meta.
   let shownName = name;
-  if (columns && columns > 0) {
+  if (columns !== undefined && columns > 0) {
     const budget = columns - prefixW - metaW;
     if (budget < displayWidth(name)) shownName = budget > 1 ? truncField(name, budget) : '';
   }
@@ -131,7 +131,6 @@ export function renderSubagentTasks(input: SubagentInput, icons: IconSet, colors
  * degrades to empty stdout + exit 0 so CC's panel is never broken.
  */
 export async function runSubagentCommand(
-  _argv: string[],
   opts: SubagentCommandOpts = {},
 ): Promise<SubagentCommandResult> {
   const log = debug('subagent');

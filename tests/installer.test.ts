@@ -260,6 +260,21 @@ describe('install', () => {
       await install(baseOpts());
       expect(readSettings().subagentStatusLine).toBeUndefined();
     });
+
+    it('leaves a foreign subagentStatusLine untouched (never clobbers)', async () => {
+      writeFileSync(settingsPath, JSON.stringify({
+        statusLine: { type: 'command', command: 'lumira', padding: 0 },
+        subagentStatusLine: { type: 'command', command: 'my-own-renderer', padding: 0 },
+      }));
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => true, confirm: async () => true,
+      });
+      await completeWizard(stdin);
+      await promise;
+      expect(readSettings().subagentStatusLine.command).toBe('my-own-renderer');
+    });
   });
 });
 
@@ -300,6 +315,18 @@ describe('uninstall', () => {
     expect(data.subagentStatusLine).toBeUndefined();
     expect(data.hooks).toEqual({});
     expect(output).toContain('Removed');
+  });
+
+  it('preserves a foreign subagentStatusLine on uninstall', () => {
+    const current = {
+      statusLine: { type: 'command', command: 'lumira', padding: 0 },
+      subagentStatusLine: { type: 'command', command: 'my-own-renderer', padding: 0 },
+    };
+    writeFileSync(settingsPath, JSON.stringify(current, null, 2));
+    uninstall({ settingsPath });
+    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(data.statusLine).toBeUndefined();
+    expect(data.subagentStatusLine.command).toBe('my-own-renderer');
   });
 
   it('prints message when no settings file exists', () => {
