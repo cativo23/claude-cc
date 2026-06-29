@@ -109,6 +109,9 @@ export interface NormalizedInput {
   /** Open PR for the current branch (Claude only, CC ≥ 2.1.145) */
   pr?: { number: number; url?: string; reviewState?: PrReviewState };
 
+  /** Repository identity parsed by CC from the origin remote (workspace.repo) */
+  repo?: { host: string; owner: string; name: string; url: string };
+
   /** Escape hatch: access raw platform data for platform-specific widgets */
   raw: RawInput;
 }
@@ -314,9 +317,25 @@ export function normalize(input: RawInput): NormalizedInput {
     }
   }
 
+  // Repository identity from workspace.repo (CC parses host/owner/name from the
+  // origin remote). All three parts must be present and well-formed: the url is
+  // rendered as an OSC 8 hyperlink, so each part is validated against a strict
+  // pattern to keep a malformed payload from injecting into the link target.
+  let repo: NormalizedInput['repo'];
+  const rawRepo = (input as ClaudeCodeInput).workspace?.repo;
+  if (rawRepo != null) {
+    const host = typeof rawRepo.host === 'string' ? sanitizeTermString(rawRepo.host) : '';
+    const owner = typeof rawRepo.owner === 'string' ? sanitizeTermString(rawRepo.owner) : '';
+    const name = typeof rawRepo.name === 'string' ? sanitizeTermString(rawRepo.name) : '';
+    if (/^[a-zA-Z0-9.-]+$/.test(host) && /^[\w.-]+$/.test(owner) && /^[\w.-]+$/.test(name)) {
+      repo = { host, owner, name, url: `https://${host}/${owner}/${name}` };
+    }
+  }
+
   return {
     platform,
     model: sanitizeTermString(modelName),
+    repo,
     sessionId: sanitizeTermString(input.session_id),
     version: input.version ? sanitizeTermString(input.version) : undefined,
     cwd: sanitizeTermString(cwd),

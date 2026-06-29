@@ -5,7 +5,7 @@ export interface ClaudeCodeInput {
   session_id: string;
   session_name?: string;
   cwd?: string;
-  workspace?: { current_dir: string; added_dirs?: string[] };
+  workspace?: { current_dir: string; added_dirs?: string[]; repo?: { host?: string; owner?: string; name?: string } };
   context_window: {
     context_window_size?: number;
     used_percentage: number;

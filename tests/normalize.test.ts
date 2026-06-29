@@ -667,6 +667,40 @@ describe('addedDirsCount normalization (issue #129)', () => {
   });
 });
 
+describe('workspace.repo normalization', () => {
+  const base: ClaudeCodeInput = {
+    model: 'Claude',
+    session_id: 's',
+    context_window: { used_percentage: 10, remaining_percentage: 90 },
+    cost: { total_cost_usd: 0, total_duration_ms: 0 },
+  };
+
+  it('maps host/owner/name and builds an https url', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } } };
+    expect(normalize(input).repo).toEqual({
+      host: 'github.com',
+      owner: 'cativo23',
+      name: 'lumira',
+      url: 'https://github.com/cativo23/lumira',
+    });
+  });
+
+  it('returns undefined when any part is missing', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', repo: { host: 'github.com', name: 'lumira' } } };
+    expect(normalize(input).repo).toBeUndefined();
+  });
+
+  it('drops the repo when a part contains url-breaking characters (security)', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', repo: { host: 'github.com', owner: 'a/../evil', name: 'lumira' } } };
+    expect(normalize(input).repo).toBeUndefined();
+  });
+
+  it('returns undefined when workspace.repo is absent', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp' } };
+    expect(normalize(input).repo).toBeUndefined();
+  });
+});
+
 describe('worktreeOriginalBranch normalization (issue #130)', () => {
   const base: ClaudeCodeInput = {
     model: 'Claude',
