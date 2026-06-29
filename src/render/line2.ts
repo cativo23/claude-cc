@@ -265,7 +265,7 @@ export function renderLine2(ctx: RenderContext, c: Colors): string {
   }
 
   if (display.thinking && input.thinkingEnabled) {
-    rightParts.push(c.dim(icons.thinking));
+    rightParts.push(c.magenta(icons.thinking));
   }
 
   // Config health hints (opt-in, default off). Sit on the right side as

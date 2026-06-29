@@ -297,6 +297,13 @@ describe('renderLine2', () => {
     expect(out).toContain('💭');
   });
 
+  it('renders the thinking icon in magenta, not dim', () => {
+    const ctx = makeCtx({ icons: EMOJI_ICONS }, { thinking: { enabled: true } });
+    const out = renderLine2(ctx, c);
+    expect(out).toContain(c.magenta(EMOJI_ICONS.thinking));
+    expect(out).not.toContain(c.dim(EMOJI_ICONS.thinking));
+  });
+
   it('hides thinking icon when display.thinking is false', () => {
     const ctx = makeCtx(
       { icons: EMOJI_ICONS, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, thinking: false } } },
