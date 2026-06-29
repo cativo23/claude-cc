@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-06-29
+
+### Fixed
+
+- **Extended thinking badge is now actually visible.** The nerd-font glyph was `nf-md-brain` (`U+F1824`), which renders faint or as a near-blank cell in many Nerd Fonts, and the badge was dimmed on top of that — so the indicator shipped in v1.12.0 was effectively invisible in practice. The nerd set now uses `U+F09D1`, and the badge is rendered in the theme's magenta instead of `dim`, so the extended-thinking state reads at a glance. Emoji (`💭`) and ascii sets unchanged. (#180)
+
+### Changed
+
+- **Lightning/cache-hit indicator uses a real nerd glyph in nerd mode.** The nerd icon set previously used the `⚡` emoji even in nerd mode; it now uses `U+F140B` for visual consistency with the rest of the nerd glyphs. Emoji mode still uses `⚡`. (#180)
+
 ## [1.12.1] - 2026-06-29
 
 ### Fixed
