@@ -123,7 +123,7 @@ export function normalize(input) {
     // For claude-code, honors CLAUDE_CODE_AUTO_COMPACT_WINDOW env var — a fill-%
     // threshold (1-100) that mirrors Claude Code's own auto-compact trigger point.
     // Users who changed this setting in Claude Code should set the same value here.
-    // Falls back to the hardcoded 80% default when absent or invalid.
+    // Falls back to the hardcoded 85% default when absent or invalid.
     const effectivePct = realUsedPercentage ?? contextWindow.used_percentage ?? 0;
     let platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
     if (platform === 'claude-code') {

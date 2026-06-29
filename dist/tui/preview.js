@@ -115,13 +115,13 @@ function buildMockContext(opts) {
  * the context-bar auto-compact behavior they'll see in the live statusline.
  *
  * The platform thresholds referenced here are external constraints, not
- * lumira's: Claude Code auto-compacts at ~80% (hardcoded, reserves headroom
+ * lumira's: Claude Code auto-compacts at ~85% (hardcoded, reserves headroom
  * for output generation); Qwen Code defaults to 70% via the configurable
  * `model.chatCompression.contextPercentageThreshold`. The ⚠ glyph fires
  * 5pp before whichever applies — independent of user-tunable colour
  * thresholds, which track preference, not the platform's hard ceiling.
  */
-const CONTEXT_BAR_NOTE = '\n  Context bar: ⚠ appears in the 5pp window before auto-compact fires (~80% on Claude Code,\n' +
+const CONTEXT_BAR_NOTE = '\n  Context bar: ⚠ appears in the 5pp window before auto-compact fires (~85% on Claude Code,\n' +
     '  70% default on Qwen Code). New defaults (warning 65 / critical 78) turn the bar red before\n' +
     '  auto-compact triggers. Qwen users with a custom model.chatCompression.contextPercentageThreshold\n' +
     '  should mirror that value in lumira\'s contextCriticalThreshold for accurate gating.\n';

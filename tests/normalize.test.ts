@@ -255,20 +255,20 @@ describe('normalize', () => {
       },
     });
 
-    it('Claude at 75% → true (lower edge of warning window)', () => {
-      expect(normalize(claudeAt(75)).context.nearAutoCompact).toBe(true);
+    it('Claude at 80% → true (lower edge of warning window)', () => {
+      expect(normalize(claudeAt(80)).context.nearAutoCompact).toBe(true);
     });
 
-    it('Claude at 79% → true (just below auto-compact threshold)', () => {
-      expect(normalize(claudeAt(79)).context.nearAutoCompact).toBe(true);
+    it('Claude at 84% → true (just below auto-compact threshold)', () => {
+      expect(normalize(claudeAt(84)).context.nearAutoCompact).toBe(true);
     });
 
-    it('Claude at 80% → false (at threshold, past the warning window)', () => {
-      expect(normalize(claudeAt(80)).context.nearAutoCompact).toBe(false);
+    it('Claude at 85% → false (at threshold, past the warning window)', () => {
+      expect(normalize(claudeAt(85)).context.nearAutoCompact).toBe(false);
     });
 
-    it('Claude at 74% → false (below warning window)', () => {
-      expect(normalize(claudeAt(74)).context.nearAutoCompact).toBe(false);
+    it('Claude at 79% → false (below warning window)', () => {
+      expect(normalize(claudeAt(79)).context.nearAutoCompact).toBe(false);
     });
 
     it('Qwen at 65% → true (window starts 5pp earlier for Qwen)', () => {
@@ -280,7 +280,7 @@ describe('normalize', () => {
     });
 
     it('modern Claude payload uses realUsedPercentage to gate the flag', () => {
-      // Construct current_usage so the real usage sum is 152000 / 200000 = 76%
+      // Construct current_usage so the real usage sum is 164000 / 200000 = 82%
       // (output_tokens excluded — only input + cache_read + cache_creation count).
       // used_percentage (hook-provided, input-only) stays at 42% to confirm that
       // the nearAutoCompact flag is driven by realUsedPercentage, not usedPercentage.
@@ -291,7 +291,7 @@ describe('normalize', () => {
           context_window_size: 200000,
           used_percentage: 42,
           current_usage: {
-            input_tokens: 132000,
+            input_tokens: 144000,
             output_tokens: 12000,
             cache_read_input_tokens: 15000,
             cache_creation_input_tokens: 5000,
@@ -299,8 +299,8 @@ describe('normalize', () => {
         },
       };
       const result = normalize(input);
-      // Sanity: realUsedPercentage = (132000 + 15000 + 5000) / 200000 = 76 (in [75, 80))
-      expect(result.context.realUsedPercentage).toBeCloseTo(76, 1);
+      // Sanity: realUsedPercentage = (144000 + 15000 + 5000) / 200000 = 82 (in [80, 85))
+      expect(result.context.realUsedPercentage).toBeCloseTo(82, 1);
       expect(result.context.nearAutoCompact).toBe(true);
     });
 
