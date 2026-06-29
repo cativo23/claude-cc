@@ -61,6 +61,7 @@ export const NERD_ICONS = {
     turtle: '🐢', // turtle — pace-behind indicator
     lightning: '󱐋', // U+F140B — nerd lightning-bolt (was ⚡ emoji); cache hit rate
     pr: '', // nf-cod-git_pull_request
+    repo: '', // U+EA62 nf-cod-repo
     thinking: '󰧑', // U+F09D1 — clearer "thinking" glyph; nf-md-brain (U+F1824) renders faint in many fonts
     battery: nerdBattery,
 };
@@ -86,6 +87,7 @@ export const EMOJI_ICONS = {
     turtle: '\u{1F422}', // 🐢 — turtle
     lightning: '⚡', // ⚡ — cache hit rate
     pr: '\u{1F500}', // 🔀 — twisted rightwards arrows (PR)
+    repo: '\u{1F4E6}', // 📦 — package (repository)
     thinking: '\u{1F4AD}', // 💭 — thought bubble
     battery: (pct) => {
         if (!Number.isFinite(pct) || pct < 0)
@@ -119,6 +121,7 @@ export const NO_ICONS = {
     turtle: '',
     lightning: '',
     pr: 'PR',
+    repo: '',
     thinking: 'think',
     // No-icon mode keeps the legacy bolt fallback (currently empty) so users who
     // opted out of icons see no shape change from this feature.

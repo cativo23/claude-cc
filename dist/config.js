@@ -249,6 +249,7 @@ const PRESET_DEFS = {
         display: {
             agents: true,
             pr: true,
+            repo: true,
             thinking: true,
             burnRate: false,
             duration: false,
@@ -297,6 +298,7 @@ const PRESET_DEFS = {
             worktreeBreadcrumb: false,
             compactionCount: false,
             pr: false,
+            repo: false,
             thinking: false,
         },
     },

@@ -110,6 +110,7 @@ export const DEFAULT_DISPLAY = {
     worktreeBreadcrumb: true,
     compactionCount: true,
     pr: true,
+    repo: true,
     thinking: true,
     contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
     contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
