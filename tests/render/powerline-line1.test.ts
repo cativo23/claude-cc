@@ -82,6 +82,32 @@ describe('renderPowerlineLine1', () => {
 
   // ── Branch segment ──────────────────────────────────────────────────
 
+  describe('repo segment', () => {
+    const withRepo = () => normalize({
+      model: 'Claude Sonnet 4.6',
+      session_id: 'test',
+      context_window: { used_percentage: 42, remaining_percentage: 58 },
+      cost: { total_cost_usd: 0, total_duration_ms: 0 },
+      cwd: '/x/project',
+      workspace: { current_dir: '/x/project', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } },
+    });
+
+    it('renders owner/name when workspace.repo is present', () => {
+      const ctx = makeCtx({ input: withRepo() });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).toContain('cativo23/lumira');
+    });
+
+    it('omits the repo segment when display.repo is false', () => {
+      const ctx = makeCtx({
+        input: withRepo(),
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, repo: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
+      expect(out).not.toContain('cativo23/lumira');
+    });
+  });
+
   describe('branch segment', () => {
     it('renders branch name from git status', () => {
       const ctx = makeCtx({
