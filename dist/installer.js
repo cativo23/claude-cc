@@ -26,16 +26,24 @@ function makeStatusLine(command) {
     return { type: 'command', command, padding: 0 };
 }
 // Rank a statusLine command by per-render speed (higher = faster).
-//   2 = direct binary  (`lumira`, `node …/dist/index.js`, ${CLAUDE_PLUGIN_ROOT})
+//   3 = bare `lumira` binary — always resolves to the current installed version
+//   2 = node /path/dist/index.js or plugin-cache path — fast but version-pinned
 //   1 = npx, cached    (`npx lumira`)
 //   0 = npx, registry  (`npx lumira@latest` / any pinned `@version`)
 // Used to decide migration: only ever rewrite TOWARD a faster form.
+// Speed 3 vs 2 distinction matters: a plugin-cache path (speed 2) can point to
+// a stale version even after `npm i -g lumira`, so the installer must migrate it
+// to the bare `lumira` binary when the global bin is available.
 export function commandSpeed(command) {
     const c = command.trim();
     // `npx` as a bare word or a path basename (e.g. /usr/local/bin/npx, …\npx).
     if (/(^|[\s/\\])npx(\s|$)/.test(c)) {
         return /@(latest|\d)/.test(c) ? 0 : 1;
     }
+    // Bare `lumira` (or platform-specific forms like `lumira.cmd`) — always current.
+    if (/^lumira(\.cmd|\.exe)?$/.test(c))
+        return 3;
+    // node /path/dist/index.js or plugin-cache — version-pinned, may be stale.
     return 2;
 }
 // Is `lumira` resolvable as a global bin on PATH?
@@ -230,8 +238,10 @@ export async function install(opts = {}) {
     const existingCmd = existingIsLumira
         ? String(settings.statusLine.command ?? '')
         : '';
-    // Already on the fastest form (direct binary) — nothing to rewrite.
-    if (existingIsLumira && commandSpeed(existingCmd) >= 2) {
+    // Already on the bare `lumira` binary — optimal, nothing to rewrite.
+    // A node /path/dist/index.js or plugin-cache path (speed 2) is NOT skipped
+    // here — it may point to a stale version and should be migrated to `lumira`.
+    if (existingIsLumira && commandSpeed(existingCmd) >= 3) {
         lines.push(ok('lumira is already configured (optimal command)'));
         return finalize();
     }

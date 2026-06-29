@@ -6,7 +6,7 @@ import { install, uninstall, commandSpeed } from '../src/installer.js';
 import { createMockStdin, createMockStdout } from './tui/_mock-stdin.js';
 
 describe('commandSpeed', () => {
-  // 0 = npx@registry (slow), 1 = npx cached, 2 = direct binary (fast)
+  // 0 = npx@registry, 1 = npx cached, 2 = node path (version-pinned), 3 = bare `lumira` (always current)
   it.each([
     ['npx lumira@latest', 0],
     ['npx -y lumira@latest', 0],
@@ -14,9 +14,9 @@ describe('commandSpeed', () => {
     ['npx lumira', 1],
     ['npx -y lumira', 1],
     ['/usr/local/bin/npx lumira', 1], // path-prefixed npx still counts as npx
-    ['lumira', 2],
     ['node /home/u/lumira/dist/index.js', 2],
     ['node "${CLAUDE_PLUGIN_ROOT}/dist/index.js"', 2],
+    ['lumira', 3],   // bare binary — always resolves to current installed version
   ])('ranks %j as speed %i', (cmd, rank) => {
     expect(commandSpeed(cmd as string)).toBe(rank);
   });
@@ -133,6 +133,16 @@ describe('install', () => {
       expect(readCmd()).toBe('lumira');
       expect(installGlobal).not.toHaveBeenCalled();
       expect(output).toContain('already configured');
+    });
+
+    it('migrates a plugin-cache node path to bare `lumira` when global bin exists', async () => {
+      // Regression: `node /plugin-cache/1.8.2/dist/index.js` was mistakenly
+      // classified as speed-2 (optimal) and skipped; now it migrates to `lumira`.
+      const staleCmd = 'node "/home/u/.claude/plugins/cache/lumira/lumira/1.8.2/dist/index.js"';
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: staleCmd } }));
+      const output = await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readCmd()).toBe('lumira');
+      expect(output).toContain('Upgraded');
     });
 
     it('does not downgrade or churn an equal `npx lumira` command', async () => {
