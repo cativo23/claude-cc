@@ -59,9 +59,9 @@ export const NERD_ICONS = {
     checkmark: '✓', // checkmark
     car: '🏎️', // racing car — pace-ahead indicator
     turtle: '🐢', // turtle — pace-behind indicator
-    lightning: '⚡', // lightning bolt — cache hit rate
+    lightning: '󱐋', // U+F140B — nerd lightning-bolt (was ⚡ emoji); cache hit rate
     pr: '', // nf-cod-git_pull_request
-    thinking: '󱠤', // nf-md-brain
+    thinking: '󰧑', // U+F09D1 — clearer "thinking" glyph; nf-md-brain (U+F1824) renders faint in many fonts
     battery: nerdBattery,
 };
 export const EMOJI_ICONS = {
