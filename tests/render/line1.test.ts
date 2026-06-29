@@ -54,6 +54,29 @@ describe('renderLine1', () => {
     expect(out).toContain('project');
   });
 
+  it('shows the repo segment (owner/name) when workspace.repo is present', () => {
+    const inputOverride = { workspace: { current_dir: '/x/project', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } } };
+    const out = stripAnsi(renderLine1(makeCtx({}, inputOverride), c));
+    expect(out).toContain('cativo23/lumira');
+  });
+
+  it('wraps the repo segment in an OSC 8 hyperlink to the https url', () => {
+    const inputOverride = { workspace: { current_dir: '/x/project', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } } };
+    const out = renderLine1(makeCtx({}, inputOverride), c);
+    expect(out).toContain('https://github.com/cativo23/lumira');
+  });
+
+  it('hides the repo segment when display.repo is off', () => {
+    const inputOverride = { workspace: { current_dir: '/x/project', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } } };
+    const out = stripAnsi(renderLine1(makeCtx({ config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, repo: false } } }, inputOverride), c));
+    expect(out).not.toContain('cativo23/lumira');
+  });
+
+  it('renders no repo segment when workspace.repo is absent', () => {
+    const out = stripAnsi(renderLine1(makeCtx(), c));
+    expect(out).not.toContain('/lumira');
+  });
+
   it('hides model when toggled off', () => {
     const out = stripAnsi(renderLine1(makeCtx({ config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, model: false } } }), c));
     expect(out).not.toContain('Claude Opus 4');

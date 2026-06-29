@@ -255,20 +255,20 @@ describe('normalize', () => {
       },
     });
 
-    it('Claude at 75% → true (lower edge of warning window)', () => {
-      expect(normalize(claudeAt(75)).context.nearAutoCompact).toBe(true);
-    });
-
-    it('Claude at 79% → true (just below auto-compact threshold)', () => {
+    it('Claude at 79% → true (lower edge of warning window)', () => {
       expect(normalize(claudeAt(79)).context.nearAutoCompact).toBe(true);
     });
 
-    it('Claude at 80% → false (at threshold, past the warning window)', () => {
-      expect(normalize(claudeAt(80)).context.nearAutoCompact).toBe(false);
+    it('Claude at 83% → true (just below auto-compact threshold)', () => {
+      expect(normalize(claudeAt(83)).context.nearAutoCompact).toBe(true);
     });
 
-    it('Claude at 74% → false (below warning window)', () => {
-      expect(normalize(claudeAt(74)).context.nearAutoCompact).toBe(false);
+    it('Claude at 84% → false (at threshold, past the warning window)', () => {
+      expect(normalize(claudeAt(84)).context.nearAutoCompact).toBe(false);
+    });
+
+    it('Claude at 78% → false (below warning window)', () => {
+      expect(normalize(claudeAt(78)).context.nearAutoCompact).toBe(false);
     });
 
     it('Qwen at 65% → true (window starts 5pp earlier for Qwen)', () => {
@@ -280,7 +280,7 @@ describe('normalize', () => {
     });
 
     it('modern Claude payload uses realUsedPercentage to gate the flag', () => {
-      // Construct current_usage so the real usage sum is 152000 / 200000 = 76%
+      // Construct current_usage so the real usage sum is 164000 / 200000 = 82%
       // (output_tokens excluded — only input + cache_read + cache_creation count).
       // used_percentage (hook-provided, input-only) stays at 42% to confirm that
       // the nearAutoCompact flag is driven by realUsedPercentage, not usedPercentage.
@@ -291,7 +291,7 @@ describe('normalize', () => {
           context_window_size: 200000,
           used_percentage: 42,
           current_usage: {
-            input_tokens: 132000,
+            input_tokens: 144000,
             output_tokens: 12000,
             cache_read_input_tokens: 15000,
             cache_creation_input_tokens: 5000,
@@ -299,8 +299,8 @@ describe('normalize', () => {
         },
       };
       const result = normalize(input);
-      // Sanity: realUsedPercentage = (132000 + 15000 + 5000) / 200000 = 76 (in [75, 80))
-      expect(result.context.realUsedPercentage).toBeCloseTo(76, 1);
+      // Sanity: realUsedPercentage = (144000 + 15000 + 5000) / 200000 = 82 (in [80, 85))
+      expect(result.context.realUsedPercentage).toBeCloseTo(82, 1);
       expect(result.context.nearAutoCompact).toBe(true);
     });
 
@@ -509,6 +509,14 @@ describe('normalize sanitizes string fields', () => {
     const result = normalize(malicious);
     expect(result.worktreeName).toBe('tree');
   });
+  it('falls back to workspace.git_worktree when worktree.name is absent', () => {
+    const input = { ...claudeInput, worktree: undefined, workspace: { current_dir: '/x', git_worktree: 'my-wt' } };
+    expect(normalize(input).worktreeName).toBe('my-wt');
+  });
+  it('prefers worktree.name over workspace.git_worktree when both present', () => {
+    const input = { ...claudeInput, worktree: { name: 'top-level' }, workspace: { current_dir: '/x', git_worktree: 'fallback' } };
+    expect(normalize(input).worktreeName).toBe('top-level');
+  });
   it('sanitizes cwd', () => {
     const malicious = { ...claudeInput, cwd: '/tmp/\x1b[31mhacked' };
     const result = normalize(malicious);
@@ -664,6 +672,40 @@ describe('addedDirsCount normalization (issue #129)', () => {
 
   it('returns undefined when workspace is absent entirely', () => {
     expect(normalize(base).addedDirsCount).toBeUndefined();
+  });
+});
+
+describe('workspace.repo normalization', () => {
+  const base: ClaudeCodeInput = {
+    model: 'Claude',
+    session_id: 's',
+    context_window: { used_percentage: 10, remaining_percentage: 90 },
+    cost: { total_cost_usd: 0, total_duration_ms: 0 },
+  };
+
+  it('maps host/owner/name and builds an https url', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } } };
+    expect(normalize(input).repo).toEqual({
+      host: 'github.com',
+      owner: 'cativo23',
+      name: 'lumira',
+      url: 'https://github.com/cativo23/lumira',
+    });
+  });
+
+  it('returns undefined when any part is missing', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', repo: { host: 'github.com', name: 'lumira' } } };
+    expect(normalize(input).repo).toBeUndefined();
+  });
+
+  it('drops the repo when a part contains url-breaking characters (security)', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp', repo: { host: 'github.com', owner: 'a/../evil', name: 'lumira' } } };
+    expect(normalize(input).repo).toBeUndefined();
+  });
+
+  it('returns undefined when workspace.repo is absent', () => {
+    const input: ClaudeCodeInput = { ...base, workspace: { current_dir: '/tmp' } };
+    expect(normalize(input).repo).toBeUndefined();
   });
 });
 

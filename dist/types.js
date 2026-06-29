@@ -56,7 +56,7 @@ export const QUOTA_CRITICAL = 85;
  * Auto-compact threshold per platform — the % of context window at which
  * the platform automatically compacts the conversation history.
  *
- * - Claude Code: ~80% (hardcoded internally; reserves ~40K tokens for output generation).
+ * - Claude Code: ~84% (hardcoded internally; reserves ~30K tokens for output generation).
  *   Not user-configurable in the main conversation. See anthropics/claude-code#34126.
  * - Qwen Code: 70% by default; user-configurable via
  *   `model.chatCompression.contextPercentageThreshold` in qwen settings.json.
@@ -64,13 +64,19 @@ export const QUOTA_CRITICAL = 85;
  *   `contextCriticalThreshold` — the constant below is the platform default only.
  */
 export const AUTO_COMPACT_THRESHOLD = {
-    'claude-code': 80,
+    // Measured on CC v2.1.193 by capturing the live statusline payload right up to
+    // an auto-compaction: the last render before context dropped was 166177/200000
+    // = 83.09% (CC's own "% until auto-compact" is NOT linear, so adding it to the
+    // fill over-estimated — only the pre-drop peak is reliable). Set to 84 so the
+    // nearAutoCompact warning window [79, 84) keeps the glyph lit through the real
+    // ~83.1% trigger (83 would extinguish it a hair before compaction).
+    'claude-code': 84,
     'qwen-code': 70,
 };
 /**
  * Gap (in percentage points) before the auto-compact threshold at which the
  * `nearAutoCompact` warning glyph fires. The glyph appears in the window
- * `[AUTO_COMPACT_THRESHOLD - GAP, AUTO_COMPACT_THRESHOLD)` — i.e., 75-80%
+ * `[AUTO_COMPACT_THRESHOLD - GAP, AUTO_COMPACT_THRESHOLD)` — i.e., 79-84%
  * on Claude, 65-70% on Qwen. This is an immutable system constant (not the
  * same as the user-configurable `contextWarningThreshold`).
  */
@@ -110,6 +116,7 @@ export const DEFAULT_DISPLAY = {
     worktreeBreadcrumb: true,
     compactionCount: true,
     pr: true,
+    repo: true,
     thinking: true,
     contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
     contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,

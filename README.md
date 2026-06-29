@@ -87,7 +87,7 @@ See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the f
 ## Requirements
 
 - **Node ≥18**
-- **Nerd Font** (recommended) — for branch, folder, model, and spinner icons. Falls back to plain glyphs via `icons: emoji` or `icons: none`.
+- **Nerd Font** (recommended) — for branch, folder, model, and spinner icons. **Use a recent build (Nerd Fonts v3.0+);** some indicators use newer Material Design Icons codepoints (e.g. the extended-thinking glyph `U+F09D1`) that older font releases render as a blank/tofu cell. Falls back to plain glyphs via `icons: emoji` or `icons: none`.
 - **Truecolor terminal** (for themes / powerline) — auto-detected via `COLORTERM=truecolor`. 256-color terminals get a nearest-index projection; named-ANSI terminals fall back to default colors silently.
 
 ## Features
@@ -95,7 +95,7 @@ See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the f
 - **Context bar with thresholds** — green → yellow → orange → blinking red, plus an actionable `/compact?` hint when fill is high.
 - **Session intelligence** — pace delta (🐢/🏎️) shows whether you're burning quota faster than the time window allows, with ETA when ahead of pace. Live agent count and cache hit rate round it out.
 - **Powerline mode** + 7 separator presets (`arrow`, `flame`, `slant`, `round`, `diamond`, `compatible`, `plain`) across 3 lines.
-- **OSC 8 hyperlinks** — clickable directory and version tag on iTerm2, WezTerm, Kitty, VS Code, Alacritty.
+- **OSC 8 hyperlinks** — clickable directory, repo, PR, and version tag on iTerm2, WezTerm, Kitty, VS Code, Alacritty.
 - **7 hand-curated themes** — `dracula`, `nord`, `tokyo-night`, `catppuccin`, `monokai`, `gruvbox`, `solarized`. WCAG AA contrast guaranteed in CI.
 - **Token + cost metrics** — input/output counts, speed (tok/s), $ total + burn rate ($/h), cache hit rate.
 - **Auto-fits at <70 cols** — switches from 3-line custom mode to single-line minimal automatically.
@@ -106,6 +106,7 @@ See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the f
 <summary>Everything else lumira shows</summary>
 
 - **Git status** — branch + staged/modified/untracked counts, 5s TTL cache. Branch turns red on dirty repos in powerline mode.
+- **Repo identity** — when Claude Code exposes `workspace.repo`, line1 shows `owner/name` as a segment linked (OSC 8) to the repo on its host. Toggle via `display.repo`.
 - **Rate limits** — 5h/7d usage as a battery glyph (Nerd Font level fill, or 🔋/🪫 in emoji mode) with color tier and reset countdown. Threshold-gated at 50% to stay invisible while you have margin.
 - **Pace delta** — `usedPct − elapsedPct` of the 5h window. Turtle when behind pace (healthy), car with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed. Toggle independently via `display.paceDelta`.
 - **7d quota projection** — when the current burn rate would exhaust the 7d quota before the window resets, the 7d segment grows a warning: `⚠ ~24h`, `⚠ ~2d`, `⚠ Tue`, or `🔥 ~8h` (critical icon under 12h). Default on. Toggle via `display.quotaProjection`; off in the `minimal` preset. Different from pace delta — pace looks backwards at the 5h window's actual vs proportional burn, projection looks forwards at the 7d window's exhaustion ETA.

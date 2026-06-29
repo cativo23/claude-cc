@@ -46,6 +46,17 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     }
   }
 
+  // Repo segment — owner/name from workspace.repo, clickable to open the repo
+  // on its host. Distinct from the directory breadcrumb above (a local path):
+  // this is the canonical remote identity, and surfaces the owner that the
+  // bare cwd basename can't.
+  if (display.repo && input.repo) {
+    const { owner, name, url } = input.repo;
+    const repoLen = cols < 80 ? 14 : cols < 120 ? 24 : 36;
+    const label = c.brightBlue(`${icons.repo} ${truncField(`${owner}/${name}`, repoLen)}`);
+    left.push(hyperlink(url, label));
+  }
+
   // Added dirs badge — only when count > 0; warning color at >= 5
   if (display.addedDirs && input.addedDirsCount != null && input.addedDirsCount > 0) {
     const badge = `+${input.addedDirsCount} dirs`;

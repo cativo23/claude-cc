@@ -91,6 +91,20 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import(
     });
   }
 
+  if (display.repo && input.repo) {
+    const { owner, name, url } = input.repo;
+    // Priority 58 — below directory@60 and the addedDirs badge@59. Repo is the
+    // canonical remote identity (annotates the local dir), so it cedes first
+    // under narrow-terminal pressure. Same dir-family background as directory.
+    segments.push({
+      text: hyperlink(url, truncField(`${owner}/${name}`, 36)),
+      icon: icons.repo,
+      bg: palette.dirBg,
+      fg: palette.fg,
+      priority: 58,
+    });
+  }
+
   if (display.addedDirs && input.addedDirsCount != null && input.addedDirsCount > 0) {
     const badge = `+${input.addedDirsCount} dirs`;
     const bg = input.addedDirsCount >= 5 ? palette.taskBg : palette.versionBg;

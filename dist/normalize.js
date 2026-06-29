@@ -123,7 +123,7 @@ export function normalize(input) {
     // For claude-code, honors CLAUDE_CODE_AUTO_COMPACT_WINDOW env var — a fill-%
     // threshold (1-100) that mirrors Claude Code's own auto-compact trigger point.
     // Users who changed this setting in Claude Code should set the same value here.
-    // Falls back to the hardcoded 80% default when absent or invalid.
+    // Falls back to the hardcoded 84% default when absent or invalid.
     const effectivePct = realUsedPercentage ?? contextWindow.used_percentage ?? 0;
     let platformAutoCompactThreshold = AUTO_COMPACT_THRESHOLD[platform];
     if (platform === 'claude-code') {
@@ -200,9 +200,24 @@ export function normalize(input) {
             pr = { number: n, url: prUrl, reviewState: prReviewState };
         }
     }
+    // Repository identity from workspace.repo (CC parses host/owner/name from the
+    // origin remote). All three parts must be present and well-formed: the url is
+    // rendered as an OSC 8 hyperlink, so each part is validated against a strict
+    // pattern to keep a malformed payload from injecting into the link target.
+    let repo;
+    const rawRepo = input.workspace?.repo;
+    if (rawRepo != null) {
+        const host = typeof rawRepo.host === 'string' ? sanitizeTermString(rawRepo.host) : '';
+        const owner = typeof rawRepo.owner === 'string' ? sanitizeTermString(rawRepo.owner) : '';
+        const name = typeof rawRepo.name === 'string' ? sanitizeTermString(rawRepo.name) : '';
+        if (/^[a-zA-Z0-9.-]+$/.test(host) && /^[\w.-]+$/.test(owner) && /^[\w.-]+$/.test(name)) {
+            repo = { host, owner, name, url: `https://${host}/${owner}/${name}` };
+        }
+    }
     return {
         platform,
         model: sanitizeTermString(modelName),
+        repo,
         sessionId: sanitizeTermString(input.session_id),
         version: input.version ? sanitizeTermString(input.version) : undefined,
         cwd: sanitizeTermString(cwd),
@@ -235,7 +250,13 @@ export function normalize(input) {
             ? sanitizeTermString(claude.effort.level)
             : undefined,
         thinkingEnabled: claude?.thinking?.enabled === true ? true : undefined,
-        worktreeName: input.worktree?.name ? sanitizeTermString(input.worktree.name) : undefined,
+        // Prefer the top-level worktree.name; fall back to workspace.git_worktree,
+        // which CC populates for ANY git worktree (verified on v2.1.193) — even
+        // sessions not started with --worktree, where worktree.name is absent.
+        worktreeName: (() => {
+            const n = input.worktree?.name ?? input.workspace?.git_worktree;
+            return n ? sanitizeTermString(n) : undefined;
+        })(),
         addedDirsCount: (() => {
             const dirs = input.workspace?.added_dirs;
             if (!Array.isArray(dirs) || dirs.length === 0)
