@@ -87,7 +87,7 @@ See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the f
 ## Requirements
 
 - **Node ≥18**
-- **Nerd Font** (recommended) — for branch, folder, model, and spinner icons. Falls back to plain glyphs via `icons: emoji` or `icons: none`.
+- **Nerd Font** (recommended) — for branch, folder, model, and spinner icons. **Use a recent build (Nerd Fonts v3.0+);** some indicators use newer Material Design Icons codepoints (e.g. the extended-thinking glyph `U+F09D1`) that older font releases render as a blank/tofu cell. Falls back to plain glyphs via `icons: emoji` or `icons: none`.
 - **Truecolor terminal** (for themes / powerline) — auto-detected via `COLORTERM=truecolor`. 256-color terminals get a nearest-index projection; named-ANSI terminals fall back to default colors silently.
 
 ## Features
