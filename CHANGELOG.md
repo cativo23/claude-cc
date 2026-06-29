@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-06-29
+
+### Fixed
+
+- **`lumira install` no longer skips migration of stale plugin-cache paths.** After `npm install -g lumira@latest`, re-running `lumira install` would leave the statusline pointing at the old `node /plugin-cache/X.Y.Z/dist/index.js` path instead of migrating it to the bare `lumira` binary. The installer now distinguishes the bare `lumira` binary (always current) from version-pinned node paths (may be stale) and correctly migrates the latter when the global bin is available. (#179)
+
 ## [1.12.0] - 2026-06-26
 
 ### Added
