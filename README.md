@@ -111,7 +111,7 @@ See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the f
 - **Pace delta** — `usedPct − elapsedPct` of the 5h window. Turtle when behind pace (healthy), car with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed. Toggle independently via `display.paceDelta`.
 - **7d quota projection** — when the current burn rate would exhaust the 7d quota before the window resets, the 7d segment grows a warning: `⚠ ~24h`, `⚠ ~2d`, `⚠ Tue`, or `🔥 ~8h` (critical icon under 12h). Default on. Toggle via `display.quotaProjection`; off in the `minimal` preset. Different from pace delta — pace looks backwards at the 5h window's actual vs proportional burn, projection looks forwards at the 7d window's exhaustion ETA.
 - **Active agents** — live count of running subagents (`⚡N agents`) plus types parsed from the transcript. Toggle via `display.agents`.
-- **Subagent panel rows** — custom rendering for each row in Claude Code's agent panel via [`lumira subagent`](#subagent-rows): a state glyph (running / done / error), the agent name, and its token count, in your configured theme and icon set. Opt-in at install.
+- **Subagent panel rows** — custom rendering for each row in Claude Code's agent panel via [`lumira subagent`](#subagent-rows): a state glyph (running / done / error), what each agent is doing, and its token count, in your configured theme and icon set. Opt-in at install.
 - **Cache hit rate** — prompt cache efficiency for the current turn (`87%⚡`). Alarm-mode: hidden while ≥90% (Anthropic's prompt cache pins this near 99% in healthy steady state, so an always-on number is wallpaper, not signal). Surfaces as yellow/orange/blinkRed only when the cache is actually degrading. Same hide-when-healthy pattern as rate-limits and agent count.
 - **GSD integration** — current task and update notifications (opt-in).
 - **Config health widget** — surfaces silent fallbacks (theme/powerline degrading in named-ANSI, missing GSD STATE.md). Opt-in.
@@ -265,11 +265,13 @@ lumira stats
 Claude Code (≥ 2.1.x) exposes a [`subagentStatusLine`](https://code.claude.com/docs/en/statusline#subagent-status-lines) hook that lets a command customize how each subagent renders in the agent panel — replacing the default `name · description · token count` row. `lumira subagent` reads the visible tasks from stdin and renders each row in your configured theme and icon set:
 
 ```
-󱎫 code-reviewer · 15k tok · running
-✓ investigation-agent · 3k tok · done
+󱎫 reviewing auth module · 15k tok · running
+✓ exploring the codebase · 3k tok · done
 ```
 
-The **glyph and colour are driven by state**, not agent type — running (cyan clock), done (green check), error (red warning) — because Claude Code's agent `type` is open-ended and user-defined, so there's no stable type→icon map to maintain. The state is the signal you actually want at a glance: what's live, what finished, what failed. Rows respect your `icons` (`nerd`/`emoji`/`none`) and `colors.mode` config, and are truncated to the width Claude Code budgets.
+The **glyph and colour are driven by state** — running (cyan clock), done (green check), error (red warning) — so a glance tells you what's live, what finished, what failed.
+
+The **row label** identifies each agent. In practice Claude Code reports every Task subagent with the generic `type: "local_agent"` and no `name`, so the per-agent `description` is the only field that distinguishes one row from another — lumira uses it. The full fallback is `name → a meaningful type → description → id`: an explicit `name` or a real agent type wins when Claude Code provides one, otherwise the `description` carries the row. Rows respect your `icons` (`nerd`/`emoji`/`none`) and `colors.mode` config, and are truncated to the width Claude Code budgets.
 
 **Enable it:** the installer offers to register `subagentStatusLine` alongside the main statusline (opt-in — it never writes the second key without asking). To wire it manually, add to `~/.claude/settings.json`:
 

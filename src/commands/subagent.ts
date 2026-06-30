@@ -81,7 +81,13 @@ export function renderSubagentContent(
   columns?: number,
 ): string {
   const { icon, color, label } = styleFor(task.status, icons, colors);
-  const name = (task.name || task.type || task.id || 'agent').trim();
+  // Identity fallback. CC reports every Task subagent as the generic
+  // `type: "local_agent"` with no `name`, so `description` (the dispatch arg) is
+  // the only field that distinguishes rows — it must win over a generic type.
+  // A *meaningful* type (a real agent_type, if CC ever exposes one) still wins
+  // over description, and an explicit `name` wins over everything.
+  const meaningfulType = task.type && task.type !== 'local_agent' ? task.type : '';
+  const name = (task.name || meaningfulType || task.description || task.id || 'agent').trim();
   const tokens = Number.isFinite(task.tokenCount) ? `${formatTokens(task.tokenCount as number)} tok` : '';
 
   const prefix = icon ? `${color(icon)} ` : '';

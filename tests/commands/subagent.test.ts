@@ -70,11 +70,28 @@ describe('renderSubagentContent', () => {
     expect(stripAnsi(out)).not.toContain('tok');
   });
 
-  it('falls back to type then id when name is absent', () => {
+  it('falls back through type then id when name is absent', () => {
     expect(stripAnsi(renderSubagentContent(task({ name: undefined, type: 'investigation' }), NERD_ICONS, colors)))
       .toContain('investigation');
-    expect(stripAnsi(renderSubagentContent(task({ name: undefined, type: undefined, id: 'xyz' }), NERD_ICONS, colors)))
+    expect(stripAnsi(renderSubagentContent(task({ name: undefined, type: undefined, description: undefined, id: 'xyz' }), NERD_ICONS, colors)))
       .toContain('xyz');
+  });
+
+  it('uses description instead of the generic "local_agent" type', () => {
+    // CC reports every Task subagent as type "local_agent"; the description is
+    // the only field that identifies the row, so it must win over that type.
+    const out = stripAnsi(renderSubagentContent(
+      task({ name: undefined, type: 'local_agent', description: 'reviewing auth module' }), NERD_ICONS, colors));
+    expect(out).toContain('reviewing auth module');
+    expect(out).not.toContain('local_agent');
+  });
+
+  it('prefers a meaningful type (real agent_type) over description', () => {
+    // If CC ever exposes the real agent type, it identifies the agent better
+    // than the per-invocation description, so it wins.
+    const out = stripAnsi(renderSubagentContent(
+      task({ name: undefined, type: 'code-reviewer', description: 'reviewing auth module' }), NERD_ICONS, colors));
+    expect(out).toContain('code-reviewer');
   });
 
   it('truncates the name to fit the columns budget', () => {
