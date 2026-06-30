@@ -20,6 +20,7 @@ import { runThemesCommand } from './commands/themes.js';
 import { runStatsCommand } from './commands/stats.js';
 import { runCustomRefreshFromStdin } from './commands/custom-refresh.js';
 import { runCustomCommand } from './commands/custom.js';
+import { runSubagentCommand } from './commands/subagent.js';
 import type { Dependencies, RawInput } from './types.js';
 import type { NormalizedInput } from './normalize.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
@@ -131,6 +132,7 @@ Commands:
   stats [path]  Show session statistics
   themes        Browse and preview themes
   custom        Manage custom commands
+  subagent      Render Claude Code agent-panel rows (reads tasks JSON from stdin)
 
 Options:
   --help, -h    Show this help
@@ -177,6 +179,15 @@ if (isDirectRun()) {
       process.stderr.write(`Custom command error: ${e.message}\n`);
       process.exit(1);
     });
+  } else if (cmd === 'subagent') {
+    // CC's subagentStatusLine hook: reads the tasks JSON from its own stdin and
+    // emits one JSON line per row. Degrades to empty output on any error so a
+    // bad payload never breaks CC's agent panel.
+    runSubagentCommand().then(r => {
+      if (r.stdout) process.stdout.write(r.stdout);
+      if (r.stderr) process.stderr.write(r.stderr);
+      if (r.exitCode !== 0) process.exit(r.exitCode);
+    }).catch(() => process.exit(0));
   } else if (cmd === '__custom-refresh') {
     // Internal: invoked by the renderer as a detached child to refresh a
     // single custom command's cache entry without keeping the renderer's

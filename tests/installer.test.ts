@@ -221,6 +221,61 @@ describe('install', () => {
       expect(output).toContain('evil');
     });
   });
+
+  // ── subagentStatusLine registration (issue #176) ─────────────────
+  // Driven via the already-optimal path (statusLine = bare `lumira`) so no
+  // command rewrite happens and the only confirm() call is the subagent prompt.
+  describe('subagentStatusLine registration', () => {
+    const optimalSettings = () =>
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+    const readSettings = () => JSON.parse(readFileSync(settingsPath, 'utf8'));
+
+    it('registers `<cmd> subagent` when the user opts in (TTY)', async () => {
+      optimalSettings();
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => true, confirm: async () => true,
+      });
+      await completeWizard(stdin);
+      await promise;
+      const s = readSettings();
+      expect(s.subagentStatusLine.command).toBe('lumira subagent');
+      expect(s.statusLine.command).toBe('lumira'); // main statusLine untouched
+    });
+
+    it('does not register when the user declines', async () => {
+      optimalSettings();
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => true, confirm: async () => false,
+      });
+      await completeWizard(stdin);
+      await promise;
+      expect(readSettings().subagentStatusLine).toBeUndefined();
+    });
+
+    it('never prompts or registers in a non-TTY install', async () => {
+      await install(baseOpts());
+      expect(readSettings().subagentStatusLine).toBeUndefined();
+    });
+
+    it('leaves a foreign subagentStatusLine untouched (never clobbers)', async () => {
+      writeFileSync(settingsPath, JSON.stringify({
+        statusLine: { type: 'command', command: 'lumira', padding: 0 },
+        subagentStatusLine: { type: 'command', command: 'my-own-renderer', padding: 0 },
+      }));
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => true, confirm: async () => true,
+      });
+      await completeWizard(stdin);
+      await promise;
+      expect(readSettings().subagentStatusLine.command).toBe('my-own-renderer');
+    });
+  });
 });
 
 describe('uninstall', () => {
@@ -247,14 +302,31 @@ describe('uninstall', () => {
     expect(output).toContain('Restored');
   });
 
-  it('removes statusLine key when no backup exists', () => {
-    const current = { statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 }, hooks: {} };
+  it('removes both lumira-owned keys (statusLine + subagentStatusLine) when no backup exists', () => {
+    const current = {
+      statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 },
+      subagentStatusLine: { type: 'command', command: 'lumira subagent', padding: 0 },
+      hooks: {},
+    };
     writeFileSync(settingsPath, JSON.stringify(current, null, 2));
     const output = uninstall({ settingsPath });
     const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(data.statusLine).toBeUndefined();
+    expect(data.subagentStatusLine).toBeUndefined();
     expect(data.hooks).toEqual({});
     expect(output).toContain('Removed');
+  });
+
+  it('preserves a foreign subagentStatusLine on uninstall', () => {
+    const current = {
+      statusLine: { type: 'command', command: 'lumira', padding: 0 },
+      subagentStatusLine: { type: 'command', command: 'my-own-renderer', padding: 0 },
+    };
+    writeFileSync(settingsPath, JSON.stringify(current, null, 2));
+    uninstall({ settingsPath });
+    const data = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(data.statusLine).toBeUndefined();
+    expect(data.subagentStatusLine.command).toBe('my-own-renderer');
   });
 
   it('prints message when no settings file exists', () => {

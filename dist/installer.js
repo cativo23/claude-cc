@@ -25,6 +25,25 @@ const header = () => `\n${CYAN} lumira installer${RST}\n`;
 function makeStatusLine(command) {
     return { type: 'command', command, padding: 0 };
 }
+/** Atomically write settings.json: temp file + fsync + rename, mode 0600. */
+function writeSettingsAtomic(settings, settingsPath) {
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    const tmp = `${settingsPath}.${process.pid}.${Date.now()}.lumira.tmp`;
+    try {
+        const fd = openSync(tmp, 'wx', 0o600);
+        writeSync(fd, JSON.stringify(settings, null, 2) + '\n');
+        fsyncSync(fd);
+        closeSync(fd);
+        renameSync(tmp, settingsPath);
+    }
+    catch (e) {
+        try {
+            unlinkSync(tmp);
+        }
+        catch { }
+        throw e;
+    }
+}
 // Rank a statusLine command by per-render speed (higher = faster).
 //   3 = bare `lumira` binary — always resolves to the current installed version
 //   2 = node /path/dist/index.js or plugin-cache path — fast but version-pinned
@@ -153,6 +172,31 @@ function emitFooter(lines, homeOverride) {
     lines.push(`\n  Restart Claude Code to see your statusline.\n`);
 }
 // ── Install ─────────────────────────────────────────────────────────
+/**
+ * Optionally register Claude Code's `subagentStatusLine` hook (CC ≥ 2.1.x)
+ * alongside the main statusLine, pointing it at `<cmd> subagent`.
+ *
+ * Opt-in and interactive-only: we never add a second settings key without
+ * explicit consent, and skip silently in non-TTY runs (so CI/scripted installs
+ * stay predictable). No-op when it already points at lumira. Returns true when
+ * the key was added, so the caller knows it must flush settings to disk.
+ */
+async function maybeRegisterSubagent(args) {
+    const { settings, baseCmd, confirm, isTTY, lines } = args;
+    // Only register when the key is absent. If it's already lumira there's nothing
+    // to do; if it's a *foreign* command we leave it untouched rather than clobber
+    // a user's own subagent renderer without an explicit backup/replace flow.
+    if (settings.subagentStatusLine != null)
+        return false;
+    if (!isTTY)
+        return false;
+    const accepted = await confirm('Customize subagent panel rows too? (subagentStatusLine)');
+    if (!accepted)
+        return false;
+    settings.subagentStatusLine = makeStatusLine(`${baseCmd} subagent`);
+    lines.push(ok(`Configured subagentStatusLine → ${DIM}${baseCmd} subagent${RST}`));
+    return true;
+}
 export async function install(opts = {}) {
     const settingsPath = opts.settingsPath ?? defaultSettingsPath();
     const configPath = opts.configPath ?? defaultConfigPath();
@@ -243,6 +287,11 @@ export async function install(opts = {}) {
     // here — it may point to a stale version and should be migrated to `lumira`.
     if (existingIsLumira && commandSpeed(existingCmd) >= 3) {
         lines.push(ok('lumira is already configured (optimal command)'));
+        // statusLine needs no rewrite, but a returning user may still want to opt
+        // into the subagent hook — offer it and flush only if they accept.
+        const added = await maybeRegisterSubagent({ settings, baseCmd: existingCmd, confirm, isTTY: !!stdin?.isTTY, lines });
+        if (added)
+            writeSettingsAtomic(settings, settingsPath);
         return finalize();
     }
     // Resolve the fastest per-render command this environment can offer.
@@ -254,6 +303,9 @@ export async function install(opts = {}) {
         // so we never downgrade a user's direct binary to npx.
         if (commandSpeed(resolvedCmd) <= commandSpeed(existingCmd)) {
             lines.push(ok('lumira is already configured'));
+            const added = await maybeRegisterSubagent({ settings, baseCmd: existingCmd, confirm, isTTY: !!stdin?.isTTY, lines });
+            if (added)
+                writeSettingsAtomic(settings, settingsPath);
             return finalize();
         }
     }
@@ -263,22 +315,8 @@ export async function install(opts = {}) {
         lines.push(ok(`Backed up existing settings → ${DIM}settings.json.lumira.bak${RST}`));
     }
     settings.statusLine = makeStatusLine(resolvedCmd);
-    mkdirSync(dirname(settingsPath), { recursive: true });
-    const tmp = `${settingsPath}.${process.pid}.${Date.now()}.lumira.tmp`;
-    try {
-        const fd = openSync(tmp, 'wx', 0o600);
-        writeSync(fd, JSON.stringify(settings, null, 2) + '\n');
-        fsyncSync(fd);
-        closeSync(fd);
-        renameSync(tmp, settingsPath);
-    }
-    catch (e) {
-        try {
-            unlinkSync(tmp);
-        }
-        catch { }
-        throw e;
-    }
+    await maybeRegisterSubagent({ settings, baseCmd: resolvedCmd, confirm, isTTY: !!stdin?.isTTY, lines });
+    writeSettingsAtomic(settings, settingsPath);
     lines.push(ok(existingIsLumira
         ? `Upgraded statusline command → ${DIM}${resolvedCmd}${RST} (faster)`
         : 'Configured lumira as statusline'));
@@ -339,21 +377,10 @@ export function uninstall(opts = {}) {
         return lines.join('\n') + '\n';
     }
     delete uninstSettings.statusLine;
-    const uninstTmp = `${settingsPath}.${process.pid}.${Date.now()}.lumira.tmp`;
-    try {
-        const fd = openSync(uninstTmp, 'wx', 0o600);
-        writeSync(fd, JSON.stringify(uninstSettings, null, 2) + '\n');
-        fsyncSync(fd);
-        closeSync(fd);
-        renameSync(uninstTmp, settingsPath);
-    }
-    catch (e) {
-        try {
-            unlinkSync(uninstTmp);
-        }
-        catch { }
-        throw e;
-    }
+    // Only remove the subagent hook if it's ours — never wipe a foreign renderer.
+    if (isLumira(uninstSettings.subagentStatusLine))
+        delete uninstSettings.subagentStatusLine;
+    writeSettingsAtomic(uninstSettings, settingsPath);
     lines.push(ok('Removed lumira statusline from settings'));
     // Remove skill from both destinations (best effort)
     for (const root of [join(home, '.claude'), join(home, '.qwen')]) {
