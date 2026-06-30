@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-06-29
+
+### Added
+
+- **Subagent status-line renderer (`lumira subagent`).** Implements Claude Code's `subagentStatusLine` hook (CC ≥ 2.1.x): reads the visible subagents from stdin and emits one styled row each — a state glyph (running/done/error), the agent identifier, and its token count — honoring the user's theme, `icons`, and `colors.mode`, truncated to the width CC budgets. Rows are identified by `description`: CC reports every Task subagent as the generic `type: "local_agent"` with no `name` (verified by capturing the real payload), so the description is the only distinguishing field. The fallback `name → meaningful type → description → id` still surfaces a real name/type when CC provides one. Degrades to empty output on any unreadable/malformed payload so a bad render never breaks the agent panel; `LUMIRA_DEBUG=1` logs the raw payload to stderr. (#182)
+- **Opt-in `subagentStatusLine` installer registration.** `lumira install` offers to register the hook alongside the main statusLine (interactive and consented only; it never overwrites a foreign `subagentStatusLine`). `uninstall` removes it only when it points at lumira. (#182)
+
 ## [1.13.0] - 2026-06-29
 
 ### Added
