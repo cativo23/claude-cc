@@ -302,7 +302,7 @@ describe('uninstall', () => {
     expect(output).toContain('Restored');
   });
 
-  it('removes both statusLine and subagentStatusLine when no backup exists', () => {
+  it('removes both lumira-owned keys (statusLine + subagentStatusLine) when no backup exists', () => {
     const current = {
       statusLine: { type: 'command', command: 'npx lumira@latest', padding: 0 },
       subagentStatusLine: { type: 'command', command: 'lumira subagent', padding: 0 },

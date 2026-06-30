@@ -62,7 +62,8 @@ export interface RateLimitWindow {
 
 export interface SubagentTask {
   id: string;
-  name: string;
+  /** Optional: the renderer falls back to `type` then `id` when absent. */
+  name?: string;
   type?: string;
   /** running | completed | error — but treat as open-ended; unknown states render plainly. */
   status?: string;
