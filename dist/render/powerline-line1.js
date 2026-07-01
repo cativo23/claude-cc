@@ -69,6 +69,20 @@ function buildSegments(ctx, palette, c) {
             priority: 80,
         });
     }
+    if (display.repo && input.repo) {
+        const { owner, name, url } = input.repo;
+        // Priority 61 — above directory@60. Repo is git identity (owner/name of the
+        // remote), grouped with branch, so it survives narrow-terminal pressure a
+        // step longer than the local directory. Rendered before directory to keep
+        // the git-identity segments adjacent. Same dir-family background.
+        segments.push({
+            text: hyperlink(url, truncField(`${owner}/${name}`, 36)),
+            icon: icons.repo,
+            bg: palette.dirBg,
+            fg: palette.fg,
+            priority: 61,
+        });
+    }
     if (display.directory && input.cwd) {
         const dirName = basename(input.cwd) || input.cwd;
         segments.push({
@@ -77,19 +91,6 @@ function buildSegments(ctx, palette, c) {
             bg: palette.dirBg,
             fg: palette.fg,
             priority: 60,
-        });
-    }
-    if (display.repo && input.repo) {
-        const { owner, name, url } = input.repo;
-        // Priority 58 — below directory@60 and the addedDirs badge@59. Repo is the
-        // canonical remote identity (annotates the local dir), so it cedes first
-        // under narrow-terminal pressure. Same dir-family background as directory.
-        segments.push({
-            text: hyperlink(url, truncField(`${owner}/${name}`, 36)),
-            icon: icons.repo,
-            bg: palette.dirBg,
-            fg: palette.fg,
-            priority: 58,
         });
     }
     if (display.addedDirs && input.addedDirsCount != null && input.addedDirsCount > 0) {
