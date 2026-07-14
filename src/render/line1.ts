@@ -32,7 +32,20 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     left.push(branchStr);
   }
 
-  // Directory
+  // Repo segment — owner/name from workspace.repo, clickable to open the repo
+  // on its host. Sits right after branch: both are git-identity (where you are
+  // in the DAG + which remote it tracks), so they stay grouped. Distinct from
+  // the directory breadcrumb below (a local path): this is the canonical remote
+  // identity, and surfaces the owner that the bare cwd basename can't.
+  if (display.repo && input.repo) {
+    const { owner, name, url } = input.repo;
+    const repoLen = cols < 80 ? 14 : cols < 120 ? 24 : 36;
+    const label = c.brightBlue(`${icons.repo} ${truncField(`${owner}/${name}`, repoLen)}`);
+    left.push(hyperlink(url, label));
+  }
+
+  // Directory — local filesystem context (where on disk), orthogonal to the
+  // git identity above. Rendered after repo so the two git segments group.
   if (display.directory) {
     const cwd = input.cwd;
     if (cwd) {
@@ -44,17 +57,6 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
       // spaces and non-ASCII chars correctly.
       left.push(hyperlink(pathToFileURL(cwd).href, label));
     }
-  }
-
-  // Repo segment — owner/name from workspace.repo, clickable to open the repo
-  // on its host. Distinct from the directory breadcrumb above (a local path):
-  // this is the canonical remote identity, and surfaces the owner that the
-  // bare cwd basename can't.
-  if (display.repo && input.repo) {
-    const { owner, name, url } = input.repo;
-    const repoLen = cols < 80 ? 14 : cols < 120 ? 24 : 36;
-    const label = c.brightBlue(`${icons.repo} ${truncField(`${owner}/${name}`, repoLen)}`);
-    left.push(hyperlink(url, label));
   }
 
   // Added dirs badge — only when count > 0; warning color at >= 5

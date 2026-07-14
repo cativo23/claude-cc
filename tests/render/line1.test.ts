@@ -66,6 +66,17 @@ describe('renderLine1', () => {
     expect(out).toContain('https://github.com/cativo23/lumira');
   });
 
+  it('renders repo immediately after branch, before directory', () => {
+    const inputOverride = { workspace: { current_dir: '/home/user/checkout', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } } };
+    const out = stripAnsi(renderLine1(makeCtx({ git }, inputOverride), c));
+    const branchAt = out.indexOf('main');
+    const repoAt = out.indexOf('cativo23/lumira');
+    const dirAt = out.indexOf('checkout');
+    expect(branchAt).toBeGreaterThanOrEqual(0);
+    expect(repoAt).toBeGreaterThan(branchAt);
+    expect(dirAt).toBeGreaterThan(repoAt);
+  });
+
   it('hides the repo segment when display.repo is off', () => {
     const inputOverride = { workspace: { current_dir: '/x/project', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } } };
     const out = stripAnsi(renderLine1(makeCtx({ config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, repo: false } } }, inputOverride), c));
