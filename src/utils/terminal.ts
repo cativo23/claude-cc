@@ -41,12 +41,17 @@ export function getTermCols(): number {
 }
 
 // When stdout isn't a TTY (the statusline case — Claude Code pipes our output)
-// we still trust the resolved rawCols since proc-tree / COLUMNS / tput give the
-// real terminal width. The small 0.9 factor leaves 10% headroom for any chrome
-// the host renderer adds (separators, gutters) without aggressively starving
-// segments. Was 0.7 historically — too conservative for CC, where the
-// statusline uses the full terminal width.
-export function getLayoutCols(rawCols: number, isTTY: boolean, factor: number = 0.9): number {
+// we trust the resolved rawCols since proc-tree / COLUMNS / tput give the real
+// terminal width, and use the full width (factor 1.0). Earlier versions reserved
+// headroom (0.7, then 0.9) on the theory that CC appends chrome (separators,
+// gutters) to the statusline's own row. Inspecting a real render showed that is
+// not the case: CC's own hints ("bypass permissions …", "PR #…", "← for agents")
+// render on a SEPARATE line below the statusline, never appended to its row — so
+// the reservation was speculative and only ever showed up as empty space at the
+// far-right edge. Every renderer that treats `cols` as a width budget already
+// protects itself: line1/line2 via fitSegments and the powerline lines via
+// renderPowerline both subtract a proven 4-column margin (see text.ts / powerline.ts).
+export function getLayoutCols(rawCols: number, isTTY: boolean, factor: number = 1.0): number {
   if (isTTY) return rawCols;
   const clamped = Math.min(Math.max(factor, 0.3), 1.0);
   return Math.floor(rawCols * clamped);

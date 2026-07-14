@@ -38,8 +38,10 @@ describe('extractPpid from /proc/<pid>/stat', () => {
 
 describe('getLayoutCols', () => {
   it('returns raw cols when TTY', () => { expect(getLayoutCols(120, true)).toBe(120); });
-  it('applies default 0.9 reduction when not TTY (10% headroom for host chrome)', () => {
-    expect(getLayoutCols(120, false)).toBe(108);
+  // Default is full width (1.0): CC renders its hints on a separate line, not
+  // appended to the statusline row, so no chrome headroom is reserved.
+  it('uses full width when not TTY (default factor 1.0, no chrome reservation)', () => {
+    expect(getLayoutCols(120, false)).toBe(120);
   });
   it('applies custom reduction factor', () => { expect(getLayoutCols(100, false, 0.5)).toBe(50); });
   it('clamps factor between 0.3 and 1.0', () => {
