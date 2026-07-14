@@ -123,6 +123,7 @@ export const DEFAULT_DISPLAY = {
 };
 export const DEFAULT_CONFIG = {
     layout: 'auto',
+    line1Align: 'justified',
     // GSD on by default, mirroring GSD's own always-on statusline. Self-gates to
     // nothing when there's no .planning/STATE.md and no update-check cache, so
     // non-GSD users see no extra line and pay only a few cheap existsSync checks.

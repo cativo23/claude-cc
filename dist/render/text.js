@@ -53,13 +53,21 @@ export function truncatePath(str, maxLen = 20) {
         return filename.slice(0, maxLen - 3) + '...';
     return '.../' + filename;
 }
+// The usable width for a status line: total cols minus a 4-cell right margin.
+// The margin absorbs terminals that reserve a trailing cell and prevents the
+// off-by-one wraps that motivated it. Kept as the single source of this
+// constant so callers computing leftover/fill width can't drift out of sync
+// with fitSegments' own bound.
+export function safeCols(cols) {
+    return Math.max(1, cols - 4);
+}
 export function fitSegments(left, right, sep, cols) {
-    const safeCols = Math.max(1, cols - 4);
+    const safe = safeCols(cols);
     for (let l = left.length; l >= 1; l--) {
         const lSlice = left.slice(0, l);
         const leftStr = lSlice.join(sep);
         const leftW = displayWidth(leftStr);
-        if (leftW > safeCols)
+        if (leftW > safe)
             continue;
         for (let r = right.length; r >= 0; r--) {
             const rSlice = right.slice(0, r);
@@ -67,8 +75,8 @@ export function fitSegments(left, right, sep, cols) {
                 return leftStr;
             const rightStr = rSlice.join(sep);
             const rightW = displayWidth(rightStr);
-            if (leftW + 1 + rightW <= safeCols) {
-                const gap = Math.max(1, safeCols - leftW - rightW);
+            if (leftW + 1 + rightW <= safe) {
+                const gap = Math.max(1, safe - leftW - rightW);
                 return leftStr + ' '.repeat(gap) + rightStr;
             }
         }
@@ -77,7 +85,7 @@ export function fitSegments(left, right, sep, cols) {
     // Safe because left[0] is the model name (~20 chars) — callers must ensure
     // the first segment is short enough to truncate gracefully.
     // Strip ANSI before hard-truncating to avoid cutting mid-escape-sequence.
-    return truncField(stripAnsi(left[0] ?? ''), safeCols);
+    return truncField(stripAnsi(left[0] ?? ''), safe);
 }
 export function padLine(left, right, cols) {
     const leftW = displayWidth(left);

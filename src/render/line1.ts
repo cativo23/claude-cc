@@ -9,7 +9,7 @@ import type { Colors } from './colors.js';
 import type { RenderContext } from '../types.js';
 
 export function renderLine1(ctx: RenderContext, c: Colors): string {
-  const { input, git, transcript, config: { display }, cols, icons, memory, tokenSpeed } = ctx;
+  const { input, git, transcript, config: { display, line1Align }, cols, icons, memory, tokenSpeed } = ctx;
   const left: string[] = [];
   const right: string[] = [];
 
@@ -137,11 +137,14 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
   }
 
   // Version — link to the Claude Code npm page for quick changelog lookup.
+  // Kept as its own segment (not pushed straight into `right`) because packed
+  // mode pins it alone to the true right edge while everything else packs left.
+  let versionSeg: string | null = null;
   if (display.version && input.version) {
-    right.push(hyperlink(
+    versionSeg = hyperlink(
       `https://www.npmjs.com/package/@anthropic-ai/claude-code/v/${encodeURIComponent(input.version)}`,
       c.dim(`v${input.version}`),
-    ));
+    );
   }
 
   // Custom commands (issue #143 phase 3) — appended last on the left so they
@@ -152,6 +155,16 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     if (seg) left.push(seg);
   }
 
-  if (left.length === 0 && right.length === 0) return '';
-  return fitSegments(left, right, SEP, cols);
+  if (left.length === 0 && right.length === 0 && !versionSeg) return '';
+  // packed: pack every non-version segment tightly to the left with a single
+  // separator (no forced middle gap), leaving ONLY the version string pinned to
+  // the true right edge — the same idiom line2 uses for its small right-anchored
+  // cluster. fitSegments already leaves a gap before a short right array, and
+  // drops it whole when it can't fit (version vanishes rather than truncating on
+  // a narrow terminal — an accepted all-or-nothing tradeoff, see README).
+  if (line1Align === 'packed') {
+    return fitSegments(left.concat(right), versionSeg ? [versionSeg] : [], SEP, cols);
+  }
+  // justified: version rejoins the tail of the right cluster, pinned to the edge.
+  return fitSegments(left, versionSeg ? [...right, versionSeg] : right, SEP, cols);
 }

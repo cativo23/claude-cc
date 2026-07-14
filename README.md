@@ -321,6 +321,7 @@ Create `~/.config/lumira/config.json`:
   "theme": "tokyo-night",
   "icons": "nerd",
   "style": "classic",
+  "line1Align": "justified",
   "powerline": { "style": "auto" },
   "gsd": false,
   "colors": { "mode": "auto" },
@@ -364,7 +365,7 @@ Create `~/.config/lumira/config.json`:
 }
 ```
 
-All fields are optional — defaults are shown above. `display.health` defaults to `false` (opt-in widget).
+All fields are optional — defaults are shown above. `display.health` defaults to `false` (opt-in widget). `line1Align` controls line 1's classic layout: `"justified"` (default) pins the left cluster to the start and the right cluster to the end; `"packed"` packs every segment tightly to the left with no forced middle gap, except the app version string, which stays pinned to the true right edge (the same idiom line 2 uses for its small right-anchored indicators). On a terminal too narrow to fit the version alongside the packed content, the version disappears entirely rather than truncating — an intentional all-or-nothing tradeoff. Powerline mode always packs.
 
 **Context bar thresholds** — `contextWarningThreshold` (default 70) and `contextCriticalThreshold` (default 85) control when the bar transitions through yellow/orange/red. Both are clamped to `[0, 100]` and `warning < critical` is required (invalid pairs fall back to defaults with a one-shot stderr warning). Lower them for earlier warnings, raise them if your workflow tolerates fuller buffers.
 
