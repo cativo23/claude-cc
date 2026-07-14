@@ -12,7 +12,11 @@ export function displayWidth(str: string): number {
     // below. Without this exclusion the catch-all `>= 0x1F000` would treat
     // them as 2 cells and break `fitSegments` layout calculations.
     if (cp >= 0xF0000 && cp <= 0xFFFFF) { w += 1; continue; }
-    if (cp >= 0x1F000 || (cp >= 0x2300 && cp <= 0x257F) || (cp >= 0x25A0 && cp <= 0x25FF) ||
+    // 0x2300–0x24FF covers wide Misc-Technical / Enclosed-Alphanumeric symbols
+    // but STOPS before the Box Drawing block (U+2500–U+257F), whose glyphs —
+    // including │ (U+2502), lumira's default SEP separator — are single-cell.
+    // Counting them as 2 over-reserved width on every separated line.
+    if (cp >= 0x1F000 || (cp >= 0x2300 && cp <= 0x24FF) || (cp >= 0x25A0 && cp <= 0x25FF) ||
         (cp >= 0x2600 && cp <= 0x27BF) || (cp >= 0x2B00 && cp <= 0x2BFF) ||
         (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3000 && cp <= 0x303F) || (cp >= 0xFF00 && cp <= 0xFFEF)) {
       w += 2;

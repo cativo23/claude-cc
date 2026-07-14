@@ -8,6 +8,12 @@ describe('displayWidth', () => {
   it('counts CJK as 2', () => { expect(displayWidth('\u4E16')).toBe(2); });
   it('counts emoji as 2', () => { expect(displayWidth('\u{1F600}')).toBe(2); });
   it('counts block chars as 1', () => { expect(displayWidth('\u2588\u2591')).toBe(2); });
+  // Box Drawing block (U+2500\u2013U+257F) is always single-cell. The vertical bar
+  // U+2502 is lumira's default segment separator (SEP), so miscounting it as 2
+  // over-reserves width on every line and makes right-anchored content misalign
+  // between lines (each line has a different separator count).
+  it('counts box-drawing separator \u2502 (U+2502) as 1', () => { expect(displayWidth('\u2502')).toBe(1); });
+  it('counts box-drawing chars as 1', () => { expect(displayWidth('\u2500\u2502\u250c\u2510\u2514\u2518')).toBe(6); });
   // Nerd Font BMP-PUA (fa-robot U+F418) and Supplementary PUA-A
   // (nf-md-battery U+F0083) glyphs both render single-cell on patched fonts;
   // width must reflect that or fitSegments over-reserves space.
