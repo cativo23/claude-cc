@@ -35,7 +35,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 ![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-2d3748?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCI+PHBhdGggZD0iTTY0IDEyOEMzNS44IDEyOCAxMyAxMDUuMiAxMyA3N0MxMyA0OC44IDM1LjggMjYgNjQgMjZjMjguMiAwIDUxIDIyLjggNTEgNTFzLTIyLjggNTEtNTEgNTF6IiBmaWxsPSIjMjQyNTJGIi8+PC9zdmc+)
 ![Qwen Code](https://img.shields.io/badge/Qwen_Code-compatible-6156FF)
 
-> **What's new in v1.9.0:** lumira is now a **Claude Code plugin** — install with `/plugin marketplace add cativo23/lumira`, no npm required. Run `/lumira:setup` to activate. v1.8.2 made the installer write a fast per-render command (~10× faster). v1.8.1 brought the GSD widget to parity with GSD 1.42.3. Earlier: compaction counter `⊙ N` (v1.8.0), added-dirs badge + worktree breadcrumb (v1.7.0), [`lumira stats` CLI](#stats-cli) (v1.5), `API N%` latency widget (v1.4.0), 7-day quota projection (v1.3.0).
+> **What's new in v1.15.0:** `line1Align: "packed"` packs line 1 tightly to the left with only the version pinned to the true right edge; the repo segment now sits next to the branch (git identity grouped, `branch → repo → directory`); and a Box Drawing width fix (the `│` separator was miscounted) aligns every line to the real terminal edge. Recent highlights: [subagent panel rows](#subagent-rows) (v1.14), extended-thinking badge (v1.12), [PR widget](#features) (v1.11), repo-identity segment + a full [feature comparison](#how-lumira-compares) (v1.10–v1.13). Still a **Claude Code plugin** — `/plugin marketplace add cativo23/lumira`, no npm required; run `/lumira:setup` to activate.
 
 ## Table of contents
 
@@ -487,9 +487,10 @@ PRs welcome — particularly for new themes (one of the most common contribution
 
 ### What's next
 
-- **v1.0** — soak window on v0.7.x, then tagging stable. CLI flags, preset names, and config schema are considered frozen from this point.
 - **Themes** — community theme contributions welcome via the theme PR template.
 - **Backlog** — incremental transcript parsing for very large sessions (deferred; full re-parse stays under budget for real-world transcripts).
+
+CLI flags, preset names, and the config schema have been stable since v1.0 — additive changes only.
 
 For security issues, see [SECURITY.md](SECURITY.md).
 
