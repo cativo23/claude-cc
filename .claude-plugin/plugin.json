@@ -1,6 +1,6 @@
 {
   "name": "lumira",
-  "version": "1.15.0",
+  "version": "1.15.1",
   "description": "Real-time statusline HUD for Claude Code and Qwen Code — session analytics, API latency, 7-day quota projection, auto-compact warnings, 7 themes, powerline. Zero runtime deps.",
   "author": {
     "name": "Carlos Cativo"
