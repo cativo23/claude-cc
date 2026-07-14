@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.1] - 2026-07-14
+
+### Documentation
+
+- Synced docs with the v1.15.0 changes: the README "What's new" banner was refreshed (it had been frozen at v1.9.0 and never mentioned v1.10–v1.15), the obsolete "What's next → v1.0" note was removed (v1.0 shipped long ago), and the `/lumira` configuration skill (`skills/lumira/SKILL.md`) now documents the `line1Align` field with an example. No runtime code changed.
+
 ## [1.15.0] - 2026-07-14
 
 ### Added
@@ -617,7 +623,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.15.1...HEAD
+[1.15.1]: https://github.com/cativo23/lumira/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/cativo23/lumira/compare/v1.14.0...v1.15.0
 [1.6.0]: https://github.com/cativo23/lumira/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/cativo23/lumira/compare/v1.4.1...v1.5.0

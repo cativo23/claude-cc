@@ -30,6 +30,7 @@ Your job: read the user's current config, translate their natural-language reque
 | `icons` | string | `"nerd"` \| `"emoji"` \| `"none"` | Default `"nerd"` (requires Nerd Font) |
 | `theme` | string | `"dracula"` \| `"nord"` \| `"tokyo-night"` \| `"catppuccin"` \| `"monokai"` \| `"gruvbox"` \| `"solarized"` | Requires `colors.mode: "truecolor"` to take effect |
 | `style` | string | `"classic"` \| `"powerline"` | Visual style for line 1 |
+| `line1Align` | string | `"justified"` \| `"packed"` | Line 1 classic layout. `"justified"` (default) pins the left cluster to the start and the right cluster to the end. `"packed"` packs everything tightly to the left, leaving only the version pinned to the true right edge. No-op in powerline mode (always packs). |
 | `powerline.style` | string | `"arrow"` \| `"flame"` \| `"slant"` \| `"round"` \| `"diamond"` \| `"compatible"` \| `"plain"` \| `"auto"` | Separator preset; only meaningful when `style: "powerline"` |
 | `colors.mode` | string | `"auto"` \| `"named"` \| `"256"` \| `"truecolor"` | Color depth |
 | `gsd` | boolean | `true` \| `false` | Show GSD task info section |
@@ -78,6 +79,13 @@ User intent → minimal JSON patch (assume existing config is preserved unless e
   "powerline": { "style": "flame" },
   "theme": "dracula",
   "colors": { "mode": "truecolor" }
+}
+```
+
+**"pegá todo a la izquierda, sacá el hueco del medio"** / "packed line 1"
+```json
+{
+  "line1Align": "packed"
 }
 ```
 
