@@ -196,6 +196,7 @@ function mergeConfig(rawIn) {
         raw = { ...raw, preset: 'minimal' };
     }
     const layout = ['multiline', 'singleline', 'auto'].includes(raw.layout) ? raw.layout : DEFAULT_CONFIG.layout;
+    const line1Align = ['justified', 'packed'].includes(raw.line1Align) ? raw.line1Align : DEFAULT_CONFIG.line1Align;
     const colors = { ...DEFAULT_CONFIG.colors };
     if (raw.colors && typeof raw.colors === 'object') {
         const m = raw.colors.mode;
@@ -204,6 +205,7 @@ function mergeConfig(rawIn) {
     }
     const result = {
         layout,
+        line1Align,
         gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd,
         display: { ...DEFAULT_DISPLAY },
         colors,

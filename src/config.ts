@@ -223,6 +223,7 @@ function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
     raw = { ...raw, preset: 'minimal' };
   }
   const layout = (['multiline', 'singleline', 'auto'] as const).includes(raw.layout as never) ? raw.layout as HudConfig['layout'] : DEFAULT_CONFIG.layout;
+  const line1Align = (['justified', 'packed'] as const).includes(raw.line1Align as never) ? raw.line1Align as HudConfig['line1Align'] : DEFAULT_CONFIG.line1Align;
   const colors: ColorConfig = { ...DEFAULT_CONFIG.colors };
   if (raw.colors && typeof raw.colors === 'object') {
     const m = (raw.colors as Record<string, unknown>).mode;
@@ -230,6 +231,7 @@ function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
   }
   const result: HudConfig = {
     layout,
+    line1Align,
     gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd,
     display: { ...DEFAULT_DISPLAY },
     colors,

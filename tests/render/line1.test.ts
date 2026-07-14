@@ -5,7 +5,7 @@ import { EMPTY_GIT, EMPTY_TRANSCRIPT, DEFAULT_CONFIG, DEFAULT_DISPLAY } from '..
 import type { ClaudeCodeInput, GitStatus, RenderContext } from '../../src/types.js';
 import { NERD_ICONS } from '../../src/render/icons.js';
 import { normalize } from '../../src/normalize.js';
-import { displayWidth } from '../../src/render/text.js';
+import { displayWidth, safeCols } from '../../src/render/text.js';
 import { applyPreset } from '../../src/config.js';
 
 const c = createColors('named');
@@ -231,6 +231,66 @@ describe('renderLine1', () => {
       ctx.config = { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, agent: false } };
       const out = stripAnsi(renderLine1(ctx, c));
       expect(out).not.toContain(cube);
+    });
+  });
+
+  // ── line1Align (packed vs justified) ─────────────────────────────
+  describe('line1Align', () => {
+    it('justified layout (default) pins right content to the edge with a wide middle gap', () => {
+      const out = stripAnsi(renderLine1(makeCtx({ git }), c));
+      // The forced middle gap shows up as a long run of spaces.
+      expect(out).toMatch(/ {5,}/);
+    });
+
+    it('packed layout packs non-version segments to the left and pins version to the right', () => {
+      const ctx = makeCtx({ git, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY }, line1Align: 'packed' } });
+      const out = stripAnsi(renderLine1(ctx, c));
+      // Right-cluster content (duration) is packed into the left flow, before version.
+      expect(out).toContain('│');
+      expect(out).toContain('v2.0.0');
+      expect(out.indexOf('1m00s')).toBeGreaterThan(-1);
+      expect(out.indexOf('1m00s')).toBeLessThan(out.indexOf('v2.0.0'));
+    });
+
+    it('explicit line1Align "justified" is byte-identical to the default', () => {
+      const def = renderLine1(makeCtx({ git }), c);
+      const explicit = renderLine1(makeCtx({ git, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY }, line1Align: 'justified' } }), c);
+      expect(explicit).toBe(def);
+    });
+
+    it('packed packs content left and pins version to the true right edge on a wide terminal', () => {
+      const ctx = makeCtx({ git, cols: 180, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY }, line1Align: 'packed' } });
+      const out = stripAnsi(renderLine1(ctx, c));
+      // Left-flow content (duration) sits before the gap …
+      const durIdx = out.indexOf('1m00s');
+      const verIdx = out.indexOf('v2.0.0');
+      expect(durIdx).toBeGreaterThan(-1);
+      expect(verIdx).toBeGreaterThan(durIdx);
+      // … and version is anchored at the true right edge (safeCols = cols - 4).
+      expect(displayWidth(out)).toBe(safeCols(180));
+    });
+
+    it('packed with version disabled leaves nothing anchored to the right edge', () => {
+      const ctx = makeCtx({
+        cols: 180,
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, version: false }, line1Align: 'packed' },
+      });
+      const out = stripAnsi(renderLine1(ctx, c));
+      // No version → no artificial right anchor, so content stops short of the edge.
+      expect(out).not.toContain('v2.0.0');
+      expect(displayWidth(out)).toBeLessThan(safeCols(180));
+    });
+
+    it('packed drops version entirely when it cannot fit alongside packed left content', () => {
+      // Accepted, researched tradeoff: with only version in the right-pinned
+      // group, a too-narrow terminal makes it vanish whole rather than truncate
+      // (same all-or-nothing behavior ccstatusline/starship/p10k ship). Not a bug.
+      const ctx = makeCtx(
+        { git, cols: 40, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY }, line1Align: 'packed' } },
+        { model: 'M'.repeat(100) },
+      );
+      const out = stripAnsi(renderLine1(ctx, c));
+      expect(out).not.toContain('v2.0.0');
     });
   });
 

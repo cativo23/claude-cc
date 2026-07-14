@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { displayWidth, truncField, truncatePath, fitSegments, padLine } from '../../src/render/text.js';
+import { displayWidth, truncField, truncatePath, fitSegments, padLine, safeCols } from '../../src/render/text.js';
 
 describe('displayWidth', () => {
   it('measures plain ASCII', () => { expect(displayWidth('hello')).toBe(5); });
@@ -74,6 +74,16 @@ describe('fitSegments', () => {
     const left = 'A'.repeat(16); // safeCols = 20-4 = 16
     const result = fitSegments([left], [], ' | ', 20);
     expect(result).toBe(left);
+  });
+});
+
+describe('safeCols', () => {
+  it('reserves a 4-cell right margin', () => { expect(safeCols(120)).toBe(116); });
+  it('never returns below 1', () => { expect(safeCols(2)).toBe(1); });
+  it('matches the width fitSegments fits into', () => {
+    // fitSegments must not exceed safeCols(cols) for the same cols.
+    const result = fitSegments(['X'.repeat(200)], [], ' | ', 50);
+    expect(displayWidth(result)).toBeLessThanOrEqual(safeCols(50));
   });
 });
 

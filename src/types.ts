@@ -220,6 +220,18 @@ export interface HudConfig {
   icons?: 'nerd' | 'emoji' | 'none';
   /** Visual style for line1 — 'classic' (pipe-separated) or 'powerline' (colored segments). */
   style?: 'classic' | 'powerline';
+  /**
+   * Line 1 layout mode (classic renderer only).
+   *   justified → left cluster pinned to the start, right cluster to the end,
+   *               with a flexible gap between (default; edge-to-edge look).
+   *   packed    → every segment packed tightly to the left with no forced
+   *               middle gap, EXCEPT the version string, which stays pinned to
+   *               the true right edge (mirrors line 2's small right cluster).
+   *               On a too-narrow terminal the version drops whole rather than
+   *               truncating — an accepted all-or-nothing tradeoff.
+   * Powerline mode always packs left-to-right, so this is a no-op there.
+   */
+  line1Align?: 'justified' | 'packed';
   powerline?: {
     /** Separator glyph preset. Defaults to 'auto' (nerd font → arrow, else compatible). */
     style?: PowerlineStyleName;
@@ -459,6 +471,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
 
 export const DEFAULT_CONFIG: HudConfig = {
   layout: 'auto',
+  line1Align: 'justified',
   // GSD on by default, mirroring GSD's own always-on statusline. Self-gates to
   // nothing when there's no .planning/STATE.md and no update-check cache, so
   // non-GSD users see no extra line and pay only a few cheap existsSync checks.

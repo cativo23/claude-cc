@@ -164,6 +164,26 @@ describe('loadConfig', () => {
       expect(loadConfig(dir).powerline?.style).toBe(s);
     }
   });
+  it('parses line1Align: "packed"', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"line1Align":"packed"}');
+    expect(loadConfig(dir).line1Align).toBe('packed');
+  });
+  it('parses line1Align: "justified"', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"line1Align":"justified"}');
+    expect(loadConfig(dir).line1Align).toBe('justified');
+  });
+  it('falls back to justified on an invalid line1Align value', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"line1Align":"bogus"}');
+    expect(loadConfig(dir).line1Align).toBe('justified');
+  });
+  it('defaults line1Align to justified when omitted', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"style":"classic"}');
+    expect(loadConfig(dir).line1Align).toBe('justified');
+  });
 
   describe('context bar thresholds', () => {
     beforeEach(() => { _resetMigrationFlags(); });
