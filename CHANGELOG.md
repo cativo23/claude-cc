@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Layout-cols headroom factor raised from 0.9 to 1.0 when stdout is non-TTY.** The statusline now uses the full detected terminal width. The previous 10% reservation assumed Claude Code appends chrome (separators, gutters) to the statusline's own row; inspecting a real render disproved that — CC's own hints ("bypass permissions …", "PR #…", "← for agents") render on a separate line below the statusline, never on its row. So the reserved 10% never held anything, showing up only as empty space at the far-right edge. Dropping it is safe because every renderer that treats `cols` as a width budget already subtracts a proven 4-column margin internally (`fitSegments` for line1/line2, `renderPowerline` for the powerline lines); that `-4` bug-fix margin is untouched.
+
 ## [1.14.0] - 2026-06-29
 
 ### Added
