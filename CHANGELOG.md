@@ -5,11 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.15.0] - 2026-07-14
+
+### Added
+
+- **`line1Align` config (`"justified" | "packed"`, default `"justified"`).** New top-level key controlling line-1 horizontal layout in the classic renderer. `"justified"` is the current behavior (left cluster pinned to the start, right cluster to the end, gap between). `"packed"` chains every segment tightly to the left except the version string, which stays pinned to the true right edge — the same idiom line 2 uses for its right-anchored indicators — removing the large mid-line gap on wide terminals. Defaults preserve existing output byte-for-byte. On a terminal too narrow to fit the version, it drops whole rather than truncating (accepted tradeoff, matches ccstatusline/starship/oh-my-posh). Powerline already packs left-to-right, so this is classic-only.
 
 ### Changed
 
+- **Line 1 groups the repo segment next to branch, before directory.** `branch` and `repo` are both git-identity (position in the DAG + which remote it tracks); the local `directory` is orthogonal filesystem context. Rendering order is now `branch → repo → directory` in both classic and powerline renderers, and the powerline repo segment's priority was bumped above directory so git identity survives narrow-terminal eviction a step longer. (#185)
 - **Layout-cols headroom factor raised from 0.9 to 1.0 when stdout is non-TTY.** The statusline now uses the full detected terminal width. The previous 10% reservation assumed Claude Code appends chrome (separators, gutters) to the statusline's own row; inspecting a real render disproved that — CC's own hints ("bypass permissions …", "PR #…", "← for agents") render on a separate line below the statusline, never on its row. So the reserved 10% never held anything, showing up only as empty space at the far-right edge. Dropping it is safe because every renderer that treats `cols` as a width budget already subtracts a proven 4-column margin internally (`fitSegments` for line1/line2, `renderPowerline` for the powerline lines); that `-4` bug-fix margin is untouched.
+
+### Fixed
+
+- **Box Drawing glyphs now count as a single cell in `displayWidth`.** The wide-glyph range `0x2300–0x257F` swept in the Box Drawing block (`U+2500–U+257F`), whose glyphs are all single-cell — including `│` (`U+2502`), lumira's default segment separator (`SEP`). Every separated line was over-counted by one cell per separator, so right-anchored content drew short of the true edge, and lines with different separator counts (line 1 vs line 2) misaligned relative to each other — visible once `line1Align: "packed"` pinned the version to the edge. The range now stops at `0x24FF`, so alignment matches the real drawn width.
 
 ## [1.14.0] - 2026-06-29
 
@@ -608,7 +617,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/cativo23/lumira/compare/v1.14.0...v1.15.0
 [1.6.0]: https://github.com/cativo23/lumira/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/cativo23/lumira/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/cativo23/lumira/compare/v1.4.0...v1.4.1
