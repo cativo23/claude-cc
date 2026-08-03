@@ -1010,7 +1010,7 @@ describe('renderPowerlineLine1', () => {
       expect(out).not.toContain('↳');
     });
 
-    it('powerline_renderer_should_emit_breadcrumb_as_single_segment_with_correct_priority', () => {
+    it('powerline_renderer_should_emit_breadcrumb_as_single_segment_grouped_with_git-identity_before_worktree', () => {
       const ctx = makeCtx({
         input: {
           ...normalize({
@@ -1018,6 +1018,7 @@ describe('renderPowerlineLine1', () => {
             session_id: 't',
             context_window: { used_percentage: 10, remaining_percentage: 90 },
             cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            workspace: { current_dir: '/home/user/checkout', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } },
             worktree: { name: 'feat-wt', original_branch: 'develop' },
           }),
         },
@@ -1026,11 +1027,16 @@ describe('renderPowerlineLine1', () => {
         cols: 250,
       });
       const out = stripAnsi(renderPowerlineLine1(ctx, 'truecolor', null));
-      const worktreeIdx = out.indexOf('feat-wt');
+      const branchIdx = out.indexOf('feat/x');
+      const repoIdx = out.indexOf('cativo23/lumira');
       const breadcrumbIdx = out.indexOf('↳ develop');
-      expect(worktreeIdx).toBeGreaterThanOrEqual(0);
-      expect(breadcrumbIdx).toBeGreaterThanOrEqual(0);
-      expect(worktreeIdx).toBeLessThan(breadcrumbIdx);
+      const dirIdx = out.indexOf('checkout');
+      const worktreeIdx = out.indexOf('feat-wt');
+      expect(branchIdx).toBeGreaterThanOrEqual(0);
+      expect(repoIdx).toBeGreaterThan(branchIdx);
+      expect(breadcrumbIdx).toBeGreaterThan(repoIdx);
+      expect(dirIdx).toBeGreaterThan(breadcrumbIdx);
+      expect(worktreeIdx).toBeGreaterThan(dirIdx);
     });
   });
 });

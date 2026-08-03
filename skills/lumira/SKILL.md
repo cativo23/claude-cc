@@ -34,6 +34,7 @@ Your job: read the user's current config, translate their natural-language reque
 | `powerline.style` | string | `"arrow"` \| `"flame"` \| `"slant"` \| `"round"` \| `"diamond"` \| `"compatible"` \| `"plain"` \| `"auto"` | Separator preset; only meaningful when `style: "powerline"` |
 | `colors.mode` | string | `"auto"` \| `"named"` \| `"256"` \| `"truecolor"` | Color depth |
 | `gsd` | boolean | `true` \| `false` | Show GSD task info section |
+| `refreshInterval` | number | integer >= 1 | Seconds between forced re-renders (in addition to CC's event-driven ones) — keeps the clock/quota fresh in idle sessions. Unset by default. Transcribed into `settings.json`'s `statusLine.refreshInterval` by `lumira install` — never into `subagentStatusLine`. |
 
 ### Presets — what they do
 

@@ -44,8 +44,18 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
     left.push(hyperlink(url, label));
   }
 
+  // Worktree origin-branch breadcrumb — only when original_branch is present,
+  // there IS a current branch to contrast against (anchor), and they differ.
+  // Grouped with branch+repo (git-identity), before directory (local
+  // filesystem context, orthogonal) — same rationale as the repo segment above.
+  const branchForBreadcrumb = input.gitBranch || git.branch;
+  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch && branchForBreadcrumb && input.worktreeOriginalBranch !== branchForBreadcrumb) {
+    const truncated = truncField(input.worktreeOriginalBranch, 15);
+    left.push(c.gray(`↳ ${truncated}`));
+  }
+
   // Directory — local filesystem context (where on disk), orthogonal to the
-  // git identity above. Rendered after repo so the two git segments group.
+  // git identity above. Rendered after repo/breadcrumb so the git segments group.
   if (display.directory) {
     const cwd = input.cwd;
     if (cwd) {
@@ -63,14 +73,6 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
   if (display.addedDirs && input.addedDirsCount != null && input.addedDirsCount > 0) {
     const badge = `+${input.addedDirsCount} dirs`;
     left.push(input.addedDirsCount >= 5 ? c.orange(badge) : c.dim(badge));
-  }
-
-  // Worktree origin-branch breadcrumb — only when original_branch is present,
-  // there IS a current branch to contrast against (anchor), and they differ.
-  const branchForBreadcrumb = input.gitBranch || git.branch;
-  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch && branchForBreadcrumb && input.worktreeOriginalBranch !== branchForBreadcrumb) {
-    const truncated = truncField(input.worktreeOriginalBranch, 15);
-    left.push(c.gray(`↳ ${truncated}`));
   }
 
   // Duration (Claude only)

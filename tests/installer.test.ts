@@ -276,6 +276,43 @@ describe('install', () => {
       expect(readSettings().subagentStatusLine.command).toBe('my-own-renderer');
     });
   });
+
+  describe('refreshInterval', () => {
+    const readSettings = () => JSON.parse(readFileSync(settingsPath, 'utf8'));
+
+    it('writes refreshInterval into statusLine when set in config', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 5 }));
+      await install(baseOpts());
+      expect(readSettings().statusLine.refreshInterval).toBe(5);
+    });
+
+    it('omits refreshInterval from statusLine when not set in config', async () => {
+      await install(baseOpts());
+      expect(readSettings().statusLine.refreshInterval).toBeUndefined();
+    });
+
+    it('never writes refreshInterval into subagentStatusLine, even when configured', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 5 }));
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => true, confirm: async () => true,
+      });
+      await completeWizard(stdin);
+      await promise;
+      const s = readSettings();
+      expect(s.statusLine.refreshInterval).toBe(5);
+      expect(s.subagentStatusLine.refreshInterval).toBeUndefined();
+    });
+
+    it('updates refreshInterval on an already-optimal statusLine (re-run after editing config)', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 10 }));
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readSettings().statusLine.refreshInterval).toBe(10);
+    });
+  });
 });
 
 describe('uninstall', () => {

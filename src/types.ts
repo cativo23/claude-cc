@@ -237,6 +237,16 @@ export interface HudConfig {
     style?: PowerlineStyleName;
   };
   /**
+   * Re-run the statusline command every N seconds, in addition to Claude
+   * Code's normal event-driven renders — keeps idle-session data (clock,
+   * quota projection) fresh when no events are firing. This is CC's own
+   * `statusLine.refreshInterval` setting (docs: minimum 1); the installer
+   * transcribes this value into settings.json. Unset by default (event-driven
+   * only). Scoped to the main `statusLine` only — `subagentStatusLine` isn't
+   * included because subagent panels already update on token-stream events.
+   */
+  refreshInterval?: number;
+  /**
    * Custom Command widget (issue #143). Allows users to embed the output of
    * arbitrary commands in the statusline. Security gate: `enabled` defaults
    * to `false` and the renderer must short-circuit on `enabled: false` so an

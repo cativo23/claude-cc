@@ -263,6 +263,12 @@ function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
       result.powerline = { style: plRaw.style as NonNullable<HudConfig['powerline']>['style'] };
     }
   }
+  // refreshInterval — CC's documented minimum is 1 (seconds); clamp up rather
+  // than reject so a typo'd 0/negative value degrades to "refresh every
+  // second" instead of silently doing nothing.
+  if (typeof raw.refreshInterval === 'number' && Number.isFinite(raw.refreshInterval)) {
+    result.refreshInterval = Math.max(1, Math.trunc(raw.refreshInterval));
+  }
   return result;
 }
 
