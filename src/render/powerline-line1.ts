@@ -26,7 +26,7 @@ import {
  *   model:             100  (always kept)
  *   branch:             80
  *   repo:               61  (git-identity cluster with branch; data-gated)
- *   worktreeBreadcrumb: 62  (git-identity cluster with branch/repo; data-gated) — see note below
+ *   worktreeBreadcrumb: 60.5 (between repo and dir; data-gated) — see note below
  *   dir:                60
  *   addedDirs:          59  (renders after dir; data-gated; evicts before dir under pressure)
  *   task:               40
@@ -104,15 +104,16 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import(
     const currentBranch = input.gitBranch || git.branch;
     // Only render when there is a current branch to contrast against — the
     // breadcrumb is meaningless without an anchor (no branch shown / branch off).
-    // Priority 62 — above directory@60, below repo@61. Grouped with the rest of
-    // the git-identity cluster (branch/repo) so it evicts together with them
-    // under narrow-terminal pressure, same rationale as repo's placement above.
+    // Priority 60.5 — above directory@60, below repo@61. It must evict before
+    // repo (the breadcrumb annotates repo/branch identity, so it shouldn't
+    // outlive what it's annotating) but after the local directory/addedDirs
+    // block, since it's still part of the git-identity cluster.
     if (currentBranch && input.worktreeOriginalBranch !== currentBranch) {
       segments.push({
         text: `↳ ${truncField(input.worktreeOriginalBranch, 15)}`,
         bg: palette.versionBg,
         fg: palette.fg,
-        priority: 62,
+        priority: 60.5,
       });
     }
   }

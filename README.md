@@ -202,7 +202,7 @@ If installed from source, point at the compiled entry:
 }
 ```
 
-Set `refreshInterval` in lumira's own `~/.config/lumira/config.json` instead (see [Configuration](#configuration)) and re-run `lumira install` to have it transcribed into `settings.json` for you. It only applies to the main `statusLine` — `subagentStatusLine` isn't affected, since the agent panel already updates on token-stream events.
+Set `refreshInterval` in lumira's own `~/.config/lumira/config.json` instead (see [Configuration](#configuration)) and re-run `lumira install` to have it transcribed into `settings.json` for you. It only applies to the main `statusLine` — `subagentStatusLine` isn't affected, since the agent panel already updates on token-stream events. Values below `1` (CC's documented minimum) round up to `1`, and non-integers truncate — a value that low means one process spawn per second for the session's lifetime, so prefer `5`+ unless you specifically need second-level freshness.
 
 **Clickable footer badges (`footerLinksRegexes`)** — a separate, native Claude Code feature (no lumira script involved): configure `footerLinksRegexes` in `settings.json` to turn IDs that appear in the conversation (ticket numbers, PR links, etc.) into clickable badges in CC's footer row, below the status line. See the [Claude Code settings docs](https://code.claude.com/docs/en/settings#footer-link-badges).
 

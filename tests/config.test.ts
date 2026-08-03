@@ -206,10 +206,13 @@ describe('loadConfig', () => {
       writeFileSync(join(dir, 'config.json'), '{"refreshInterval":2.9}');
       expect(loadConfig(dir).refreshInterval).toBe(2);
     });
-    it('ignores a non-numeric value (stays undefined)', () => {
+    it('ignores a non-numeric value (stays undefined) and warns once to stderr', () => {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, 'config.json'), '{"refreshInterval":"5"}');
+      const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       expect(loadConfig(dir).refreshInterval).toBeUndefined();
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('refreshInterval'));
+      spy.mockRestore();
     });
     it('defaults to undefined when omitted', () => {
       mkdirSync(dir, { recursive: true });

@@ -48,8 +48,8 @@ export function renderLine1(ctx: RenderContext, c: Colors): string {
   // there IS a current branch to contrast against (anchor), and they differ.
   // Grouped with branch+repo (git-identity), before directory (local
   // filesystem context, orthogonal) — same rationale as the repo segment above.
-  const branchForBreadcrumb = input.gitBranch || git.branch;
-  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch && branchForBreadcrumb && input.worktreeOriginalBranch !== branchForBreadcrumb) {
+  // Reuses branchName (declared above for the branch segment) as the anchor.
+  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch && branchName && input.worktreeOriginalBranch !== branchName) {
     const truncated = truncField(input.worktreeOriginalBranch, 15);
     left.push(c.gray(`↳ ${truncated}`));
   }

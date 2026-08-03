@@ -312,6 +312,31 @@ describe('install', () => {
       await install({ ...baseOpts(), hasGlobalBin: () => true });
       expect(readSettings().statusLine.refreshInterval).toBe(10);
     });
+
+    it('preserves a manually-set refreshInterval in settings.json when config.json does not manage it', async () => {
+      // No config.json refreshInterval at all — lumira must not treat "unmanaged"
+      // as "remove it" and silently delete a value the user added by hand.
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0, refreshInterval: 5 } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readSettings().statusLine.refreshInterval).toBe(5);
+    });
+
+    it('preserves other statusLine fields when only refreshInterval changes', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 7 }));
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 2, unrelatedField: 'x' } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      const s = readSettings().statusLine;
+      expect(s.refreshInterval).toBe(7);
+      expect(s.padding).toBe(2);
+      expect(s.unrelatedField).toBe('x');
+    });
+
+    it('does not rewrite settings.json when nothing changed (no-op re-run)', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+      const before = readFileSync(settingsPath, 'utf8');
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readFileSync(settingsPath, 'utf8')).toBe(before);
+    });
   });
 });
 

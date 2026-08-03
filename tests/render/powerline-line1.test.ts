@@ -1038,5 +1038,43 @@ describe('renderPowerlineLine1', () => {
       expect(dirIdx).toBeGreaterThan(breadcrumbIdx);
       expect(worktreeIdx).toBeGreaterThan(dirIdx);
     });
+
+    it('evicts breadcrumb before repo but after directory under narrow-terminal pressure', () => {
+      const makeNarrowCtx = (cols: number) => makeCtx({
+        input: {
+          ...normalize({
+            model: 'Claude',
+            session_id: 't',
+            context_window: { used_percentage: 10, remaining_percentage: 90 },
+            cost: { total_cost_usd: 0, total_duration_ms: 0 },
+            workspace: { current_dir: '/home/user/checkout', repo: { host: 'github.com', owner: 'cativo23', name: 'lumira' } },
+            worktree: { name: 'feat-wt', original_branch: 'develop' },
+          }),
+        },
+        git: { ...EMPTY_GIT, branch: 'feat/x' },
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, worktreeBreadcrumb: true } },
+        cols,
+      });
+
+      // Wide enough for everything: repo, breadcrumb, and directory all present.
+      const wide = stripAnsi(renderPowerlineLine1(makeNarrowCtx(250), 'truecolor', null));
+      expect(wide).toContain('cativo23/lumira');
+      expect(wide).toContain('↳ develop');
+      expect(wide).toContain('checkout');
+
+      // Narrow enough to evict directory (priority 60, lowest of the three)
+      // first, while repo (61) and the breadcrumb (60.5, between the two)
+      // both still fit.
+      const midNarrow = stripAnsi(renderPowerlineLine1(makeNarrowCtx(65), 'truecolor', null));
+      expect(midNarrow).not.toContain('checkout');
+      expect(midNarrow).toContain('↳ develop');
+      expect(midNarrow).toContain('cativo23/lumira');
+
+      // Narrower still: breadcrumb (60.5) evicts next, before repo (61) —
+      // it must never outlive the git-identity segment it annotates.
+      const veryNarrow = stripAnsi(renderPowerlineLine1(makeNarrowCtx(50), 'truecolor', null));
+      expect(veryNarrow).not.toContain('↳ develop');
+      expect(veryNarrow).toContain('cativo23/lumira');
+    });
   });
 });

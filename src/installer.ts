@@ -36,8 +36,11 @@ function makeStatusLine(command: string, refreshInterval?: number) {
 // Does the already-written statusLine's refreshInterval differ from what
 // config.json now asks for? Drives the re-run-after-editing-config path so
 // changing `refreshInterval` in config.json takes effect without forcing a
-// full command rewrite.
+// full command rewrite. `desired: undefined` means "config.json doesn't
+// manage this field" — NOT "remove it" — so a value the user added to
+// settings.json by hand (or via an older lumira version) is left alone.
 function refreshIntervalChanged(current: unknown, desired: number | undefined): boolean {
+  if (desired === undefined) return false;
   const currentValue = current && typeof current === 'object'
     ? (current as Record<string, unknown>).refreshInterval
     : undefined;
@@ -351,7 +354,10 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     // config.json since the last install — keep it in sync either way.
     let needsWrite = false;
     if (refreshIntervalChanged(settings.statusLine, desiredRefreshInterval)) {
-      settings.statusLine = makeStatusLine(existingCmd, desiredRefreshInterval);
+      // Patch the field in place — never rebuild the object wholesale here,
+      // or any other key already on statusLine (a custom `padding`, a
+      // foreign extension field) would be silently discarded.
+      settings.statusLine = { ...(settings.statusLine as Record<string, unknown>), refreshInterval: desiredRefreshInterval };
       needsWrite = true;
     }
     // A returning user may still want to opt into the subagent hook — offer
@@ -373,7 +379,8 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
       lines.push(ok('lumira is already configured'));
       let needsWrite = false;
       if (refreshIntervalChanged(settings.statusLine, desiredRefreshInterval)) {
-        settings.statusLine = makeStatusLine(existingCmd, desiredRefreshInterval);
+        // Patch in place — see the identical rationale in the branch above.
+        settings.statusLine = { ...(settings.statusLine as Record<string, unknown>), refreshInterval: desiredRefreshInterval };
         needsWrite = true;
       }
       const added = await maybeRegisterSubagent({ settings, baseCmd: existingCmd, confirm, isTTY: !!stdin?.isTTY, lines });
