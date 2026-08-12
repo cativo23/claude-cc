@@ -393,7 +393,14 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     lines.push(ok(`Backed up existing settings → ${DIM}settings.json.lumira.bak${RST}`));
   }
 
-  settings.statusLine = makeStatusLine(resolvedCmd, desiredRefreshInterval);
+  // `desiredRefreshInterval` undefined means config.json doesn't manage this
+  // field — fall back to whatever refreshInterval is already on the existing
+  // lumira statusLine (if any) so an upgrade never silently deletes a value
+  // the user set by hand (see refreshIntervalChanged's doc above).
+  const existingRefreshInterval = existingIsLumira
+    ? (settings.statusLine as Record<string, unknown>).refreshInterval as number | undefined
+    : undefined;
+  settings.statusLine = makeStatusLine(resolvedCmd, desiredRefreshInterval ?? existingRefreshInterval);
   await maybeRegisterSubagent({ settings, baseCmd: resolvedCmd, confirm, isTTY: !!stdin?.isTTY, lines });
   writeSettingsAtomic(settings, settingsPath);
   lines.push(ok(existingIsLumira

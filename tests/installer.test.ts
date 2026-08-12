@@ -321,6 +321,18 @@ describe('install', () => {
       expect(readSettings().statusLine.refreshInterval).toBe(5);
     });
 
+    it('preserves a manually-set refreshInterval when upgrading to a faster resolved command', async () => {
+      // Existing statusLine is lumira but on the slower `npx lumira` form (speed 1),
+      // and a global bin is now available so the installer upgrades it to the bare
+      // `lumira` binary (speed 3). config.json has no refreshInterval of its own —
+      // the manually-set value in settings.json must survive the rewrite.
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'npx lumira', padding: 0, refreshInterval: 5 } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      const s = readSettings().statusLine;
+      expect(s.command).toBe('lumira');
+      expect(s.refreshInterval).toBe(5);
+    });
+
     it('preserves other statusLine fields when only refreshInterval changes', async () => {
       writeFileSync(configPath, JSON.stringify({ refreshInterval: 7 }));
       writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 2, unrelatedField: 'x' } }));
