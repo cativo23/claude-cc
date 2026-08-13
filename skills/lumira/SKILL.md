@@ -17,7 +17,7 @@ Your job: read the user's current config, translate their natural-language reque
 2. **Interpret** the user's request against the catalog below. Reject unknown keys/values explicitly — do not silently drop them.
 3. **Merge** changes into the existing object. Never overwrite unrelated fields.
 4. **Write** the merged JSON back to the file.
-5. **Tell the user** to restart their Claude Code (or Qwen Code) session for changes to take effect.
+5. **Tell the user** to restart their Claude Code (or Qwen Code) session for changes to take effect. **Exception: `refreshInterval`** lives in `settings.json`, not `config.json` — a session restart alone does nothing. Instruct the user to run `lumira install` after writing `refreshInterval` so it's transcribed into `settings.json`; only then does a restart pick it up.
 
 ## Configuration catalog
 
@@ -136,7 +136,7 @@ User intent → minimal JSON patch (assume existing config is preserved unless e
 2. **Validate before writing.** Reject unknown preset / icon / theme / style / powerline-style / display-toggle names with a clear message. Clamp threshold numbers to [0, 100] and enforce `warning < critical`.
 3. **Preset then overlay.** When the user provides both a preset and explicit `display.*` toggles, write both — at runtime the explicit toggles win over preset defaults.
 4. **Themes need truecolor.** When applying a theme, also set `colors.mode: "truecolor"` if it isn't already.
-5. **Restart instruction is mandatory.** End every successful change with a one-line reminder to restart the session.
+5. **Restart instruction is mandatory.** End every successful change with a one-line reminder to restart the session. **`refreshInterval` also needs `lumira install`** — it's transcribed into `settings.json`, not read live from `config.json`; a restart without re-running install is a no-op.
 6. **Language match.** Respond in the user's language (Spanish → Spanish, English → English).
 
 ## Anti-patterns (do NOT do)
@@ -146,4 +146,5 @@ User intent → minimal JSON patch (assume existing config is preserved unless e
 - ❌ Using the removed `"qwen"` preset — it was deprecated and silently rewrites to `"minimal"`. Direct the user to `"minimal"` instead.
 - ❌ Setting a `theme` without ensuring `colors.mode: "truecolor"` (the theme will appear broken).
 - ❌ Forgetting the restart reminder.
+- ❌ Telling the user a restart is enough after setting `refreshInterval` — it requires `lumira install` first (transcription into `settings.json`), restart alone leaves it inert.
 - ❌ Setting `contextWarningThreshold >= contextCriticalThreshold` — runtime falls back to defaults and your "change" is invisible.
