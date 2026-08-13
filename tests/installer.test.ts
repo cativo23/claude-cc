@@ -486,6 +486,27 @@ describe('install — wizard integration', () => {
     expect(output).toContain('Non-interactive');
   });
 
+  it('preserves an existing preset/theme/icons on a non-TTY re-install instead of resetting to defaults', async () => {
+    const settingsPath = join(dir, 'settings.json');
+    const configPath = join(dir, 'config.json');
+    writeFileSync(configPath, JSON.stringify({ preset: 'full', theme: 'tokyo-night', icons: 'emoji' }));
+    const stdin = createMockStdin(false);
+
+    const output = await install({
+      settingsPath, configPath,
+      confirm: async () => true,
+      stdin,
+      hasGlobalBin: () => false,
+      installGlobal: () => true,
+    });
+
+    const cfg = JSON.parse(readFileSync(configPath, 'utf8'));
+    expect(cfg.preset).toBe('full');
+    expect(cfg.theme).toBe('tokyo-night');
+    expect(cfg.icons).toBe('emoji');
+    expect(output).toContain('Non-interactive');
+  });
+
   it('aborts cleanly when user Escs — no settings.json, no config.json', async () => {
     const settingsPath = join(dir, 'settings.json');
     const configPath = join(dir, 'config.json');

@@ -285,9 +285,19 @@ export async function install(opts = {}) {
         wizard = result;
     }
     else {
-        // Non-TTY: use defaults
-        wizard = { preset: 'balanced', icons: 'nerd' };
-        lines.push(ok('Non-interactive mode — using defaults (preset: balanced, icons: nerd)'));
+        // Non-TTY: preserve any existing preset/theme/icons; only default the fields
+        // that were genuinely unset. Never wipe a user's live config.
+        const preset = current.preset ?? 'balanced';
+        const icons = current.icons ?? 'nerd';
+        wizard = { preset, icons };
+        if (current.theme !== undefined)
+            wizard.theme = current.theme;
+        const isFirstInstall = current.preset === undefined && current.icons === undefined && current.theme === undefined;
+        const verb = isFirstInstall ? 'using defaults' : 'keeping existing config';
+        const parts = [`preset: ${preset}`, `icons: ${icons}`];
+        if (wizard.theme !== undefined)
+            parts.push(`theme: ${wizard.theme}`);
+        lines.push(ok(`Non-interactive mode — ${verb} (${parts.join(', ')})`));
     }
     // Save config + emit footer + render output. Shared by every exit below.
     const finalize = () => {
