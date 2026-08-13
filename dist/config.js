@@ -42,8 +42,13 @@ function isValidCustomCommandId(id) {
 // (see vitest.config.ts `pool: 'forks'`). Issue #20.
 let qwenWarningShown = false;
 let thresholdWarningShown = false;
+let refreshIntervalWarningShown = false;
 /** Test-only — resets the process-scoped qwenWarningShown flag. Do not call in production. */
-export function _resetMigrationFlags() { qwenWarningShown = false; thresholdWarningShown = false; }
+export function _resetMigrationFlags() {
+    qwenWarningShown = false;
+    thresholdWarningShown = false;
+    refreshIntervalWarningShown = false;
+}
 const clampPct = (n) => Math.max(0, Math.min(100, n));
 const clampInt = (n, min, max) => {
     const i = Math.trunc(n);
@@ -237,6 +242,18 @@ function mergeConfig(rawIn) {
         const plRaw = raw.powerline;
         if (POWERLINE_STYLE_NAMES.includes(plRaw.style)) {
             result.powerline = { style: plRaw.style };
+        }
+    }
+    // refreshInterval — CC's documented minimum is 1 (seconds); clamp up rather
+    // than reject so a typo'd 0/negative value degrades to "refresh every
+    // second" instead of silently doing nothing.
+    if (raw.refreshInterval !== undefined) {
+        if (typeof raw.refreshInterval === 'number' && Number.isFinite(raw.refreshInterval)) {
+            result.refreshInterval = Math.max(1, Math.trunc(raw.refreshInterval));
+        }
+        else if (!refreshIntervalWarningShown) {
+            process.stderr.write(`[lumira] refreshInterval must be a number (got ${JSON.stringify(raw.refreshInterval)}); ignoring\n`);
+            refreshIntervalWarningShown = true;
         }
     }
     return result;
