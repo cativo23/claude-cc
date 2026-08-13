@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-08-13
+
+### Added
+
+- **`refreshInterval` config support.** New top-level `config.json` key, transcribed by `lumira install` into `statusLine.refreshInterval` in `settings.json` (Claude Code re-runs the status line on a fixed timer instead of only on session events, keeping time-based data like the clock and quota projection fresh during idle sessions). Only applies to the main `statusLine` — never to `subagentStatusLine`, since the agent panel already updates on token-stream events. Removing the key from `config.json` does not remove it from `settings.json` once transcribed — see README for the manual-edit workaround.
+- **`footerLinksRegexes` documented in README.** Native Claude Code feature (no lumira code involved) — documented for discoverability.
+
+### Changed
+
+- **`worktreeBreadcrumb` grouped with git-identity in line 1** — moved next to `branch`/`repo` instead of standing alone, and its powerline priority raised from 22.5 to 60.5 (extends PR #185's git-identity grouping). This is a deliberate tradeoff scoped to a narrow terminal-width window (~55–65 cols): the breadcrumb now survives longer than the `directory` segment, but evicts before `repo`. It does **not** affect line 2 (context bar, tokens, cost) — those are a separate, independent eviction pool. Decision: worktree origin (`↳ branch`) has no other on-screen source, while the directory name is usually visible elsewhere (shell prompt, terminal title), so losing the latter first in a cramped terminal is the lower-cost tradeoff.
+
+### Fixed
+
+- **Installer no longer silently deletes a manually-set `refreshInterval` on upgrade.** The `existingIsLumira` fast-path (upgrading to a faster resolved command, e.g. `npx lumira` → `lumira`) rebuilt `statusLine` from scratch and dropped `refreshInterval` whenever `config.json` didn't manage the field — contradicting the documented "undefined means don't touch it" contract. The upgrade path now preserves an existing `refreshInterval` when `config.json` doesn't specify one.
+
 ## [1.15.1] - 2026-07-14
 
 ### Documentation
