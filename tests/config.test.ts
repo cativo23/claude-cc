@@ -185,6 +185,42 @@ describe('loadConfig', () => {
     expect(loadConfig(dir).line1Align).toBe('justified');
   });
 
+  describe('refreshInterval', () => {
+    it('parses a valid positive integer', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), '{"refreshInterval":5}');
+      expect(loadConfig(dir).refreshInterval).toBe(5);
+    });
+    it('clamps values below CC\'s documented minimum of 1 up to 1', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), '{"refreshInterval":0}');
+      expect(loadConfig(dir).refreshInterval).toBe(1);
+    });
+    it('clamps negative values up to 1', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), '{"refreshInterval":-5}');
+      expect(loadConfig(dir).refreshInterval).toBe(1);
+    });
+    it('truncates a non-integer value', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), '{"refreshInterval":2.9}');
+      expect(loadConfig(dir).refreshInterval).toBe(2);
+    });
+    it('ignores a non-numeric value (stays undefined) and warns once to stderr', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), '{"refreshInterval":"5"}');
+      const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      expect(loadConfig(dir).refreshInterval).toBeUndefined();
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('refreshInterval'));
+      spy.mockRestore();
+    });
+    it('defaults to undefined when omitted', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), '{"style":"classic"}');
+      expect(loadConfig(dir).refreshInterval).toBeUndefined();
+    });
+  });
+
   describe('context bar thresholds', () => {
     beforeEach(() => { _resetMigrationFlags(); });
 

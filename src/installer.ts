@@ -25,8 +25,26 @@ const header = () => `\n${CYAN} lumira installer${RST}\n`;
 // binary directly (~60ms). `npx lumira` resolves from cache (~150-300ms).
 // `npx lumira@latest` hits the npm registry EVERY render (~600ms) — never
 // write that form; it's the perf bug this installer migrates away from.
-function makeStatusLine(command: string) {
-  return { type: 'command' as const, command, padding: 0 };
+// `refreshInterval` is scoped to the MAIN statusLine only (see HudConfig
+// JSDoc) — callers registering `subagentStatusLine` must omit it.
+function makeStatusLine(command: string, refreshInterval?: number) {
+  return refreshInterval != null
+    ? { type: 'command' as const, command, padding: 0, refreshInterval }
+    : { type: 'command' as const, command, padding: 0 };
+}
+
+// Does the already-written statusLine's refreshInterval differ from what
+// config.json now asks for? Drives the re-run-after-editing-config path so
+// changing `refreshInterval` in config.json takes effect without forcing a
+// full command rewrite. `desired: undefined` means "config.json doesn't
+// manage this field" — NOT "remove it" — so a value the user added to
+// settings.json by hand (or via an older lumira version) is left alone.
+function refreshIntervalChanged(current: unknown, desired: number | undefined): boolean {
+  if (desired === undefined) return false;
+  const currentValue = current && typeof current === 'object'
+    ? (current as Record<string, unknown>).refreshInterval
+    : undefined;
+  return currentValue !== desired;
 }
 
 /** Atomically write settings.json: temp file + fsync + rename, mode 0600. */
@@ -296,6 +314,7 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     theme: existingConfig.theme,
     icons: existingConfig.icons,
   };
+  const desiredRefreshInterval = existingConfig.refreshInterval;
 
   // Determine wizard result
   let wizard: WizardResult;
@@ -331,10 +350,20 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
   // here — it may point to a stale version and should be migrated to `lumira`.
   if (existingIsLumira && commandSpeed(existingCmd) >= 3) {
     lines.push(ok('lumira is already configured (optimal command)'));
-    // statusLine needs no rewrite, but a returning user may still want to opt
-    // into the subagent hook — offer it and flush only if they accept.
+    // Command needs no rewrite, but refreshInterval may have changed in
+    // config.json since the last install — keep it in sync either way.
+    let needsWrite = false;
+    if (refreshIntervalChanged(settings.statusLine, desiredRefreshInterval)) {
+      // Patch the field in place — never rebuild the object wholesale here,
+      // or any other key already on statusLine (a custom `padding`, a
+      // foreign extension field) would be silently discarded.
+      settings.statusLine = { ...(settings.statusLine as Record<string, unknown>), refreshInterval: desiredRefreshInterval };
+      needsWrite = true;
+    }
+    // A returning user may still want to opt into the subagent hook — offer
+    // it and flush only if they accept.
     const added = await maybeRegisterSubagent({ settings, baseCmd: existingCmd, confirm, isTTY: !!stdin?.isTTY, lines });
-    if (added) writeSettingsAtomic(settings, settingsPath);
+    if (added || needsWrite) writeSettingsAtomic(settings, settingsPath);
     return finalize();
   }
 
@@ -348,8 +377,14 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     // so we never downgrade a user's direct binary to npx.
     if (commandSpeed(resolvedCmd) <= commandSpeed(existingCmd)) {
       lines.push(ok('lumira is already configured'));
+      let needsWrite = false;
+      if (refreshIntervalChanged(settings.statusLine, desiredRefreshInterval)) {
+        // Patch in place — see the identical rationale in the branch above.
+        settings.statusLine = { ...(settings.statusLine as Record<string, unknown>), refreshInterval: desiredRefreshInterval };
+        needsWrite = true;
+      }
       const added = await maybeRegisterSubagent({ settings, baseCmd: existingCmd, confirm, isTTY: !!stdin?.isTTY, lines });
-      if (added) writeSettingsAtomic(settings, settingsPath);
+      if (added || needsWrite) writeSettingsAtomic(settings, settingsPath);
       return finalize();
     }
   } else if (settings.statusLine) {
@@ -358,7 +393,14 @@ export async function install(opts: InstallerOptions = {}): Promise<string> {
     lines.push(ok(`Backed up existing settings → ${DIM}settings.json.lumira.bak${RST}`));
   }
 
-  settings.statusLine = makeStatusLine(resolvedCmd);
+  // `desiredRefreshInterval` undefined means config.json doesn't manage this
+  // field — fall back to whatever refreshInterval is already on the existing
+  // lumira statusLine (if any) so an upgrade never silently deletes a value
+  // the user set by hand (see refreshIntervalChanged's doc above).
+  const existingRefreshInterval = existingIsLumira
+    ? (settings.statusLine as Record<string, unknown>).refreshInterval as number | undefined
+    : undefined;
+  settings.statusLine = makeStatusLine(resolvedCmd, desiredRefreshInterval ?? existingRefreshInterval);
   await maybeRegisterSubagent({ settings, baseCmd: resolvedCmd, confirm, isTTY: !!stdin?.isTTY, lines });
   writeSettingsAtomic(settings, settingsPath);
   lines.push(ok(existingIsLumira

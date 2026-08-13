@@ -276,6 +276,80 @@ describe('install', () => {
       expect(readSettings().subagentStatusLine.command).toBe('my-own-renderer');
     });
   });
+
+  describe('refreshInterval', () => {
+    const readSettings = () => JSON.parse(readFileSync(settingsPath, 'utf8'));
+
+    it('writes refreshInterval into statusLine when set in config', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 5 }));
+      await install(baseOpts());
+      expect(readSettings().statusLine.refreshInterval).toBe(5);
+    });
+
+    it('omits refreshInterval from statusLine when not set in config', async () => {
+      await install(baseOpts());
+      expect(readSettings().statusLine.refreshInterval).toBeUndefined();
+    });
+
+    it('never writes refreshInterval into subagentStatusLine, even when configured', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 5 }));
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+      const stdin = createMockStdin(true);
+      const promise = install({
+        ...baseOpts(), stdin, stdout: createMockStdout(),
+        hasGlobalBin: () => true, confirm: async () => true,
+      });
+      await completeWizard(stdin);
+      await promise;
+      const s = readSettings();
+      expect(s.statusLine.refreshInterval).toBe(5);
+      expect(s.subagentStatusLine.refreshInterval).toBeUndefined();
+    });
+
+    it('updates refreshInterval on an already-optimal statusLine (re-run after editing config)', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 10 }));
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readSettings().statusLine.refreshInterval).toBe(10);
+    });
+
+    it('preserves a manually-set refreshInterval in settings.json when config.json does not manage it', async () => {
+      // No config.json refreshInterval at all — lumira must not treat "unmanaged"
+      // as "remove it" and silently delete a value the user added by hand.
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0, refreshInterval: 5 } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readSettings().statusLine.refreshInterval).toBe(5);
+    });
+
+    it('preserves a manually-set refreshInterval when upgrading to a faster resolved command', async () => {
+      // Existing statusLine is lumira but on the slower `npx lumira` form (speed 1),
+      // and a global bin is now available so the installer upgrades it to the bare
+      // `lumira` binary (speed 3). config.json has no refreshInterval of its own —
+      // the manually-set value in settings.json must survive the rewrite.
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'npx lumira', padding: 0, refreshInterval: 5 } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      const s = readSettings().statusLine;
+      expect(s.command).toBe('lumira');
+      expect(s.refreshInterval).toBe(5);
+    });
+
+    it('preserves other statusLine fields when only refreshInterval changes', async () => {
+      writeFileSync(configPath, JSON.stringify({ refreshInterval: 7 }));
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 2, unrelatedField: 'x' } }));
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      const s = readSettings().statusLine;
+      expect(s.refreshInterval).toBe(7);
+      expect(s.padding).toBe(2);
+      expect(s.unrelatedField).toBe('x');
+    });
+
+    it('does not rewrite settings.json when nothing changed (no-op re-run)', async () => {
+      writeFileSync(settingsPath, JSON.stringify({ statusLine: { type: 'command', command: 'lumira', padding: 0 } }));
+      const before = readFileSync(settingsPath, 'utf8');
+      await install({ ...baseOpts(), hasGlobalBin: () => true });
+      expect(readFileSync(settingsPath, 'utf8')).toBe(before);
+    });
+  });
 });
 
 describe('uninstall', () => {

@@ -189,6 +189,23 @@ If installed from source, point at the compiled entry:
 
 > Without a global install you can use `"command": "npx lumira"` — it works, but resolves through npx on every render (~10× slower). Avoid `npx lumira@latest`: the `@latest` hits the npm registry on every render.
 
+**Keeping idle sessions fresh (`refreshInterval`)** — Claude Code only re-renders the status line on session events, so time-based data (the clock, quota projection) goes stale while a session sits idle. Add CC's `refreshInterval` (seconds, minimum `1`) to `statusLine` in `settings.json` to also re-run on a fixed timer:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "lumira",
+    "padding": 0,
+    "refreshInterval": 5
+  }
+}
+```
+
+Set `refreshInterval` in lumira's own `~/.config/lumira/config.json` instead (see [Configuration](#configuration)) and re-run `lumira install` to have it transcribed into `settings.json` for you. It only applies to the main `statusLine` — `subagentStatusLine` isn't affected, since the agent panel already updates on token-stream events. Values below `1` (CC's documented minimum) round up to `1`, and non-integers truncate — a value that low means one process spawn per second for the session's lifetime, so prefer `5`+ unless you specifically need second-level freshness. **One-way transcription:** removing the key from `config.json` and re-running `lumira install` does NOT remove an already-transcribed `refreshInterval` from `settings.json` — the installer only ever preserves or overwrites, never deletes it. Unset it by editing `settings.json` directly.
+
+**Clickable footer badges (`footerLinksRegexes`)** — a separate, native Claude Code feature (no lumira script involved): configure `footerLinksRegexes` in `settings.json` to turn IDs that appear in the conversation (ticket numbers, PR links, etc.) into clickable badges in CC's footer row, below the status line. See the [Claude Code settings docs](https://code.claude.com/docs/en/settings#footer-link-badges).
+
 ## Display
 
 ### Custom Mode (default, >=70 columns)
@@ -323,6 +340,7 @@ Create `~/.config/lumira/config.json`:
   "style": "classic",
   "line1Align": "justified",
   "powerline": { "style": "auto" },
+  "refreshInterval": 5,
   "gsd": false,
   "colors": { "mode": "auto" },
   "display": {
@@ -365,7 +383,7 @@ Create `~/.config/lumira/config.json`:
 }
 ```
 
-All fields are optional — defaults are shown above. `display.health` defaults to `false` (opt-in widget). `line1Align` controls line 1's classic layout: `"justified"` (default) pins the left cluster to the start and the right cluster to the end; `"packed"` packs every segment tightly to the left with no forced middle gap, except the app version string, which stays pinned to the true right edge (the same idiom line 2 uses for its small right-anchored indicators). On a terminal too narrow to fit the version alongside the packed content, the version disappears entirely rather than truncating — an intentional all-or-nothing tradeoff. Powerline mode always packs.
+All fields are optional — defaults are shown above (except `refreshInterval`, which is unset/off by default and shown here only as an example). `display.health` defaults to `false` (opt-in widget). `line1Align` controls line 1's classic layout: `"justified"` (default) pins the left cluster to the start and the right cluster to the end; `"packed"` packs every segment tightly to the left with no forced middle gap, except the app version string, which stays pinned to the true right edge (the same idiom line 2 uses for its small right-anchored indicators). On a terminal too narrow to fit the version alongside the packed content, the version disappears entirely rather than truncating — an intentional all-or-nothing tradeoff. Powerline mode always packs.
 
 **Context bar thresholds** — `contextWarningThreshold` (default 70) and `contextCriticalThreshold` (default 85) control when the bar transitions through yellow/orange/red. Both are clamped to `[0, 100]` and `warning < critical` is required (invalid pairs fall back to defaults with a one-shot stderr warning). Lower them for earlier warnings, raise them if your workflow tolerates fuller buffers.
 

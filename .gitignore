@@ -11,3 +11,6 @@ docs/superpowers/
 
 # Git worktrees
 .worktrees/
+
+# Internal planning doc — distribution strategy, not for the public repo
+/ROADMAP.md

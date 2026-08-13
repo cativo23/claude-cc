@@ -25,6 +25,8 @@ import {
  * control which get dropped first when the terminal is narrow (lower = drops first):
  *   model:             100  (always kept)
  *   branch:             80
+ *   repo:               61  (git-identity cluster with branch; data-gated)
+ *   worktreeBreadcrumb: 60.5 (between repo and dir; data-gated) — see note below
  *   dir:                60
  *   addedDirs:          59  (renders after dir; data-gated; evicts before dir under pressure)
  *   task:               40
@@ -33,11 +35,14 @@ import {
  *   tokenSpeed:         25
  *   linesChanged:       24
  *   worktree:           23
- *   worktreeBreadcrumb: 22.5 (between worktree@23 and agent@22; data-gated)
  *   agent:              22
  *   sessionName:        21
  *   version:            20
  *   style:              18  (dropped first)
+ *
+ * Note: priority controls only WHICH segments get evicted, not WHERE they
+ * render — render order follows push order below (see applyPriorityEviction
+ * in powerline.ts, which filters but never re-sorts).
  */
 function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import('./colors.js').Colors): PowerlineSegment[] {
   const { input, git, transcript, config: { display }, icons, memory, tokenSpeed } = ctx;
@@ -93,6 +98,24 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import(
       fg: palette.fg,
       priority: 61,
     });
+  }
+
+  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch) {
+    const currentBranch = input.gitBranch || git.branch;
+    // Only render when there is a current branch to contrast against — the
+    // breadcrumb is meaningless without an anchor (no branch shown / branch off).
+    // Priority 60.5 — above directory@60, below repo@61. It must evict before
+    // repo (the breadcrumb annotates repo/branch identity, so it shouldn't
+    // outlive what it's annotating) but after the local directory/addedDirs
+    // block, since it's still part of the git-identity cluster.
+    if (currentBranch && input.worktreeOriginalBranch !== currentBranch) {
+      segments.push({
+        text: `↳ ${truncField(input.worktreeOriginalBranch, 15)}`,
+        bg: palette.versionBg,
+        fg: palette.fg,
+        priority: 60.5,
+      });
+    }
   }
 
   if (display.directory && input.cwd) {
@@ -179,20 +202,6 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: import(
       fg: palette.fg,
       priority: 23,
     });
-  }
-
-  if (display.worktreeBreadcrumb && input.worktreeOriginalBranch) {
-    const currentBranch = input.gitBranch || git.branch;
-    // Only render when there is a current branch to contrast against — the
-    // breadcrumb is meaningless without an anchor (no branch shown / branch off).
-    if (currentBranch && input.worktreeOriginalBranch !== currentBranch) {
-      segments.push({
-        text: `↳ ${truncField(input.worktreeOriginalBranch, 15)}`,
-        bg: palette.versionBg,
-        fg: palette.fg,
-        priority: 22.5,
-      });
-    }
   }
 
   // Mirrors classic line1: prefer the explicit input.agentName (subagent
