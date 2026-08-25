@@ -4,6 +4,7 @@ import { formatTokens, toSingleLine } from '../utils/format.js';
 import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData, type CustomCommand } from '../types.js';
 import type { NormalizedInput } from '../normalize.js';
 import type { CustomCommandOutput } from '../parsers/custom-commands.js';
+import { parseWidgetValue, matchValueTier } from './value-map.js';
 
 export const SEP = ` \x1b[90m\u2502\x1b[0m `;
 export const SEP_MINIMAL = ` \x1b[90m|\x1b[0m `;
@@ -180,17 +181,32 @@ export function renderCustomCommand(output: CustomCommandOutput, c: Colors): str
   // after sanitization instead of before.
   if (core.length === 0) return '';
 
-  let text = output.label ? `${output.label} ${core}` : core;
+  // Custom widgets: value→icon/color tiers. Only considered when ansi=false
+  // (an ANSI-passthrough widget already owns its own colors — mapping a tier
+  // color on top would fight it) and only when the core text parses as a
+  // single finite number (parseWidgetValue is total-parse-or-nothing — see
+  // value-map.ts). Anything else — non-numeric output, no valueMap
+  // configured, no tier matches (e.g. a value above every `lt` with no
+  // catch-all) — falls through to the widget's static label/color exactly
+  // as before this feature existed.
+  const tier = !output.ansi && output.valueMap
+    ? ((v) => (v === null ? undefined : matchValueTier(output.valueMap!, v)))(parseWidgetValue(core))
+    : undefined;
+
+  const prefix = [output.label, tier?.icon].filter(Boolean).join(' ');
+  let text = prefix ? `${prefix} ${core}` : core;
 
   // Color is only applied when ansi=false; otherwise we'd be wrapping the
   // user's escapes in another escape, which most terminals render as garbage.
+  // A matching tier's color wins over the widget's static `color`.
   let result = text;
-  if (!output.ansi && output.color) {
+  const effectiveColor = tier?.color ?? output.color;
+  if (!output.ansi && effectiveColor) {
     const colorMap: Record<NonNullable<CustomCommand['color']>, (s: string) => string> = {
       dim: c.dim, green: c.green, yellow: c.yellow, orange: c.orange,
       red: c.red, cyan: c.cyan, magenta: c.magenta,
     };
-    const fn = colorMap[output.color];
+    const fn = colorMap[effectiveColor];
     if (typeof fn === 'function') result = fn(text);
   }
 

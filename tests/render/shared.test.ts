@@ -496,4 +496,64 @@ describe('renderCustomCommand', () => {
     );
     expect(stripAnsi(out)).toBe('safe');
   });
+
+  describe('valueMap (custom widgets)', () => {
+    const valueMap = [
+      { lt: 60, icon: '🟢' },
+      { lt: 80, icon: '🟡', color: 'yellow' as const },
+      { icon: '🔴', color: 'red' as const },
+    ];
+
+    it('prepends the matching tier icon and applies its color', () => {
+      const out = renderCustomCommand(mkOutput({ text: '95', valueMap }), colors);
+      expect(stripAnsi(out)).toBe('🔴 95');
+      expect(out).toContain(colors.red('🔴 95'));
+    });
+
+    it('matches the first tier for a low value, no color override needed', () => {
+      const out = renderCustomCommand(mkOutput({ text: '10', valueMap }), colors);
+      expect(stripAnsi(out)).toBe('🟢 10');
+    });
+
+    it('renders the icon uncolored when the matching tier has no color of its own', () => {
+      const noColorMap = [{ lt: 60, icon: '🟢' }];
+      const out = renderCustomCommand(mkOutput({ text: '10', valueMap: noColorMap }), colors);
+      expect(stripAnsi(out)).toBe('🟢 10');
+      expect(out).not.toContain('\x1b[');
+    });
+
+    it("tier's color overrides the widget's static color", () => {
+      const out = renderCustomCommand(mkOutput({ text: '95', color: 'cyan', valueMap }), colors);
+      expect(out).toContain(colors.red('🔴 95'));
+      expect(out).not.toContain('\x1b[36m'); // cyan
+    });
+
+    it('falls back to the static color when the output does not parse as numeric', () => {
+      const out = renderCustomCommand(mkOutput({ text: 'not-a-number', color: 'green', valueMap }), colors);
+      expect(stripAnsi(out)).toBe('not-a-number');
+      expect(out).toContain(colors.green('not-a-number'));
+    });
+
+    it('ignores valueMap entirely when ansi is true', () => {
+      const out = renderCustomCommand(mkOutput({ text: '95', ansi: true, valueMap }), colors);
+      expect(out).toBe('95');
+    });
+
+    it('combines a static label with the tier icon: "label icon value"', () => {
+      const out = renderCustomCommand(mkOutput({ text: '95', label: 'cpu', valueMap }), colors);
+      expect(stripAnsi(out)).toBe('cpu 🔴 95');
+    });
+
+    it('dims the tier color when state is stale', () => {
+      const out = renderCustomCommand(mkOutput({ text: '95', state: 'stale', valueMap }), colors);
+      expect(out).toContain(colors.dim(colors.red('🔴 95')));
+    });
+
+    it('does not throw and falls back to static behavior when a value has no matching tier and no catch-all', () => {
+      const noCatchAll = [{ lt: 10, icon: '🟢' }];
+      const out = renderCustomCommand(mkOutput({ text: '50', color: 'yellow', valueMap: noCatchAll }), colors);
+      expect(stripAnsi(out)).toBe('50');
+      expect(out).toContain(colors.yellow('50'));
+    });
+  });
 });
