@@ -664,6 +664,69 @@ describe('loadConfig', () => {
       expect(loadConfig(dir).customCommands.commands[0].onError).toBe('hide');
     });
   });
+
+  // Rebrand: 'customWidgets' is the name documented from here on, but
+  // 'customCommands' must keep working forever (README's "additive changes
+  // only" schema-stability promise) — see resolveWidgetsKey in config.ts.
+  describe('customWidgets alias', () => {
+    it('reads from customWidgets when only that key is present', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customWidgets: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands).toEqual({
+        enabled: true,
+        commands: [expect.objectContaining({ id: 'a' })],
+      });
+    });
+
+    it('reads from customCommands when only that key is present (unchanged legacy behavior)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands).toHaveLength(1);
+    });
+
+    it('customWidgets wins entirely over customCommands when both are present — no merge', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customWidgets: { enabled: true, commands: [{ id: 'new', command: ['echo'], line: 1 }] },
+        customCommands: { enabled: true, commands: [{ id: 'old', command: ['echo'], line: 1 }] },
+      }));
+      const cmds = loadConfig(dir).customCommands.commands;
+      expect(cmds.map(c => c.id)).toEqual(['new']);
+    });
+
+    it('an empty-but-valid customWidgets object wins even over a populated customCommands', () => {
+      // Fixes the semantics, not just the happy path: "is a widgets block
+      // present" means "is it an object", not "is it truthy" — this is the
+      // test that would catch a `raw.customWidgets ?? raw.customCommands`
+      // regression, which would incorrectly fall through here.
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customWidgets: {},
+        customCommands: { enabled: true, commands: [{ id: 'old', command: ['echo'], line: 1 }] },
+      }));
+      expect(loadConfig(dir).customCommands).toEqual({ enabled: false, commands: [] });
+    });
+
+    it.each([null, [], 'garbage', 42])(
+      'falls back to customCommands when customWidgets is %p (not an object)',
+      (bogus) => {
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'config.json'), JSON.stringify({
+          customWidgets: bogus,
+          customCommands: { enabled: true, commands: [{ id: 'old', command: ['echo'], line: 1 }] },
+        }));
+        expect(loadConfig(dir).customCommands.commands.map(c => c.id)).toEqual(['old']);
+      },
+    );
+
+    it('defaults to disabled when neither key is present', () => {
+      expect(loadConfig(join(dir, 'nope')).customCommands).toEqual({ enabled: false, commands: [] });
+    });
+  });
 });
 
 describe('mergeCliFlags', () => {

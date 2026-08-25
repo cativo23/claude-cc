@@ -86,6 +86,27 @@ const clampInt = (n: number, min: number, max: number): number => {
 };
 
 /**
+ * `customWidgets` is the name documented from here on (custom widgets —
+ * value→icon/color tiers, description, etc.); `customCommands` is the
+ * original name and stays a permanent, silent alias — README commits to
+ * "config schema stable since v1.0, additive changes only", so nobody's
+ * existing config.json can be allowed to stop working over a rename.
+ *
+ * Precedence: if `customWidgets` is present and is itself an object (not
+ * null/array/string/number — a malformed value there is treated as absent,
+ * not as "user meant this"), it wins ENTIRELY — no merge with
+ * `customCommands`, even if both are populated and even if `customWidgets`
+ * is `{}`. A partial merge would let a stale `customCommands` block the
+ * user forgot to delete resurrect widgets they believe they removed by
+ * migrating to the new key.
+ */
+export function resolveWidgetsKey(raw: Record<string, unknown>): 'customWidgets' | 'customCommands' {
+  const cw = raw.customWidgets;
+  const isObject = cw !== null && typeof cw === 'object' && !Array.isArray(cw);
+  return isObject ? 'customWidgets' : 'customCommands';
+}
+
+/**
  * Parse and validate a `valueMap` block (custom widgets — value→icon/color
  * tiers). Same doctrine as the rest of this file: drop invalid elements
  * silently rather than reject the whole widget, clamp/sanitize what can be
@@ -334,7 +355,7 @@ function mergeConfig(rawIn: Record<string, unknown>): HudConfig {
     gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd,
     display: { ...DEFAULT_DISPLAY },
     colors,
-    customCommands: parseCustomCommands(raw.customCommands),
+    customCommands: parseCustomCommands(raw[resolveWidgetsKey(raw)]),
   };
 
   // Apply preset FIRST (sets layout + display defaults)
