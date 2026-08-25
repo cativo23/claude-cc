@@ -1,7 +1,7 @@
 import { NERD_ICONS, type IconSet } from './icons.js';
 import { getContextColor, stripAnsi, type Colors } from './colors.js';
 import { formatTokens, toSingleLine } from '../utils/format.js';
-import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData, type CustomCommand } from '../types.js';
+import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData, type CustomCommand, type CustomCommandValueTier } from '../types.js';
 import type { NormalizedInput } from '../normalize.js';
 import type { CustomCommandOutput } from '../parsers/custom-commands.js';
 import { parseWidgetValue, matchValueTier } from './value-map.js';
@@ -189,9 +189,11 @@ export function renderCustomCommand(output: CustomCommandOutput, c: Colors): str
   // configured, no tier matches (e.g. a value above every `lt` with no
   // catch-all) — falls through to the widget's static label/color exactly
   // as before this feature existed.
-  const tier = !output.ansi && output.valueMap
-    ? ((v) => (v === null ? undefined : matchValueTier(output.valueMap!, v)))(parseWidgetValue(core))
-    : undefined;
+  let tier: CustomCommandValueTier | undefined;
+  if (output.valueMap && !output.ansi) {
+    const parsedValue = parseWidgetValue(core);
+    if (parsedValue !== null) tier = matchValueTier(output.valueMap, parsedValue);
+  }
 
   const prefix = [output.label, tier?.icon].filter(Boolean).join(' ');
   let text = prefix ? `${prefix} ${core}` : core;

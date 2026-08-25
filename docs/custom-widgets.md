@@ -80,6 +80,7 @@ A widget whose command prints a bare number (optionally with a trailing `%`) can
 - **The command's output must parse as a pure number** (optionally trailing `%`) — `"87"`, `"87%"`, `"-3.5"` all work; `"cpu: 87%"` or `"87ms"` do not. If your raw output is noisier than that, extract the number yourself (`awk`, `grep -oP`, a one-line script) — lumira deliberately doesn't parse numbers out of arbitrary text, since a partial match (`"1,024"` — 1 or 1024?) is more likely to surprise you than help.
 - If the output doesn't parse as numeric, or no tier matches (a value above every `lt` with no catch-all), the widget falls back to plain text + its static `label`/`color` — exactly like a widget with no `valueMap` at all.
 - `valueMap` is ignored entirely when `ansi: true` — an ANSI-passthrough widget already owns its own colors.
+- **Limits**: up to 12 tiers per widget (a catch-all always keeps its slot even past that cap — the 11 smallest bounded tiers survive instead, not the catch-all being dropped); each `icon` is capped at 16 characters.
 - **Debugging a tier that isn't matching**: `lumira widget test <id>` runs the command once and prints the parsed value and which tier it matched (or why it didn't) — this is the intended diagnostic; `valueMap` parsing never warns to stderr on a malformed value.
 
 ## CLI subcommands
@@ -170,5 +171,7 @@ Drop any of these into your `customWidgets.commands` array as-is, or use them as
 ## Migrating from `customCommands`
 
 Nothing to do. `customCommands`/`lumira custom` keep working exactly as before, permanently — `customWidgets`/`lumira widget` are simply the names used going forward. If you'd like to rename your own config for consistency: rename the top-level `customCommands` key to `customWidgets` (the contents don't change), or just run `lumira widget enable`/`disable`, which write back to whichever key your config already uses.
+
+> **Careful with a half-finished manual rename.** The two keys never merge: if `customWidgets` ends up present at all — even as an empty `{}` — it wins *entirely* and `customCommands` is ignored, widgets and all. Copy the whole block over in one edit (or delete the old key in the same edit you add the new one) rather than adding `customWidgets` first and cleaning up `customCommands` "later" — "later" is the state where your widgets silently vanish with no error.
 
 [← Back to README](../README.md)

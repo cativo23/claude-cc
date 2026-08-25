@@ -21,9 +21,10 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execBg } from '../utils/exec-bg.js';
-import { createColors } from '../render/colors.js';
+import { createColors, stripAnsi } from '../render/colors.js';
 import { loadConfig, resolveWidgetsKey } from '../config.js';
 import { parseWidgetValue, matchValueTier } from '../render/value-map.js';
+import { toSingleLine } from '../utils/format.js';
 import { readCacheFile } from '../utils/custom-cache.js';
 // ── constants ──────────────────────────────────────────────────────────────
 const CONFIG_FILE = 'config.json';
@@ -154,7 +155,8 @@ async function cmdList(name) {
     }
     const statusLine = enabled
         ? `Custom widgets: ${c ? c.green('enabled') : 'enabled'}\n`
-        : `Custom widgets: ${c ? c.yellow('disabled') : 'disabled'}\n`;
+        : `Custom widgets: ${c ? c.yellow('disabled') : 'disabled'}\n`
+            + `Run 'lumira ${name} enable' to turn it on.\n`;
     if (commands.length === 0) {
         return ok(statusLine
             + '\nNo custom widgets configured.\n'
@@ -210,8 +212,19 @@ async function cmdTest(name, id) {
         // valueMap diagnostics — this is the intended debugging surface for
         // "why didn't my tier match", since config parsing never warns to
         // stderr on an invalid/non-matching valueMap (see parseValueMap).
-        if (cmd.valueMap) {
-            const parsedValue = parseWidgetValue(result.stdout);
+        // ansi:true bypasses valueMap at render time too (render/shared.ts) — an
+        // ANSI-passthrough widget already owns its own colors. Mirroring that
+        // here isn't optional: this diagnostic exists precisely because config
+        // parsing never warns on a malformed/non-matching valueMap, so a wrong
+        // answer here is worse than staying silent.
+        if (cmd.valueMap && !cmd.ansi) {
+            // Same sanitization the renderer applies before parsing (toSingleLine
+            // then stripAnsi, see render/shared.ts) — parsing execBg's raw stdout
+            // directly would report "not numeric" for output the renderer's tier
+            // DOES match (e.g. colorized by the command itself, or with a
+            // trailing newline).
+            const sanitized = stripAnsi(toSingleLine(result.stdout));
+            const parsedValue = parseWidgetValue(sanitized);
             if (parsedValue === null) {
                 lines.push(`Parsed value: not numeric (valueMap will not apply — static label/color used instead)`);
             }

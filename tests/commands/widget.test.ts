@@ -210,6 +210,18 @@ describe('lumira widget list', () => {
     expect(result.output).toMatch(/disabled/i);
   });
 
+  it('hints the invoked name in the enable-it hint when disabled', async () => {
+    const configJson = JSON.stringify({ customCommands: { enabled: false, commands: [] } });
+
+    makeFs({ [CONFIG_PATH]: configJson });
+    const asWidget = await runWidgetCommand(argvAs('widget', 'list'));
+    expect(asWidget.output).toContain("lumira widget enable");
+
+    makeFs({ [CONFIG_PATH]: configJson });
+    const asCustom = await runWidgetCommand(argvAs('custom', 'list'));
+    expect(asCustom.output).toContain("lumira custom enable");
+  });
+
   it('prints table row for each configured widget', async () => {
     const configJson = JSON.stringify({
       customCommands: {
@@ -373,6 +385,51 @@ describe('lumira widget test', () => {
     const result = await runWidgetCommand(argv('test', 'cpu'));
 
     expect(result.output).toMatch(/not numeric/i);
+  });
+
+  it('matches a tier against ANSI/multi-line stdout the same way the renderer would (sanitizes before parsing)', async () => {
+    // Regression: cmdTest used to parse raw execBg stdout, while the
+    // renderer parses stripAnsi(toSingleLine(...)) — so a widget whose tier
+    // DOES apply at render time could get a false "not numeric" here, the
+    // one channel the docs name for diagnosing a non-matching tier.
+    const configJson = JSON.stringify({
+      customCommands: {
+        enabled: true,
+        commands: [
+          { id: 'cpu', command: ['echo'], line: 1, refreshMs: 5000, valueMap: [{ lt: 60, icon: '🟢' }, { icon: '🔴', color: 'red' }] },
+        ],
+      },
+    });
+    makeFs({ [CONFIG_PATH]: configJson });
+
+    vi.mocked(execBg).mockResolvedValueOnce({
+      kind: 'ok', stdout: '\x1b[32m95\x1b[0m\n', truncated: false, exitCode: 0, durationMs: 5,
+    });
+
+    const result = await runWidgetCommand(argv('test', 'cpu'));
+
+    expect(result.output).toMatch(/Parsed value: 95/);
+    expect(result.output).toMatch(/🔴/);
+  });
+
+  it('skips valueMap diagnostics for an ansi:true widget, matching the renderer ignoring valueMap for it', async () => {
+    const configJson = JSON.stringify({
+      customCommands: {
+        enabled: true,
+        commands: [
+          { id: 'cpu', command: ['echo'], line: 1, refreshMs: 5000, ansi: true, valueMap: [{ lt: 60, icon: '🟢' }, { icon: '🔴', color: 'red' }] },
+        ],
+      },
+    });
+    makeFs({ [CONFIG_PATH]: configJson });
+
+    vi.mocked(execBg).mockResolvedValueOnce({
+      kind: 'ok', stdout: '95', truncated: false, exitCode: 0, durationMs: 5,
+    });
+
+    const result = await runWidgetCommand(argv('test', 'cpu'));
+
+    expect(result.output).not.toMatch(/Parsed value|Matched tier/);
   });
 });
 

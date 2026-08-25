@@ -507,6 +507,20 @@ describe('loadConfig', () => {
         expect(cmd.valueMap?.map(t => t.lt)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
       });
 
+      it('preserves the catch-all tier when truncating 12+ bounded tiers, instead of silently dropping it', () => {
+        // Regression: sorting puts the catch-all (no `lt`) last, so a naive
+        // slice(0, 12) after sorting discards it whenever there are >=12
+        // bounded tiers — the widget would then render bare text for any
+        // value above the highest lt, with zero diagnostic.
+        const bounded = Array.from({ length: 15 }, (_, i) => ({ lt: i + 1, icon: '🟢' }));
+        const cmd = widgetWith({ valueMap: [...bounded, { icon: '🔴', color: 'red' }] });
+        expect(cmd.valueMap).toHaveLength(12);
+        expect(cmd.valueMap?.at(-1)).toEqual({ icon: '🔴', color: 'red' });
+        // The 11 smallest lt values survive alongside the catch-all, not the
+        // 12 smallest — the catch-all takes a guaranteed slot.
+        expect(cmd.valueMap?.slice(0, 11).map(t => t.lt)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+      });
+
       it('keeps only the first catch-all when the user supplies more than one', () => {
         const cmd = widgetWith({
           valueMap: [{ icon: '🔴', color: 'red' }, { icon: '⚫', color: 'dim' }],

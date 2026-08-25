@@ -172,7 +172,17 @@ function parseValueMap(raw: unknown): CustomCommandValueTier[] | undefined {
     return a.lt - b.lt;
   });
 
-  return tiers.slice(0, CUSTOM_COMMAND_MAX_VALUE_TIERS);
+  if (tiers.length <= CUSTOM_COMMAND_MAX_VALUE_TIERS) return tiers;
+
+  // The catch-all always sorts last, so a plain slice(0, N) here would
+  // silently drop it whenever there are >= N bounded tiers — the widget
+  // would then render bare text for any value above the highest `lt`, with
+  // no diagnostic (parseValueMap never warns to stderr). Reserve it a
+  // guaranteed slot instead: keep the N-1 smallest bounded tiers, plus the
+  // catch-all if one exists.
+  const hasCatchAll = tiers[tiers.length - 1]?.lt === undefined;
+  if (!hasCatchAll) return tiers.slice(0, CUSTOM_COMMAND_MAX_VALUE_TIERS);
+  return [...tiers.slice(0, CUSTOM_COMMAND_MAX_VALUE_TIERS - 1), tiers[tiers.length - 1]!];
 }
 
 /**

@@ -143,9 +143,12 @@ export function renderCustomCommand(output, c) {
     // configured, no tier matches (e.g. a value above every `lt` with no
     // catch-all) — falls through to the widget's static label/color exactly
     // as before this feature existed.
-    const tier = !output.ansi && output.valueMap
-        ? ((v) => (v === null ? undefined : matchValueTier(output.valueMap, v)))(parseWidgetValue(core))
-        : undefined;
+    let tier;
+    if (output.valueMap && !output.ansi) {
+        const parsedValue = parseWidgetValue(core);
+        if (parsedValue !== null)
+            tier = matchValueTier(output.valueMap, parsedValue);
+    }
     const prefix = [output.label, tier?.icon].filter(Boolean).join(' ');
     let text = prefix ? `${prefix} ${core}` : core;
     // Color is only applied when ansi=false; otherwise we'd be wrapping the
