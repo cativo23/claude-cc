@@ -62,7 +62,8 @@ describe('PR widget in line2', () => {
       pr: { number: 42, url: 'https://gitlab.com/org/repo/-/merge_requests/42', review_state: 'approved' },
     });
     const output = stripAnsi(renderLine2(ctx, c));
-    expect(output).toContain('!42');
-    expect(output).not.toContain('#42');
+    // Exact-format match, not a bare toContain: catches both a wrong prefix
+    // and the widget silently failing to render at all.
+    expect(output).toMatch(/!42 approved/);
   });
 });

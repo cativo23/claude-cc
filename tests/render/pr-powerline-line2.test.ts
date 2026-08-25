@@ -50,7 +50,8 @@ describe('PR widget — powerline line2', () => {
     const ctx = makeCtx({ pr: { number: 42, url: 'https://gitlab.com/org/repo/-/merge_requests/42', review_state: 'approved' } });
     const out = renderPowerlineLine2(ctx, 'truecolor', null, c);
     const stripped = stripAnsi(out);
-    expect(stripped).toContain('!42');
-    expect(stripped).not.toContain('#42');
+    // Exact-format match, not a bare toContain: catches both a wrong prefix
+    // and the widget silently failing to render at all.
+    expect(stripped).toMatch(/!42 approved/);
   });
 });
