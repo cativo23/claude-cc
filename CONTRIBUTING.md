@@ -22,6 +22,21 @@ npm run test:coverage   # vitest with coverage report
 npm run build           # compile to dist/
 ```
 
+## Architecture
+
+```text
+stdin (JSON from Claude Code or Qwen Code)
+  → normalize() — unifies both platform payloads
+  → parsers (git, transcript, token-speed, memory, gsd)
+  → RenderContext
+  → render (line1-4 or minimal)
+  → stdout
+```
+
+- **Dependency injection** for testability
+- **File caching** — TTL-based (git, speed) and mtime-based (transcript)
+- **Progressive truncation** — adapts to terminal width
+
 ## Branching
 
 - **`main`** — single trunk. Always releasable. **Open PRs here.**
