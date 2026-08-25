@@ -169,8 +169,18 @@ export function renderCustomCommand(output: CustomCommandOutput, c: Colors): str
   // Strip ANSI from user output unless explicitly opted in. Stripping happens
   // *before* label concatenation so the label can't end up sandwiched inside
   // an unclosed escape sequence.
-  let text = output.ansi ? sanitized : stripAnsi(sanitized);
-  if (output.label) text = `${output.label} ${text}`;
+  const core = output.ansi ? sanitized : stripAnsi(sanitized);
+
+  // An entry that sanitizes down to nothing (whitespace-only stdout, or a
+  // legacy cache entry that was only a newline) must render as fully absent —
+  // otherwise a `color` wrapper produces an empty-but-truthy escape sequence
+  // (e.g. "\x1b[32m\x1b[0m"), or a `label` renders orphaned with a trailing
+  // space. Both would add a stray separator/segment for content that isn't
+  // actually there. Same outcome as the `hidden` state above, just reached
+  // after sanitization instead of before.
+  if (core.length === 0) return '';
+
+  let text = output.label ? `${output.label} ${core}` : core;
 
   // Color is only applied when ansi=false; otherwise we'd be wrapping the
   // user's escapes in another escape, which most terminals render as garbage.

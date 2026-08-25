@@ -404,6 +404,23 @@ describe('renderCustomCommand', () => {
     expect(out).not.toContain('\n');
   });
 
+  it('collapses a newline embedded inside an ANSI SGR sequence without corrupting the escape (ansi: true)', () => {
+    const out = renderCustomCommand(
+      mkOutput({ text: '\x1b[32mfoo\nbar\x1b[0m', ansi: true }),
+      colors,
+    );
+    expect(out).toBe('\x1b[32mfoo bar\x1b[0m');
+  });
+
+  it('renders nothing when the output sanitizes down to empty (whitespace/newline-only stdout)', () => {
+    // A legacy cache entry that was only "\n", or a command whose stdout is
+    // pure whitespace, must render as fully absent — not an empty-but-truthy
+    // color escape or an orphaned label with a trailing space.
+    expect(renderCustomCommand(mkOutput({ text: '\n' }), colors)).toBe('');
+    expect(renderCustomCommand(mkOutput({ text: '\n', color: 'green' }), colors)).toBe('');
+    expect(renderCustomCommand(mkOutput({ text: '\n', label: '◆' }), colors)).toBe('');
+  });
+
   it('strips ANSI from text when ansi: false', () => {
     // Embedded ANSI in user-provided text must not leak through when ansi is off.
     const out = renderCustomCommand(
