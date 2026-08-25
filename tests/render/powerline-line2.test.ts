@@ -850,4 +850,36 @@ describe('renderPowerlineLine2', () => {
       expect(out).not.toContain('💭');
     });
   });
+
+  describe('fast mode segment', () => {
+    const fastModeInput = {
+      model: 'Claude Sonnet 4.6',
+      session_id: 'test',
+      context_window: { used_percentage: 42, remaining_percentage: 58, total_input_tokens: 12000, total_output_tokens: 1800 },
+      cost: { total_cost_usd: 0.42, total_duration_ms: 185000 },
+      fast_mode: true,
+    };
+
+    it('shows fast mode segment when fast_mode is true', () => {
+      const ctx = makeCtx({ input: normalize(fastModeInput), icons: EMOJI_ICONS });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).toContain('fast');
+    });
+
+    it('hides fast mode segment when display.fastMode is false', () => {
+      const ctx = makeCtx({
+        input: normalize(fastModeInput),
+        icons: EMOJI_ICONS,
+        config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, fastMode: false } },
+      });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('fast');
+    });
+
+    it('hides fast mode segment when fast_mode is not enabled', () => {
+      const ctx = makeCtx({ icons: EMOJI_ICONS });
+      const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
+      expect(out).not.toContain('fast');
+    });
+  });
 });

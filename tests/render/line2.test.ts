@@ -313,6 +313,33 @@ describe('renderLine2', () => {
     expect(out).not.toContain('💭');
   });
 
+  it('shows fast mode badge when fast_mode is true', () => {
+    const ctx = makeCtx({ icons: EMOJI_ICONS }, { fast_mode: true });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).toContain('fast');
+  });
+
+  it('renders the fast mode badge in cyan', () => {
+    const ctx = makeCtx({ icons: EMOJI_ICONS }, { fast_mode: true });
+    const out = renderLine2(ctx, c);
+    expect(out).toContain(c.cyan(`${EMOJI_ICONS.lightning}fast`));
+  });
+
+  it('hides fast mode badge when display.fastMode is false', () => {
+    const ctx = makeCtx(
+      { icons: EMOJI_ICONS, config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, fastMode: false } } },
+      { fast_mode: true },
+    );
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('fast');
+  });
+
+  it('hides fast mode badge when fast_mode is not enabled', () => {
+    const ctx = makeCtx({ icons: EMOJI_ICONS });
+    const out = stripAnsi(renderLine2(ctx, c));
+    expect(out).not.toContain('fast');
+  });
+
   it('hides thinking icon when thinking is not enabled', () => {
     const ctx = makeCtx({ icons: EMOJI_ICONS });
     const out = stripAnsi(renderLine2(ctx, c));

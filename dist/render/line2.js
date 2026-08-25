@@ -249,6 +249,11 @@ export function renderLine2(ctx, c) {
     if (display.thinking && input.thinkingEnabled) {
         rightParts.push(c.magenta(icons.thinking));
     }
+    // Fast mode — Opus running at 2.5x output speed (premium pricing). Same
+    // pattern as the thinking badge above: self-gating, config-toggled, right side.
+    if (display.fastMode && input.fastMode) {
+        rightParts.push(c.cyan(`${icons.lightning}fast`));
+    }
     // Config health hints (opt-in, default off). Sit on the right side as
     // auxiliary signals next to vim/effort, and are dropped silently when the
     // projected line width would overflow `cols` — they are advisory, never

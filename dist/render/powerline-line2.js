@@ -251,6 +251,10 @@ function buildSegments(ctx, palette, c) {
     if (display.thinking && input.thinkingEnabled) {
         segments.push({ text: icons.thinking, bg: palette.dirBg, fg: palette.fg, priority: 28 });
     }
+    // Fast mode — same tier as thinking (informational, evicts before effort/vim).
+    if (display.fastMode && input.fastMode) {
+        segments.push({ text: `${icons.lightning}fast`, bg: palette.dirBg, fg: palette.fg, priority: 27 });
+    }
     // Config health hints (opt-in, lowest priority — evicted first on narrow terminals)
     if (display.health && input.cwd) {
         const colorMode = ctx.config.colors.mode === 'auto' ? detectColorMode() : ctx.config.colors.mode;
