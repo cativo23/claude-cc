@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.17.1] - 2026-08-25
 
 ### Fixed
 
@@ -662,7 +662,8 @@ First stable release. API is now considered stable under SemVer.
 - GSD session IDs sanitized against path traversal
 - `execFile` used instead of `exec` to prevent shell injection (except terminal width detection where shell redirect is required with procfs-sourced paths)
 
-[Unreleased]: https://github.com/cativo23/lumira/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/cativo23/lumira/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/cativo23/lumira/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/cativo23/lumira/compare/v1.16.2...v1.17.0
 [1.16.2]: https://github.com/cativo23/lumira/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/cativo23/lumira/compare/v1.16.0...v1.16.1
