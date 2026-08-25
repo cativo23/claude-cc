@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Custom Widgets** — rebrand of Custom Commands with real new capability: an optional `valueMap` field maps a widget's numeric output to an icon/color per range (`{ "lt": 60, "icon": "🟢" }`, ...), same idea as the built-in rate-limit battery glyph, applied to your own data. New `description` field documents a widget in `lumira widget list` so a widget pasted from someone else's config explains itself — a widget is a single, self-contained JSON object, copy-paste-shareable with no import/registry step. `customCommands`/`lumira custom` remain permanent, silent aliases for `customWidgets`/`lumira widget` — no existing config breaks. See [docs/custom-widgets.md](docs/custom-widgets.md), including 4 ready-to-copy example widgets.
+
+### Fixed
+
+- **Custom widget `label` is now sanitized like command output.** A `label` containing a raw newline or ANSI escape used to break the statusline exactly like unsanitized command stdout did before an earlier fix — found while building the widgets feature. Labels are now stripped of ANSI and collapsed to a single line, capped at 24 chars.
+
 ## [1.17.1] - 2026-08-25
 
 ### Fixed

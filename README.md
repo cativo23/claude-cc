@@ -54,7 +54,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 - [Subagent rows](#subagent-rows)
 - [Powerline](#powerline)
 - [Configuration](#configuration)
-- [Custom Commands](#custom-commands)
+- [Custom Widgets](#custom-widgets)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -346,9 +346,11 @@ Set `LUMIRA_DEBUG=1` to trace parser decisions on stderr — cache hits, GSD sta
 LUMIRA_DEBUG=1 claude    # or export LUMIRA_DEBUG=1
 ```
 
-## Custom Commands
+## Custom Widgets
 
-Render your own shell commands as statusline segments on any line — disabled by default, one command (`lumira custom enable`) turns it on. Full field reference and CLI subcommands: **[docs/custom-commands.md](docs/custom-commands.md)**.
+Render your own shell commands as statusline segments on any line — disabled by default, one command (`lumira widget enable`) turns it on. Output can map to an icon/color per value range (`valueMap`), same idea as the built-in rate-limit battery glyph. A widget is a single, self-contained JSON object — copy-paste-shareable, no import/registry needed. Full field reference, `valueMap` details, and ready-to-copy examples: **[docs/custom-widgets.md](docs/custom-widgets.md)**.
+
+<sub>Was called "Custom Commands" (`customCommands`/`lumira custom`) — both names keep working as permanent aliases.</sub>
 
 ## Contributing
 
