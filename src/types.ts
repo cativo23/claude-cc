@@ -325,6 +325,9 @@ export const CUSTOM_COMMAND_ERROR_BEHAVIORS = ['hide', 'placeholder', 'output', 
 /** Valid `color` values for CustomCommand. */
 export const CUSTOM_COMMAND_COLORS = ['dim', 'green', 'yellow', 'orange', 'red', 'cyan', 'magenta'] as const;
 
+/** Hard cap on `label` length (chars) — labels are meant to be a short prefix glyph/word. */
+export const CUSTOM_COMMAND_MAX_LABEL_LEN = 24;
+
 /**
  * Single source of truth for valid powerline style names. Imported by
  * `src/config.ts` (validates JSON config + CLI flags) and

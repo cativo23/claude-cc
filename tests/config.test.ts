@@ -359,6 +359,38 @@ describe('loadConfig', () => {
       expect(Object.keys(cmd.env ?? {}).length).toBe(32);
     });
 
+    it('sanitizes a label containing a newline (would otherwise break the statusline)', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, label: 'a\nb' }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].label).toBe('a b');
+    });
+
+    it('strips ANSI escapes embedded in a label', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, label: '\x1b[31mred\x1b[0m' }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].label).toBe('red');
+    });
+
+    it('truncates a label longer than 24 chars', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, label: 'x'.repeat(50) }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].label).toBe('x'.repeat(24));
+    });
+
+    it('omits label entirely when it sanitizes down to an empty string', () => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify({
+        customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, label: '\n\n' }] },
+      }));
+      expect(loadConfig(dir).customCommands.commands[0].label).toBeUndefined();
+    });
+
     it('drops command with empty command array', () => {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, 'config.json'), JSON.stringify({

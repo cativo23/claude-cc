@@ -1,7 +1,9 @@
 import { readFileSync, existsSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
-import { DEFAULT_CONFIG, DEFAULT_DISPLAY, DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, POWERLINE_STYLE_NAMES, CUSTOM_COMMAND_MAX_TIMEOUT_MS, CUSTOM_COMMAND_MAX_BYTES, CUSTOM_COMMAND_MAX_ENV_ENTRIES, CUSTOM_COMMAND_MIN_REFRESH_MS, CUSTOM_COMMAND_MAX_REFRESH_MS, CUSTOM_COMMAND_VALID_LINES, CUSTOM_COMMAND_ERROR_BEHAVIORS, CUSTOM_COMMAND_COLORS, } from './types.js';
+import { DEFAULT_CONFIG, DEFAULT_DISPLAY, DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, POWERLINE_STYLE_NAMES, CUSTOM_COMMAND_MAX_TIMEOUT_MS, CUSTOM_COMMAND_MAX_BYTES, CUSTOM_COMMAND_MAX_ENV_ENTRIES, CUSTOM_COMMAND_MIN_REFRESH_MS, CUSTOM_COMMAND_MAX_REFRESH_MS, CUSTOM_COMMAND_VALID_LINES, CUSTOM_COMMAND_ERROR_BEHAVIORS, CUSTOM_COMMAND_COLORS, CUSTOM_COMMAND_MAX_LABEL_LEN, } from './types.js';
+import { stripAnsi } from './render/colors.js';
+import { toSingleLine } from './utils/format.js';
 /**
  * Ids we refuse to accept on user-supplied custom commands. Object.prototype
  * lookalikes prevent prototype-pollution-style attacks via the cache map
@@ -121,8 +123,15 @@ function parseCustomCommands(raw) {
             onTimeout,
             ansi,
         };
-        if (typeof e.label === 'string')
-            cmd.label = e.label;
+        // label — sanitized the same way command output is (stripAnsi + toSingleLine):
+        // a raw \n or embedded ANSI escape here would break the statusline exactly
+        // like unsanitized stdout does. Capped short since it's meant to be a
+        // one-glyph/one-word prefix, not a second segment of content.
+        if (typeof e.label === 'string') {
+            const sanitizedLabel = toSingleLine(stripAnsi(e.label)).slice(0, CUSTOM_COMMAND_MAX_LABEL_LEN);
+            if (sanitizedLabel.length > 0)
+                cmd.label = sanitizedLabel;
+        }
         // cwd — must be an absolute path. Relative paths like '../../../etc'
         // would silently escape the renderer's cwd; drop them to fall back to
         // process.cwd() instead of accepting hostile relative input.
