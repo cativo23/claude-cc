@@ -863,7 +863,7 @@ describe('renderPowerlineLine2', () => {
     it('shows fast mode segment when fast_mode is true', () => {
       const ctx = makeCtx({ input: normalize(fastModeInput), icons: EMOJI_ICONS });
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
-      expect(out).toContain('fast');
+      expect(out).toContain(`${EMOJI_ICONS.lightning}fast`);
     });
 
     it('hides fast mode segment when display.fastMode is false', () => {
@@ -873,13 +873,13 @@ describe('renderPowerlineLine2', () => {
         config: { ...DEFAULT_CONFIG, display: { ...DEFAULT_DISPLAY, fastMode: false } },
       });
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
-      expect(out).not.toContain('fast');
+      expect(out).not.toContain(`${EMOJI_ICONS.lightning}fast`);
     });
 
     it('hides fast mode segment when fast_mode is not enabled', () => {
       const ctx = makeCtx({ icons: EMOJI_ICONS });
       const out = stripAnsi(renderPowerlineLine2(ctx, 'truecolor', null, c));
-      expect(out).not.toContain('fast');
+      expect(out).not.toContain(`${EMOJI_ICONS.lightning}fast`);
     });
   });
 });

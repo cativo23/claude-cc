@@ -331,13 +331,13 @@ describe('renderLine2', () => {
       { fast_mode: true },
     );
     const out = stripAnsi(renderLine2(ctx, c));
-    expect(out).not.toContain('fast');
+    expect(out).not.toContain(`${EMOJI_ICONS.lightning}fast`);
   });
 
   it('hides fast mode badge when fast_mode is not enabled', () => {
     const ctx = makeCtx({ icons: EMOJI_ICONS });
     const out = stripAnsi(renderLine2(ctx, c));
-    expect(out).not.toContain('fast');
+    expect(out).not.toContain(`${EMOJI_ICONS.lightning}fast`);
   });
 
   it('hides thinking icon when thinking is not enabled', () => {
