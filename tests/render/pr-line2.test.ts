@@ -56,4 +56,14 @@ describe('PR widget in line2', () => {
     expect(output).not.toContain('\x1b]8;;');
     expect(stripAnsi(output)).toContain('#174');
   });
+
+  it('GitLab merge request renders with ! prefix instead of #', () => {
+    const ctx = makeCtx({
+      pr: { number: 42, url: 'https://gitlab.com/org/repo/-/merge_requests/42', review_state: 'approved' },
+    });
+    const output = stripAnsi(renderLine2(ctx, c));
+    // Exact-format match, not a bare toContain: catches both a wrong prefix
+    // and the widget silently failing to render at all.
+    expect(output).toMatch(/!42 approved/);
+  });
 });

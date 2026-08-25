@@ -184,6 +184,35 @@ export function renderCustomCommand(output: CustomCommandOutput, c: Colors): str
   return result;
 }
 
+/**
+ * PR widget number prefix. CC's own UI shows GitHub pull requests as `#N` and
+ * GitLab merge requests as `!N` — same `pr.{number,url,reviewState}` field,
+ * platform inferred from `pr.url`. Detection is path-shape-based
+ * (`/pull/` vs `/-/merge_requests/`), not hostname-based: GitLab's merge
+ * request path is stable across gitlab.com and any self-hosted instance
+ * (`git.company.com`, `code.internal`, ...), whereas matching on a hostname
+ * substring like "gitlab" both misses self-hosted instances that don't spell
+ * the name and false-positives on unrelated hosts that happen to contain it
+ * (e.g. a GitHub Pages site at `gitlab.github.io`). Falls back to a
+ * gitlab.com hostname check only for the rare case of a non-standard path,
+ * and defaults to `#` (GitHub-style) when the url is absent, unparseable, or
+ * matches neither shape. `url` is expected to already be `https://`-absolute
+ * — normalize.ts enforces that scheme before this ever sees the value — so a
+ * scheme-relative or bare-host input isn't a real-world case, just a defensive
+ * one covered by the try/catch.
+ */
+export function getPrPrefix(url?: string): string {
+  if (!url) return '#';
+  try {
+    const { pathname, hostname } = new URL(url);
+    if (pathname.includes('/-/merge_requests/')) return '!';
+    if (pathname.includes('/pull/')) return '#';
+    return hostname === 'gitlab.com' || hostname.endsWith('.gitlab.com') ? '!' : '#';
+  } catch {
+    return '#';
+  }
+}
+
 export function formatQwenMetrics(n: NormalizedInput, c: Colors, icons: IconSet): string[] {
   const parts: string[] = [];
   if (n.performance && n.performance.requests > 0) {

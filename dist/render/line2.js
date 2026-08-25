@@ -2,7 +2,7 @@ import { fitSegments, displayWidth } from './text.js';
 import { getQuotaColor, getPaceColor, getCacheHitColor, getApiLatencyColor, detectColorMode } from './colors.js';
 import { QUOTA_CRITICAL } from '../types.js';
 import { computeApiLatency, formatApiLatency } from './api-latency.js';
-import { buildContextBar, formatQwenMetrics, getCustomCommandsForLine, renderCustomCommand, SEP } from './shared.js';
+import { buildContextBar, formatQwenMetrics, getCustomCommandsForLine, getPrPrefix, renderCustomCommand, SEP } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { getConfigHealth } from '../parsers/config-health.js';
 import { computePaceDelta, formatPaceDelta } from './pace.js';
@@ -124,7 +124,7 @@ export function renderLine2(ctx, c) {
             reviewState === 'pending' ? c.yellow :
                 reviewState === 'changes_requested' ? c.orange :
                     c.dim; // draft or unknown
-        const text = `${icons.pr} #${number}${stateStr ? ` ${stateStr}` : ''}`;
+        const text = `${icons.pr} ${getPrPrefix(url)}${number}${stateStr ? ` ${stateStr}` : ''}`;
         const colored = colorFn(text);
         leftParts.push(url ? hyperlink(url, colored) : colored);
     }
