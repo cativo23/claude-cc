@@ -5,7 +5,7 @@ import {
   type PowerlineStyleName,
 } from './powerline.js';
 import { QUOTA_CRITICAL } from '../types.js';
-import { buildContextBar, formatQwenMetrics, getCustomCommandsForLine, renderCustomCommand } from './shared.js';
+import { buildContextBar, formatQwenMetrics, getCustomCommandsForLine, getPrPrefix, renderCustomCommand } from './shared.js';
 import { formatTokens, formatCost, formatBurnRate } from '../utils/format.js';
 import { detectColorMode, getCacheHitTier, getApiLatencyTier, getPaceColor, type ColorMode, type Colors } from './colors.js';
 import { computeApiLatency, formatApiLatency } from './api-latency.js';
@@ -259,9 +259,9 @@ function buildSegments(ctx: RenderContext, palette: PowerlinePalette, c: Colors)
 
   // PR widget (CC ≥ 2.1.145)
   if (display.pr && input.pr) {
-    const { number, reviewState } = input.pr;
+    const { number, url, reviewState } = input.pr;
     const stateStr = reviewState ?? '';
-    const text = `${icons.pr} #${number}${stateStr ? ` ${stateStr}` : ''}`;
+    const text = `${icons.pr} ${getPrPrefix(url)}${number}${stateStr ? ` ${stateStr}` : ''}`;
     const bg = getPrReviewBg(reviewState, palette);
     segments.push({ text, bg, fg: palette.fg, priority: 55 });
   }

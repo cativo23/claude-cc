@@ -139,6 +139,24 @@ export function renderCustomCommand(output, c) {
         result = c.dim(result);
     return result;
 }
+/**
+ * PR widget number prefix. CC's own UI shows GitHub pull requests as `#N` and
+ * GitLab merge requests as `!N` — same `pr.{number,url,reviewState}` field,
+ * platform inferred from the host in `pr.url`. Defaults to `#` (GitHub-style)
+ * when the url is absent or unparseable, since that's the widget's original
+ * and most common shape.
+ */
+export function getPrPrefix(url) {
+    if (!url)
+        return '#';
+    try {
+        const { hostname } = new URL(url);
+        return hostname.includes('gitlab') ? '!' : '#';
+    }
+    catch {
+        return '#';
+    }
+}
 export function formatQwenMetrics(n, c, icons) {
     const parts = [];
     if (n.performance && n.performance.requests > 0) {
