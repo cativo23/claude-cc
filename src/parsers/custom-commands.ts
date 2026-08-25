@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import type {
   CustomCommand,
   CustomCommandsConfig,
+  CustomCommandValueTier,
   OnErrorBehavior,
   RefreshSpec,
 } from '../types.js';
@@ -61,6 +62,8 @@ export interface CustomCommandOutput {
   color?: CustomCommand['color'];
   /** True if the command's stdout already contains ANSI escapes. */
   ansi: boolean;
+  /** Value→icon/color tiers (custom widgets). Undefined when not configured. */
+  valueMap?: CustomCommandValueTier[];
 }
 
 export interface GetCustomCommandOutputsInput {
@@ -110,13 +113,14 @@ function isWorldWritable(path: string): boolean {
  * consume these directly instead of joining the output back against the
  * CustomCommand list — keeps the contract self-contained.
  */
-function renderMeta(cmd: CustomCommand): Pick<CustomCommandOutput, 'line' | 'label' | 'color' | 'ansi'> {
-  const meta: Pick<CustomCommandOutput, 'line' | 'label' | 'color' | 'ansi'> = {
+function renderMeta(cmd: CustomCommand): Pick<CustomCommandOutput, 'line' | 'label' | 'color' | 'ansi' | 'valueMap'> {
+  const meta: Pick<CustomCommandOutput, 'line' | 'label' | 'color' | 'ansi' | 'valueMap'> = {
     line: cmd.line,
     ansi: cmd.ansi,
   };
   if (cmd.label !== undefined) meta.label = cmd.label;
   if (cmd.color !== undefined) meta.color = cmd.color;
+  if (cmd.valueMap !== undefined) meta.valueMap = cmd.valueMap;
   return meta;
 }
 
