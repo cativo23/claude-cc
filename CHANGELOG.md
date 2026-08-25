@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **PR widget now recognizes GitLab merge requests.** `pr.{number,url,reviewState}` is shared between GitHub PRs and GitLab MRs, but the widget always rendered `#N` regardless of platform. Now derives the prefix from `pr.url`'s host — `#N` for GitHub, `!N` for GitLab (including self-hosted instances), matching Claude Code's own UI. Affects both classic (`line2.ts`) and powerline renderers.
+- **PR widget now recognizes GitLab merge requests.** `pr.{number,url,reviewState}` is shared between GitHub PRs and GitLab MRs, but the widget always rendered `#N` regardless of platform. Now derives the prefix from `pr.url`'s path shape — `/pull/` → `#N`, `/-/merge_requests/` → `!N` — so self-hosted GitLab instances are detected correctly even when the hostname doesn't say "gitlab" (a hostname check alone can't tell those apart). Matches Claude Code's own UI. Affects both classic (`line2.ts`) and powerline renderers.
 
 ## [1.16.1] - 2026-08-13
 
