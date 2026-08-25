@@ -142,6 +142,25 @@ describe('normalize', () => {
       expect(normalize(input).thinkingEnabled).toBeUndefined();
     });
 
+    it('sets fastMode to true when fast_mode is true (Claude)', () => {
+      const input = { ...claudeInput, fast_mode: true };
+      expect(normalize(input).fastMode).toBe(true);
+    });
+
+    it('does not set fastMode when fast_mode is false', () => {
+      const input = { ...claudeInput, fast_mode: false };
+      expect(normalize(input).fastMode).toBeUndefined();
+    });
+
+    it('does not set fastMode when fast_mode field is absent', () => {
+      expect(normalize(claudeInput).fastMode).toBeUndefined();
+    });
+
+    it('does not set fastMode for Qwen input', () => {
+      const input = { ...qwenInput, fast_mode: true } as unknown as typeof qwenInput;
+      expect(normalize(input).fastMode).toBeUndefined();
+    });
+
     it('window size is undefined for Claude', () => {
       const result = normalize(claudeInput);
       expect(result.context.windowSize).toBeUndefined();

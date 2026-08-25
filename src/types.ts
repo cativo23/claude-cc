@@ -46,6 +46,8 @@ export interface ClaudeCodeInput {
   thinking?: { enabled?: boolean };
   /** Modern (≥ 2.1.145) — open PR for the current branch. */
   pr?: { number?: number; url?: string; review_state?: string };
+  /** Modern (≥ 2.1.x) — Opus fast-mode active (2.5x output speed, premium pricing). */
+  fast_mode?: boolean;
 }
 
 export interface RateLimitWindow {
@@ -375,6 +377,7 @@ export interface DisplayToggles {
   pr: boolean;
   repo: boolean;
   thinking: boolean;
+  fastMode: boolean;
   /**
    * Percentage at which the context bar turns orange and shows the fire icon. Default 65. Clamped [0,100].
    * Setting this ≤ 50 collapses the yellow zone; the bar jumps green→orange directly at this value.
@@ -475,6 +478,7 @@ export const DEFAULT_DISPLAY: DisplayToggles = {
   pr: true,
   repo: true,
   thinking: true,
+  fastMode: true,
   contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
   contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };

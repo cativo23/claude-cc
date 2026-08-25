@@ -118,6 +118,7 @@ export const DEFAULT_DISPLAY = {
     pr: true,
     repo: true,
     thinking: true,
+    fastMode: true,
     contextWarningThreshold: DEFAULT_CONTEXT_WARNING_THRESHOLD,
     contextCriticalThreshold: DEFAULT_CONTEXT_CRITICAL_THRESHOLD,
 };

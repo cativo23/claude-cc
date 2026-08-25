@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Fast mode badge.** CC sends top-level `fast_mode: boolean` when Opus is running at 2.5x output speed (premium pricing). New `⚡fast` badge on line2/powerline, gated by `display.fastMode` (on by default), same self-gating pattern as the thinking indicator (PR #178).
+
 ## [1.16.2] - 2026-08-25
 
 ### Fixed

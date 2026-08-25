@@ -270,6 +270,7 @@ const PRESET_DEFS = {
             pr: true,
             repo: true,
             thinking: true,
+            fastMode: true,
             burnRate: false,
             duration: false,
             tokenSpeed: false,
@@ -319,6 +320,7 @@ const PRESET_DEFS = {
             pr: false,
             repo: false,
             thinking: false,
+            fastMode: false,
         },
     },
 };

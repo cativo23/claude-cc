@@ -97,6 +97,9 @@ export interface NormalizedInput {
   /** Extended thinking enabled (Claude only, CC ≥ 2.1.x) */
   thinkingEnabled?: boolean;
 
+  /** Opus fast-mode active — 2.5x output speed, premium pricing (Claude only, CC ≥ 2.1.x) */
+  fastMode?: boolean;
+
   /** Rate limits (Claude only) */
   rateLimits?: {
     fiveHour?: { usedPercentage: number; resetsAt?: number };
@@ -368,6 +371,7 @@ export function normalize(input: RawInput): NormalizedInput {
       ? sanitizeTermString(claude.effort.level)
       : undefined,
     thinkingEnabled: claude?.thinking?.enabled === true ? true : undefined,
+    fastMode: claude?.fast_mode === true ? true : undefined,
     // Prefer the top-level worktree.name; fall back to workspace.git_worktree,
     // which CC populates for ANY git worktree (verified on v2.1.193) — even
     // sessions not started with --worktree, where worktree.name is absent.

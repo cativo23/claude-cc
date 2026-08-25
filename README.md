@@ -117,6 +117,7 @@ See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the f
 - **Config health widget** — surfaces silent fallbacks (theme/powerline degrading in named-ANSI, missing GSD STATE.md). Opt-in.
 - **Memory usage** — process RSS percentage.
 - **MCP server detection** — count of attached MCP servers per session.
+- **Fast mode badge** — shown when CC reports Opus running at 2.5x output speed (premium pricing). Renders as `fast` next to the same lightning glyph used for cache hit rate (nerd: `U+F140B`, emoji: `⚡`). Toggle: `display.fastMode`.
 - **Vim-mode hint, thinking effort, worktree, output style, session name, added-dirs badge, worktree origin-branch breadcrumb** — all togglable per-field via `display.*`.
 - **3-tier color system** — named ANSI / 256-color / truecolor, auto-detected.
 - **Config-driven** — every feature toggleable via JSON config + CLI flags.

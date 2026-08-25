@@ -676,4 +676,20 @@ describe('compactionCount display toggle — preset defaults', () => {
   it('compactionCount is true when no config file exists (DEFAULT_DISPLAY)', () => {
     expect(loadConfig(join(dir, 'nope')).display.compactionCount).toBe(true);
   });
+
+  it('fastMode is ON in balanced preset', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"balanced"}');
+    expect(loadConfig(dir).display.fastMode).toBe(true);
+  });
+
+  it('fastMode is OFF in minimal preset', () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), '{"preset":"minimal"}');
+    expect(loadConfig(dir).display.fastMode).toBe(false);
+  });
+
+  it('fastMode is true when no config file exists (DEFAULT_DISPLAY)', () => {
+    expect(loadConfig(join(dir, 'nope')).display.fastMode).toBe(true);
+  });
 });
