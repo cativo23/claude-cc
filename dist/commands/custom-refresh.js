@@ -29,17 +29,7 @@
 import { execBg } from '../utils/exec-bg.js';
 import { isAbsolute } from 'node:path';
 import { readCacheFile, writeCacheFile } from '../utils/custom-cache.js';
-/**
- * Every statusline segment is rendered on one line — collapse any embedded
- * newlines to spaces (most CLI tools are well-behaved single-liners, but a
- * few emit multi-line output) and trim the ends. Without this, the near-
- * universal trailing `\n` that commands like `uptime -p` or `git status`
- * emit lands verbatim in the cache and visibly breaks the statusline into
- * two lines on the next render.
- */
-function toSingleLine(s) {
-    return s.replace(/[\r\n]+/g, ' ').trim();
-}
+import { toSingleLine } from '../utils/format.js';
 function isValidSpec(raw) {
     if (!raw || typeof raw !== 'object')
         return false;

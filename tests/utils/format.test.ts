@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatTokens, formatDuration, formatCost, formatBurnRate } from '../../src/utils/format.js';
+import { formatTokens, formatDuration, formatCost, formatBurnRate, toSingleLine } from '../../src/utils/format.js';
 
 describe('formatTokens', () => {
   it('returns empty string for null/undefined', () => {
@@ -83,4 +83,39 @@ describe('formatCost — non-finite inputs', () => {
   it('returns empty string for NaN', () => { expect(formatCost(NaN)).toBe(''); });
   it('returns empty string for Infinity', () => { expect(formatCost(Infinity)).toBe(''); });
   it('returns empty string for negative cost', () => { expect(formatCost(-0.5)).toBe(''); });
+});
+
+describe('toSingleLine', () => {
+  it('strips a trailing newline', () => {
+    expect(toSingleLine('up 3 days\n')).toBe('up 3 days');
+  });
+
+  it('collapses embedded newlines to a single space', () => {
+    expect(toSingleLine('line one\nline two\n')).toBe('line one line two');
+  });
+
+  it('collapses CRLF (Windows line endings) without leaving a double space', () => {
+    expect(toSingleLine('a\r\nb\r\n')).toBe('a b');
+  });
+
+  it('collapses vertical tab and form feed — xterm/VTE treat both as a line feed', () => {
+    expect(toSingleLine('a\vb')).toBe('a b');
+    expect(toSingleLine('a\fb')).toBe('a b');
+  });
+
+  it('collapses multiple consecutive line breaks into one space, not several', () => {
+    expect(toSingleLine('a\n\n\nb')).toBe('a b');
+  });
+
+  it('trims leading and trailing whitespace', () => {
+    expect(toSingleLine('   42   ')).toBe('42');
+  });
+
+  it('returns empty string for input that is only line breaks', () => {
+    expect(toSingleLine('\n\n')).toBe('');
+  });
+
+  it('does not corrupt an ANSI SGR sequence — no escape contains \\r or \\n', () => {
+    expect(toSingleLine('\x1b[32mfoo\nbar\x1b[0m\n')).toBe('\x1b[32mfoo bar\x1b[0m');
+  });
 });

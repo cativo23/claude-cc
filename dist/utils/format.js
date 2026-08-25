@@ -1,3 +1,15 @@
+/**
+ * Every statusline segment renders on one line — collapse any line-breaking
+ * whitespace (`\r`, `\n`, and the less common `\v`/`\f`, which xterm/VTE also
+ * treat as a line feed) to spaces, then trim the ends. Applied both where a
+ * Custom Command's stdout is cached (custom-refresh.ts) and where it's
+ * rendered (render/shared.ts) — write-side keeps new entries clean, read-side
+ * means an entry cached before this existed doesn't stay visibly broken
+ * until its next refresh (up to 24h away on a long refreshMs).
+ */
+export function toSingleLine(s) {
+    return s.replace(/[\r\n\v\f]+/g, ' ').trim();
+}
 export function formatTokens(n) {
     if (n == null || !Number.isFinite(n))
         return '';

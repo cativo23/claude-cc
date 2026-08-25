@@ -395,6 +395,15 @@ describe('renderCustomCommand', () => {
     expect(out).toBe('plain');
   });
 
+  it('collapses an embedded newline even when the entry was cached before the write-side fix existed', () => {
+    // Defense in depth: custom-refresh.ts sanitizes before writing, but a
+    // pre-existing cache entry (or any future write path that forgets to)
+    // must not still visibly break the statusline into two lines.
+    const out = renderCustomCommand(mkOutput({ text: 'up 3 days\n' }), colors);
+    expect(out).toBe('up 3 days');
+    expect(out).not.toContain('\n');
+  });
+
   it('strips ANSI from text when ansi: false', () => {
     // Embedded ANSI in user-provided text must not leak through when ansi is off.
     const out = renderCustomCommand(

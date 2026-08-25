@@ -1,6 +1,6 @@
 import { NERD_ICONS, type IconSet } from './icons.js';
 import { getContextColor, stripAnsi, type Colors } from './colors.js';
-import { formatTokens } from '../utils/format.js';
+import { formatTokens, toSingleLine } from '../utils/format.js';
 import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, type GitStatus, type TranscriptData, type CustomCommand } from '../types.js';
 import type { NormalizedInput } from '../normalize.js';
 import type { CustomCommandOutput } from '../parsers/custom-commands.js';
@@ -159,10 +159,17 @@ export function getCustomCommandsForLine(
 export function renderCustomCommand(output: CustomCommandOutput, c: Colors): string {
   if (output.state === 'hidden') return '';
 
+  // Defense in depth: custom-refresh.ts already sanitizes newlines before
+  // caching, but an entry cached before that existed can still carry a raw
+  // `\n` until its next refresh (up to 24h on a long refreshMs) — collapsing
+  // here too means the fix is immediate rather than waiting on cache TTL.
+  // Safe regardless of `ansi`: no CSI/SGR/OSC escape sequence contains \r/\n.
+  const sanitized = toSingleLine(output.text);
+
   // Strip ANSI from user output unless explicitly opted in. Stripping happens
   // *before* label concatenation so the label can't end up sandwiched inside
   // an unclosed escape sequence.
-  let text = output.ansi ? output.text : stripAnsi(output.text);
+  let text = output.ansi ? sanitized : stripAnsi(sanitized);
   if (output.label) text = `${output.label} ${text}`;
 
   // Color is only applied when ansi=false; otherwise we'd be wrapping the

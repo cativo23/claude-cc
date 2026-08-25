@@ -318,6 +318,56 @@ describe('getCustomCommandOutputs', () => {
     });
     const written = JSON.parse(readFileSync(cachePath, 'utf8'));
     expect(written[cmd.id].text).toBe('up 3 days');
+    expect(written[cmd.id].text).not.toContain('\n');
+  }, 5000);
+
+  it('collapses CRLF (Windows-style line endings) from stdout', async () => {
+    const cmd = makeCmd({
+      id: 'crlf',
+      command: ['node', '-e', "process.stdout.write('a\\r\\nb\\r\\n')"],
+    });
+
+    await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+
+    await waitFor(() => {
+      try {
+        const raw = JSON.parse(readFileSync(cachePath, 'utf8'));
+        return raw[cmd.id]?.state === 'ok';
+      } catch { return false; }
+    });
+    const written = JSON.parse(readFileSync(cachePath, 'utf8'));
+    expect(written[cmd.id].text).toBe('a b');
+  }, 5000);
+
+  it('sanitizes newlines on the nonzero-exit path too (onError: output shows this text)', async () => {
+    const cmd = makeCmd({
+      id: 'nonzero-newline',
+      command: ['node', '-e', "process.stdout.write('partial\\n'); process.exit(1)"],
+      onError: 'output',
+    });
+
+    await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+
+    await waitFor(() => {
+      try {
+        const raw = JSON.parse(readFileSync(cachePath, 'utf8'));
+        return raw[cmd.id]?.state === 'nonzero';
+      } catch { return false; }
+    });
+    const written = JSON.parse(readFileSync(cachePath, 'utf8'));
+    expect(written[cmd.id].text).toBe('partial');
   }, 5000);
 
   it('collapses embedded newlines from multi-line stdout into a single line', async () => {

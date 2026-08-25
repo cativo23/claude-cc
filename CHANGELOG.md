@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Custom Commands no longer splits the statusline when a command's output ends in a newline.** Virtually every CLI tool (`uptime -p`, `git status`, etc.) emits a trailing `\n` by convention — the custom-commands pipeline cached that raw output verbatim, so it landed inside a segment meant to render on a single line and visibly broke it in two. Trailing and embedded newlines are now collapsed to spaces before caching.
+- **Custom Commands no longer splits the statusline when a command's output ends in a newline.** Virtually every CLI tool (`uptime -p`, `git status`, etc.) emits a trailing `\n` by convention — the custom-commands pipeline cached that raw output verbatim, so it landed inside a segment meant to render on a single line and visibly broke it in two. Trailing/embedded newlines (`\r`, `\n`, `\v`, `\f`) are now collapsed to spaces and the ends trimmed, both when a fresh result is cached and when an existing entry is rendered — so an entry cached before this fix isn't stuck broken until its next refresh.
 
 ## [1.17.0] - 2026-08-25
 
