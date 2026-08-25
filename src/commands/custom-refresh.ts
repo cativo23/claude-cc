@@ -31,6 +31,7 @@ import { execBg } from '../utils/exec-bg.js';
 import { isAbsolute } from 'node:path';
 import type { OnErrorBehavior, RefreshSpec } from '../types.js';
 import { readCacheFile, writeCacheFile, type CacheEntry, type CacheMap } from '../utils/custom-cache.js';
+import { toSingleLine } from '../utils/format.js';
 
 function isValidSpec(raw: unknown): raw is RefreshSpec {
   if (!raw || typeof raw !== 'object') return false;
@@ -73,17 +74,17 @@ export async function runCustomRefresh(stdinPayload: string): Promise<void> {
     let entry: CacheEntry;
     switch (result.kind) {
       case 'ok':
-        entry = { text: result.stdout, capturedAt: now, state: 'ok' };
+        entry = { text: toSingleLine(result.stdout), capturedAt: now, state: 'ok' };
         break;
       case 'timeout':
-        entry = { text: result.stdout, capturedAt: now, state: 'timeout' };
+        entry = { text: toSingleLine(result.stdout), capturedAt: now, state: 'timeout' };
         break;
       case 'nonzero': {
         // For onError:'output' the renderer shows entry.text directly, so
         // store stdout (partial output before the command failed). For all
         // other strategies the text is not displayed — store stdout anyway
         // so the entry is useful if the strategy is later changed.
-        entry = { text: result.stdout, capturedAt: now, state: 'nonzero' };
+        entry = { text: toSingleLine(result.stdout), capturedAt: now, state: 'nonzero' };
         break;
       }
       case 'spawn-error':

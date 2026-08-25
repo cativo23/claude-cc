@@ -296,6 +296,105 @@ describe('getCustomCommandOutputs', () => {
     expect(typeof written[cmd.id].capturedAt).toBe('number');
   }, 5000);
 
+  it('strips a trailing newline from stdout before caching (most CLI tools emit one)', async () => {
+    const cmd = makeCmd({
+      id: 'trailing-newline',
+      command: ['node', '-e', "process.stdout.write('up 3 days\\n')"],
+    });
+
+    await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+
+    await waitFor(() => {
+      try {
+        const raw = JSON.parse(readFileSync(cachePath, 'utf8'));
+        return raw[cmd.id]?.state === 'ok';
+      } catch { return false; }
+    });
+    const written = JSON.parse(readFileSync(cachePath, 'utf8'));
+    expect(written[cmd.id].text).toBe('up 3 days');
+    expect(written[cmd.id].text).not.toContain('\n');
+  }, 5000);
+
+  it('collapses CRLF (Windows-style line endings) from stdout', async () => {
+    const cmd = makeCmd({
+      id: 'crlf',
+      command: ['node', '-e', "process.stdout.write('a\\r\\nb\\r\\n')"],
+    });
+
+    await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+
+    await waitFor(() => {
+      try {
+        const raw = JSON.parse(readFileSync(cachePath, 'utf8'));
+        return raw[cmd.id]?.state === 'ok';
+      } catch { return false; }
+    });
+    const written = JSON.parse(readFileSync(cachePath, 'utf8'));
+    expect(written[cmd.id].text).toBe('a b');
+  }, 5000);
+
+  it('sanitizes newlines on the nonzero-exit path too (onError: output shows this text)', async () => {
+    const cmd = makeCmd({
+      id: 'nonzero-newline',
+      command: ['node', '-e', "process.stdout.write('partial\\n'); process.exit(1)"],
+      onError: 'output',
+    });
+
+    await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+
+    await waitFor(() => {
+      try {
+        const raw = JSON.parse(readFileSync(cachePath, 'utf8'));
+        return raw[cmd.id]?.state === 'nonzero';
+      } catch { return false; }
+    });
+    const written = JSON.parse(readFileSync(cachePath, 'utf8'));
+    expect(written[cmd.id].text).toBe('partial');
+  }, 5000);
+
+  it('collapses embedded newlines from multi-line stdout into a single line', async () => {
+    const cmd = makeCmd({
+      id: 'multi-line',
+      command: ['node', '-e', "process.stdout.write('line one\\nline two\\n')"],
+    });
+
+    await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+
+    await waitFor(() => {
+      try {
+        const raw = JSON.parse(readFileSync(cachePath, 'utf8'));
+        return raw[cmd.id]?.state === 'ok';
+      } catch { return false; }
+    });
+    const written = JSON.parse(readFileSync(cachePath, 'utf8'));
+    expect(written[cmd.id].text).toBe('line one line two');
+    expect(written[cmd.id].text).not.toContain('\n');
+  }, 5000);
+
   it('treats malformed cache file as empty (no crash)', async () => {
     writeFileSync(cachePath, 'not-json-at-all', { mode: 0o600 });
     const cmd = makeCmd({ id: 'garbage-cache', onError: 'placeholder' });

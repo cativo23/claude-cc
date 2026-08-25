@@ -1,6 +1,6 @@
 import { NERD_ICONS } from './icons.js';
 import { getContextColor, stripAnsi } from './colors.js';
-import { formatTokens } from '../utils/format.js';
+import { formatTokens, toSingleLine } from '../utils/format.js';
 import { DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD } from '../types.js';
 export const SEP = ` \x1b[90m\u2502\x1b[0m `;
 export const SEP_MINIMAL = ` \x1b[90m|\x1b[0m `;
@@ -115,12 +115,26 @@ export function getCustomCommandsForLine(outputs, line) {
 export function renderCustomCommand(output, c) {
     if (output.state === 'hidden')
         return '';
+    // Defense in depth: custom-refresh.ts already sanitizes newlines before
+    // caching, but an entry cached before that existed can still carry a raw
+    // `\n` until its next refresh (up to 24h on a long refreshMs) — collapsing
+    // here too means the fix is immediate rather than waiting on cache TTL.
+    // Safe regardless of `ansi`: no CSI/SGR/OSC escape sequence contains \r/\n.
+    const sanitized = toSingleLine(output.text);
     // Strip ANSI from user output unless explicitly opted in. Stripping happens
     // *before* label concatenation so the label can't end up sandwiched inside
     // an unclosed escape sequence.
-    let text = output.ansi ? output.text : stripAnsi(output.text);
-    if (output.label)
-        text = `${output.label} ${text}`;
+    const core = output.ansi ? sanitized : stripAnsi(sanitized);
+    // An entry that sanitizes down to nothing (whitespace-only stdout, or a
+    // legacy cache entry that was only a newline) must render as fully absent —
+    // otherwise a `color` wrapper produces an empty-but-truthy escape sequence
+    // (e.g. "\x1b[32m\x1b[0m"), or a `label` renders orphaned with a trailing
+    // space. Both would add a stray separator/segment for content that isn't
+    // actually there. Same outcome as the `hidden` state above, just reached
+    // after sanitization instead of before.
+    if (core.length === 0)
+        return '';
+    let text = output.label ? `${output.label} ${core}` : core;
     // Color is only applied when ansi=false; otherwise we'd be wrapping the
     // user's escapes in another escape, which most terminals render as garbage.
     let result = text;
