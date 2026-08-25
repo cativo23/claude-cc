@@ -1,7 +1,9 @@
 import { readFileSync, existsSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
-import { DEFAULT_CONFIG, DEFAULT_DISPLAY, DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, POWERLINE_STYLE_NAMES, CUSTOM_COMMAND_MAX_TIMEOUT_MS, CUSTOM_COMMAND_MAX_BYTES, CUSTOM_COMMAND_MAX_ENV_ENTRIES, CUSTOM_COMMAND_MIN_REFRESH_MS, CUSTOM_COMMAND_MAX_REFRESH_MS, CUSTOM_COMMAND_VALID_LINES, CUSTOM_COMMAND_ERROR_BEHAVIORS, CUSTOM_COMMAND_COLORS, } from './types.js';
+import { DEFAULT_CONFIG, DEFAULT_DISPLAY, DEFAULT_CONTEXT_WARNING_THRESHOLD, DEFAULT_CONTEXT_CRITICAL_THRESHOLD, POWERLINE_STYLE_NAMES, CUSTOM_COMMAND_MAX_TIMEOUT_MS, CUSTOM_COMMAND_MAX_BYTES, CUSTOM_COMMAND_MAX_ENV_ENTRIES, CUSTOM_COMMAND_MIN_REFRESH_MS, CUSTOM_COMMAND_MAX_REFRESH_MS, CUSTOM_COMMAND_VALID_LINES, CUSTOM_COMMAND_ERROR_BEHAVIORS, CUSTOM_COMMAND_COLORS, CUSTOM_COMMAND_MAX_LABEL_LEN, CUSTOM_COMMAND_MAX_VALUE_TIERS, CUSTOM_COMMAND_MAX_ICON_LEN, CUSTOM_COMMAND_MAX_DESCRIPTION_LEN, } from './types.js';
+import { stripAnsi } from './render/colors.js';
+import { toSingleLine } from './utils/format.js';
 /**
  * Ids we refuse to accept on user-supplied custom commands. Object.prototype
  * lookalikes prevent prototype-pollution-style attacks via the cache map
@@ -54,6 +56,110 @@ const clampInt = (n, min, max) => {
     const i = Math.trunc(n);
     return Math.max(min, Math.min(max, i));
 };
+/**
+ * `customWidgets` is the name documented from here on (custom widgets —
+ * value→icon/color tiers, description, etc.); `customCommands` is the
+ * original name and stays a permanent, silent alias — README commits to
+ * "config schema stable since v1.0, additive changes only", so nobody's
+ * existing config.json can be allowed to stop working over a rename.
+ *
+ * Precedence: if `customWidgets` is present and is itself an object (not
+ * null/array/string/number — a malformed value there is treated as absent,
+ * not as "user meant this"), it wins ENTIRELY — no merge with
+ * `customCommands`, even if both are populated and even if `customWidgets`
+ * is `{}`. A partial merge would let a stale `customCommands` block the
+ * user forgot to delete resurrect widgets they believe they removed by
+ * migrating to the new key.
+ */
+export function resolveWidgetsKey(raw) {
+    const cw = raw.customWidgets;
+    const isObject = cw !== null && typeof cw === 'object' && !Array.isArray(cw);
+    return isObject ? 'customWidgets' : 'customCommands';
+}
+/**
+ * Parse and validate a `valueMap` block (custom widgets — value→icon/color
+ * tiers). Same doctrine as the rest of this file: drop invalid elements
+ * silently rather than reject the whole widget, clamp/sanitize what can be
+ * salvaged. Returns undefined (field omitted) when nothing valid survives —
+ * callers treat that identically to "no valueMap" configured.
+ *
+ * The one non-obvious step: tiers are ALWAYS sorted ascending by `lt`, with
+ * the catch-all (no `lt`) forced last, regardless of the order the user
+ * wrote them in. This is what makes render-time matching (matchValueTier in
+ * value-map.ts) a simple linear scan instead of needing its own validation —
+ * and it's what prevents a widget pasted from someone else's config with
+ * tiers in the "wrong" order from silently matching the wrong tier.
+ */
+function parseValueMap(raw) {
+    if (!Array.isArray(raw) || raw.length === 0)
+        return undefined;
+    const tiers = [];
+    let sawCatchAll = false;
+    const seenLt = new Set();
+    for (const entry of raw) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+            continue;
+        const e = entry;
+        let lt;
+        if (e.lt !== undefined) {
+            if (typeof e.lt !== 'number' || !Number.isFinite(e.lt))
+                continue; // drop the whole element
+            if (seenLt.has(e.lt))
+                continue; // first VALID occurrence of a duplicate lt wins — seenLt is only
+            // marked below, after the icon/color no-op check, so a discarded no-op tier doesn't reserve the lt
+            lt = e.lt;
+        }
+        else {
+            if (sawCatchAll)
+                continue; // first catch-all wins
+        }
+        const tier = {};
+        if (lt !== undefined)
+            tier.lt = lt;
+        if (typeof e.icon === 'string') {
+            const sanitized = toSingleLine(stripAnsi(e.icon)).slice(0, CUSTOM_COMMAND_MAX_ICON_LEN);
+            if (sanitized.length > 0)
+                tier.icon = sanitized;
+        }
+        if (typeof e.color === 'string' && CUSTOM_COMMAND_COLORS.includes(e.color)) {
+            tier.color = e.color;
+        }
+        // A tier with neither icon nor color is a no-op — dropping it here means
+        // downstream code never has to special-case "matched but nothing to show".
+        if (tier.icon === undefined && tier.color === undefined)
+            continue;
+        if (lt !== undefined)
+            seenLt.add(lt);
+        else
+            sawCatchAll = true;
+        tiers.push(tier);
+    }
+    if (tiers.length === 0)
+        return undefined;
+    // Sort ascending by lt; the catch-all (no lt) always sorts last regardless
+    // of input position. Array.prototype.sort is stable (ES2019+), so ties —
+    // there are none here since duplicate lt is already deduped above — would
+    // preserve input order anyway.
+    tiers.sort((a, b) => {
+        if (a.lt === undefined)
+            return 1;
+        if (b.lt === undefined)
+            return -1;
+        return a.lt - b.lt;
+    });
+    if (tiers.length <= CUSTOM_COMMAND_MAX_VALUE_TIERS)
+        return tiers;
+    // The catch-all always sorts last, so a plain slice(0, N) here would
+    // silently drop it whenever there are >= N bounded tiers — the widget
+    // would then render bare text for any value above the highest `lt`, with
+    // no diagnostic (parseValueMap never warns to stderr). Reserve it a
+    // guaranteed slot instead: keep the N-1 smallest bounded tiers, plus the
+    // catch-all if one exists.
+    const hasCatchAll = tiers[tiers.length - 1]?.lt === undefined;
+    if (!hasCatchAll)
+        return tiers.slice(0, CUSTOM_COMMAND_MAX_VALUE_TIERS);
+    return [...tiers.slice(0, CUSTOM_COMMAND_MAX_VALUE_TIERS - 1), tiers[tiers.length - 1]];
+}
 /**
  * Parse and validate the `customCommands` config block (issue #143).
  * Drops invalid commands silently, clamps numerics to documented bounds,
@@ -121,8 +227,15 @@ function parseCustomCommands(raw) {
             onTimeout,
             ansi,
         };
-        if (typeof e.label === 'string')
-            cmd.label = e.label;
+        // label — sanitized the same way command output is (stripAnsi + toSingleLine):
+        // a raw \n or embedded ANSI escape here would break the statusline exactly
+        // like unsanitized stdout does. Capped short since it's meant to be a
+        // one-glyph/one-word prefix, not a second segment of content.
+        if (typeof e.label === 'string') {
+            const sanitizedLabel = toSingleLine(stripAnsi(e.label)).slice(0, CUSTOM_COMMAND_MAX_LABEL_LEN);
+            if (sanitizedLabel.length > 0)
+                cmd.label = sanitizedLabel;
+        }
         // cwd — must be an absolute path. Relative paths like '../../../etc'
         // would silently escape the renderer's cwd; drop them to fall back to
         // process.cwd() instead of accepting hostile relative input.
@@ -131,6 +244,17 @@ function parseCustomCommands(raw) {
         if (typeof e.color === 'string' && CUSTOM_COMMAND_COLORS.includes(e.color)) {
             cmd.color = e.color;
         }
+        // description — never rendered, exists purely so a widget pasted from
+        // someone else's config.json explains itself (`lumira widget list`).
+        if (typeof e.description === 'string') {
+            const sanitizedDescription = toSingleLine(stripAnsi(e.description)).slice(0, CUSTOM_COMMAND_MAX_DESCRIPTION_LEN);
+            if (sanitizedDescription.length > 0)
+                cmd.description = sanitizedDescription;
+        }
+        // valueMap — see parseValueMap for the full validation contract.
+        const valueMap = parseValueMap(e.valueMap);
+        if (valueMap)
+            cmd.valueMap = valueMap;
         // env — record of string→string, truncated to CUSTOM_COMMAND_MAX_ENV_ENTRIES
         if (e.env && typeof e.env === 'object' && !Array.isArray(e.env)) {
             const envOut = {};
@@ -214,7 +338,7 @@ function mergeConfig(rawIn) {
         gsd: typeof raw.gsd === 'boolean' ? raw.gsd : DEFAULT_CONFIG.gsd,
         display: { ...DEFAULT_DISPLAY },
         colors,
-        customCommands: parseCustomCommands(raw.customCommands),
+        customCommands: parseCustomCommands(raw[resolveWidgetsKey(raw)]),
     };
     // Apply preset FIRST (sets layout + display defaults)
     const validPresets = ['full', 'balanced', 'minimal'];

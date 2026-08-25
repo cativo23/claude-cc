@@ -295,6 +295,36 @@ export interface CustomCommand {
   ansi: boolean;
   /** Optional color applied only when ansi is false. */
   color?: 'dim' | 'green' | 'yellow' | 'orange' | 'red' | 'cyan' | 'magenta';
+  /**
+   * Value→icon/color tiers (custom widgets — issue TBD). Only applied when
+   * `ansi` is false and the sanitized output parses as a single finite
+   * number (see `parseWidgetValue` in render/value-map.ts) — non-numeric
+   * output falls back to plain text + the static `label`/`color` above,
+   * unchanged from today. Config-parse time sorts entries ascending by `lt`
+   * and forces the catch-all (no `lt`) entry last, so render-time matching
+   * can assume a normalized, gap-free ladder.
+   */
+  valueMap?: CustomCommandValueTier[];
+  /** Free-text description, never rendered — exists so a widget pasted from
+   * someone else's config.json explains itself (`lumira widget list`). */
+  description?: string;
+}
+
+/**
+ * One tier of a `valueMap` ladder. Matches the same `value < lt` style as
+ * the native tier functions (see `getQuotaColor` in render/colors.ts) —
+ * `lt` is an EXCLUSIVE upper bound, not inclusive, so there's no ambiguity
+ * about which tier a boundary value falls into. Omit `lt` for the catch-all
+ * tier (matches anything not caught by an earlier tier); config parsing
+ * forces at most one catch-all, and it always sorts last.
+ */
+export interface CustomCommandValueTier {
+  /** Exclusive upper bound: matches when value < lt. Omit for catch-all. */
+  lt?: number;
+  /** Glyph/text inserted between `label` and the value. Sanitized + capped like `label`. */
+  icon?: string;
+  /** Overrides the widget's static `color` when this tier matches. */
+  color?: CustomCommand['color'];
 }
 
 export interface CustomCommandsConfig {
@@ -324,6 +354,15 @@ export const CUSTOM_COMMAND_ERROR_BEHAVIORS = ['hide', 'placeholder', 'output', 
 
 /** Valid `color` values for CustomCommand. */
 export const CUSTOM_COMMAND_COLORS = ['dim', 'green', 'yellow', 'orange', 'red', 'cyan', 'magenta'] as const;
+
+/** Hard cap on `label` length (chars) — labels are meant to be a short prefix glyph/word. */
+export const CUSTOM_COMMAND_MAX_LABEL_LEN = 24;
+/** Hard cap on valid `valueMap` tiers per widget — nerdBattery (the native equivalent) uses 11. */
+export const CUSTOM_COMMAND_MAX_VALUE_TIERS = 12;
+/** Hard cap on a tier's `icon` length (chars) — same rationale as `label`. */
+export const CUSTOM_COMMAND_MAX_ICON_LEN = 16;
+/** Hard cap on `description` length (chars) — one line in `lumira widget list`, not a README. */
+export const CUSTOM_COMMAND_MAX_DESCRIPTION_LEN = 120;
 
 /**
  * Single source of truth for valid powerline style names. Imported by

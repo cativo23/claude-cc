@@ -39,6 +39,8 @@ function renderMeta(cmd) {
         meta.label = cmd.label;
     if (cmd.color !== undefined)
         meta.color = cmd.color;
+    if (cmd.valueMap !== undefined)
+        meta.valueMap = cmd.valueMap;
     return meta;
 }
 /** Map a cached entry into the render-facing output, applying onError/onTimeout. */

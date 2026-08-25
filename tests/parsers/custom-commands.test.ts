@@ -483,6 +483,51 @@ describe('getCustomCommandOutputs', () => {
     expect(result[1].ansi).toBe(false);
   });
 
+  it('propagates valueMap onto the output in ok, stale, and error(output) states', async () => {
+    const valueMap = [{ lt: 60, icon: '🟢' }, { icon: '🔴', color: 'red' as const }];
+
+    const okCmd = makeCmd({ id: 'ok-vm', valueMap, refreshMs: 5000 });
+    writeFileSync(cachePath, JSON.stringify({
+      [okCmd.id]: { text: '42', capturedAt: FIXED_NOW - 100, state: 'ok' },
+    }), { mode: 0o600 });
+
+    const staleCmd = makeCmd({ id: 'stale-vm', valueMap, refreshMs: 5000 });
+    const cache2 = JSON.parse(readFileSync(cachePath, 'utf8'));
+    cache2[staleCmd.id] = { text: '42', capturedAt: FIXED_NOW - 10000, state: 'ok' };
+    writeFileSync(cachePath, JSON.stringify(cache2), { mode: 0o600 });
+
+    const errorCmd = makeCmd({ id: 'error-vm', valueMap, refreshMs: 5000, onError: 'output' });
+    const cache3 = JSON.parse(readFileSync(cachePath, 'utf8'));
+    cache3[errorCmd.id] = { text: '42', capturedAt: FIXED_NOW - 100, state: 'nonzero' };
+    writeFileSync(cachePath, JSON.stringify(cache3), { mode: 0o600 });
+
+    const result = await getCustomCommandOutputs({
+      config: makeConfig([okCmd, staleCmd, errorCmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+    expect(result.find(r => r.id === 'ok-vm')?.valueMap).toEqual(valueMap);
+    expect(result.find(r => r.id === 'stale-vm')?.valueMap).toEqual(valueMap);
+    expect(result.find(r => r.id === 'error-vm')?.valueMap).toEqual(valueMap);
+  });
+
+  it('does not set valueMap on the output when the command has none configured', async () => {
+    const cmd = makeCmd({ id: 'no-vm', refreshMs: 5000 });
+    writeFileSync(cachePath, JSON.stringify({
+      [cmd.id]: { text: 'hi', capturedAt: FIXED_NOW - 100, state: 'ok' },
+    }), { mode: 0o600 });
+    const result = await getCustomCommandOutputs({
+      config: makeConfig([cmd]),
+      stdin: '{}',
+      cachePath,
+      configFilePath: configPath,
+      now: FIXED_NOW,
+    });
+    expect(result[0].valueMap).toBeUndefined();
+  });
+
   // B1 regression: the renderer's process must exit immediately after
   // getCustomCommandOutputs returns, even if a refresh has just been
   // dispatched for a slow command. The earlier "void async-IIFE" version
