@@ -4,7 +4,9 @@ Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen 
 
 ![lumira statusline — tokyo-night theme](assets/showcase/hero-5-2.png)
 
-[![asciicast — context bar filling, tools active, GSD widget](https://asciinema.org/a/apvjkloigO9hrdVA.svg)](https://asciinema.org/a/apvjkloigO9hrdVA)
+![lumira statusline demo — context bar filling, tools active, GSD widget](assets/showcase/demo.gif)
+
+<sub>[Interactive version →](https://asciinema.org/a/apvjkloigO9hrdVA) (scrub, copy text, adjustable speed)</sub>
 
 ## Quick start
 
