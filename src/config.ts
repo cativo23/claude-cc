@@ -16,11 +16,15 @@ import {
   CUSTOM_COMMAND_ERROR_BEHAVIORS,
   CUSTOM_COMMAND_COLORS,
   CUSTOM_COMMAND_MAX_LABEL_LEN,
+  CUSTOM_COMMAND_MAX_VALUE_TIERS,
+  CUSTOM_COMMAND_MAX_ICON_LEN,
+  CUSTOM_COMMAND_MAX_DESCRIPTION_LEN,
   type HudConfig,
   type DisplayToggles,
   type ColorConfig,
   type CustomCommand,
   type CustomCommandsConfig,
+  type CustomCommandValueTier,
   type OnErrorBehavior,
 } from './types.js';
 import { stripAnsi } from './render/colors.js';
@@ -80,6 +84,75 @@ const clampInt = (n: number, min: number, max: number): number => {
   const i = Math.trunc(n);
   return Math.max(min, Math.min(max, i));
 };
+
+/**
+ * Parse and validate a `valueMap` block (custom widgets — value→icon/color
+ * tiers). Same doctrine as the rest of this file: drop invalid elements
+ * silently rather than reject the whole widget, clamp/sanitize what can be
+ * salvaged. Returns undefined (field omitted) when nothing valid survives —
+ * callers treat that identically to "no valueMap" configured.
+ *
+ * The one non-obvious step: tiers are ALWAYS sorted ascending by `lt`, with
+ * the catch-all (no `lt`) forced last, regardless of the order the user
+ * wrote them in. This is what makes render-time matching (matchValueTier in
+ * value-map.ts) a simple linear scan instead of needing its own validation —
+ * and it's what prevents a widget pasted from someone else's config with
+ * tiers in the "wrong" order from silently matching the wrong tier.
+ */
+function parseValueMap(raw: unknown): CustomCommandValueTier[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+
+  const tiers: CustomCommandValueTier[] = [];
+  let sawCatchAll = false;
+  const seenLt = new Set<number>();
+
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const e = entry as Record<string, unknown>;
+
+    let lt: number | undefined;
+    if (e.lt !== undefined) {
+      if (typeof e.lt !== 'number' || !Number.isFinite(e.lt)) continue; // drop the whole element
+      if (seenLt.has(e.lt)) continue; // first occurrence of a duplicate lt wins
+      lt = e.lt;
+    } else {
+      if (sawCatchAll) continue; // first catch-all wins
+    }
+
+    const tier: CustomCommandValueTier = {};
+    if (lt !== undefined) tier.lt = lt;
+
+    if (typeof e.icon === 'string') {
+      const sanitized = toSingleLine(stripAnsi(e.icon)).slice(0, CUSTOM_COMMAND_MAX_ICON_LEN);
+      if (sanitized.length > 0) tier.icon = sanitized;
+    }
+    if (typeof e.color === 'string' && (CUSTOM_COMMAND_COLORS as readonly string[]).includes(e.color)) {
+      tier.color = e.color as CustomCommandValueTier['color'];
+    }
+
+    // A tier with neither icon nor color is a no-op — dropping it here means
+    // downstream code never has to special-case "matched but nothing to show".
+    if (tier.icon === undefined && tier.color === undefined) continue;
+
+    if (lt !== undefined) seenLt.add(lt);
+    else sawCatchAll = true;
+    tiers.push(tier);
+  }
+
+  if (tiers.length === 0) return undefined;
+
+  // Sort ascending by lt; the catch-all (no lt) always sorts last regardless
+  // of input position. Array.prototype.sort is stable (ES2019+), so ties —
+  // there are none here since duplicate lt is already deduped above — would
+  // preserve input order anyway.
+  tiers.sort((a, b) => {
+    if (a.lt === undefined) return 1;
+    if (b.lt === undefined) return -1;
+    return a.lt - b.lt;
+  });
+
+  return tiers.slice(0, CUSTOM_COMMAND_MAX_VALUE_TIERS);
+}
 
 /**
  * Parse and validate the `customCommands` config block (issue #143).
@@ -166,6 +239,17 @@ function parseCustomCommands(raw: unknown): CustomCommandsConfig {
     if (typeof e.color === 'string' && (CUSTOM_COMMAND_COLORS as readonly string[]).includes(e.color)) {
       cmd.color = e.color as CustomCommand['color'];
     }
+
+    // description — never rendered, exists purely so a widget pasted from
+    // someone else's config.json explains itself (`lumira widget list`).
+    if (typeof e.description === 'string') {
+      const sanitizedDescription = toSingleLine(stripAnsi(e.description)).slice(0, CUSTOM_COMMAND_MAX_DESCRIPTION_LEN);
+      if (sanitizedDescription.length > 0) cmd.description = sanitizedDescription;
+    }
+
+    // valueMap — see parseValueMap for the full validation contract.
+    const valueMap = parseValueMap(e.valueMap);
+    if (valueMap) cmd.valueMap = valueMap;
 
     // env — record of string→string, truncated to CUSTOM_COMMAND_MAX_ENV_ENTRIES
     if (e.env && typeof e.env === 'object' && !Array.isArray(e.env)) {

@@ -399,6 +399,129 @@ describe('loadConfig', () => {
       expect(loadConfig(dir).customCommands.commands).toEqual([]);
     });
 
+    describe('description', () => {
+      function widgetWith(extra: Record<string, unknown>) {
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'config.json'), JSON.stringify({
+          customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, ...extra }] },
+        }));
+        return loadConfig(dir).customCommands.commands[0];
+      }
+
+      it('parses a plain description', () => {
+        expect(widgetWith({ description: 'CPU temp, green/yellow/red' }).description).toBe('CPU temp, green/yellow/red');
+      });
+
+      it('sanitizes newlines and truncates past 120 chars', () => {
+        expect(widgetWith({ description: 'a\nb' }).description).toBe('a b');
+        expect(widgetWith({ description: 'x'.repeat(200) }).description).toBe('x'.repeat(120));
+      });
+
+      it('omits the field when absent or non-string', () => {
+        expect(widgetWith({}).description).toBeUndefined();
+        expect(widgetWith({ description: 42 }).description).toBeUndefined();
+      });
+    });
+
+    // Custom widgets: value→icon/color tiers. See CustomCommandValueTier in
+    // types.ts and value-map.ts for the render-time matching this feeds.
+    describe('valueMap', () => {
+      function widgetWith(extra: Record<string, unknown>) {
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'config.json'), JSON.stringify({
+          customCommands: { enabled: true, commands: [{ id: 'a', command: ['echo'], line: 1, ...extra }] },
+        }));
+        return loadConfig(dir).customCommands.commands[0];
+      }
+
+      it('omits the field when absent', () => {
+        expect(widgetWith({}).valueMap).toBeUndefined();
+      });
+
+      it('omits the field when not an array', () => {
+        expect(widgetWith({ valueMap: 'nope' }).valueMap).toBeUndefined();
+      });
+
+      it('omits the field when the array is empty', () => {
+        expect(widgetWith({ valueMap: [] }).valueMap).toBeUndefined();
+      });
+
+      it('parses a well-formed ladder, sorted ascending, catch-all last', () => {
+        const cmd = widgetWith({
+          valueMap: [
+            { icon: '🔴', color: 'red' },
+            { lt: 60, icon: '🟢' },
+            { lt: 80, icon: '🟡', color: 'yellow' },
+          ],
+        });
+        expect(cmd.valueMap).toEqual([
+          { lt: 60, icon: '🟢' },
+          { lt: 80, icon: '🟡', color: 'yellow' },
+          { icon: '🔴', color: 'red' },
+        ]);
+      });
+
+      it('discards a non-object element', () => {
+        const cmd = widgetWith({ valueMap: [42, { lt: 60, icon: '🟢' }] });
+        expect(cmd.valueMap).toEqual([{ lt: 60, icon: '🟢' }]);
+      });
+
+      it('discards an element whose lt is not finite', () => {
+        const cmd = widgetWith({
+          valueMap: [{ lt: 'high', icon: '🔴' }, { lt: 60, icon: '🟢' }],
+        });
+        expect(cmd.valueMap).toEqual([{ lt: 60, icon: '🟢' }]);
+      });
+
+      it('ignores a non-string icon but keeps the tier if color is present', () => {
+        const cmd = widgetWith({ valueMap: [{ lt: 60, icon: 42, color: 'green' }] });
+        expect(cmd.valueMap).toEqual([{ lt: 60, color: 'green' }]);
+      });
+
+      it('sanitizes and caps icon to 16 chars', () => {
+        const cmd = widgetWith({ valueMap: [{ lt: 60, icon: 'a\nb' }, { icon: 'x'.repeat(30) }] });
+        expect(cmd.valueMap).toEqual([{ lt: 60, icon: 'a b' }, { icon: 'x'.repeat(16) }]);
+      });
+
+      it('ignores a color outside the allowed set', () => {
+        const cmd = widgetWith({ valueMap: [{ lt: 60, icon: '🟢', color: 'purple' }] });
+        expect(cmd.valueMap).toEqual([{ lt: 60, icon: '🟢' }]);
+      });
+
+      it('discards a tier with neither icon nor color', () => {
+        const cmd = widgetWith({ valueMap: [{ lt: 60 }, { lt: 80, icon: '🟡' }] });
+        expect(cmd.valueMap).toEqual([{ lt: 80, icon: '🟡' }]);
+      });
+
+      it('omits the field entirely when every tier is discarded', () => {
+        expect(widgetWith({ valueMap: [{ lt: 60 }, { lt: 'nope', icon: '🟢' }] }).valueMap).toBeUndefined();
+      });
+
+      it('truncates to 12 tiers after sorting', () => {
+        const tiers = Array.from({ length: 20 }, (_, i) => ({ lt: 20 - i, icon: '🟢' }));
+        const cmd = widgetWith({ valueMap: tiers });
+        expect(cmd.valueMap).toHaveLength(12);
+        // Ascending by lt means the 12 SMALLEST lt values survive (1..12),
+        // not the first 12 in input order (20..9) — truncation happens
+        // after sorting, not before.
+        expect(cmd.valueMap?.map(t => t.lt)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+      });
+
+      it('keeps only the first catch-all when the user supplies more than one', () => {
+        const cmd = widgetWith({
+          valueMap: [{ icon: '🔴', color: 'red' }, { icon: '⚫', color: 'dim' }],
+        });
+        expect(cmd.valueMap).toEqual([{ icon: '🔴', color: 'red' }]);
+      });
+
+      it('keeps only the first tier when lt is duplicated', () => {
+        const cmd = widgetWith({
+          valueMap: [{ lt: 60, icon: '🟢' }, { lt: 60, icon: '🟡' }],
+        });
+        expect(cmd.valueMap).toEqual([{ lt: 60, icon: '🟢' }]);
+      });
+    });
+
     it('allows command: ["sh", "-c", "ls"] (we do not ban shell wrappers)', () => {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, 'config.json'), JSON.stringify({
