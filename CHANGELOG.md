@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Custom Commands no longer splits the statusline when a command's output ends in a newline.** Virtually every CLI tool (`uptime -p`, `git status`, etc.) emits a trailing `\n` by convention — the custom-commands pipeline cached that raw output verbatim, so it landed inside a segment meant to render on a single line and visibly broke it in two. Trailing and embedded newlines are now collapsed to spaces before caching.
+
 ## [1.17.0] - 2026-08-25
 
 ### Added
