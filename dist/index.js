@@ -19,7 +19,7 @@ import { install, uninstall } from './installer.js';
 import { runThemesCommand } from './commands/themes.js';
 import { runStatsCommand } from './commands/stats.js';
 import { runCustomRefreshFromStdin } from './commands/custom-refresh.js';
-import { runCustomCommand } from './commands/custom.js';
+import { runWidgetCommand } from './commands/widget.js';
 import { runSubagentCommand } from './commands/subagent.js';
 import { EMPTY_TRANSCRIPT } from './types.js';
 import { normalize } from './normalize.js';
@@ -121,7 +121,7 @@ Commands:
   uninstall     Remove statusline configuration
   stats [path]  Show session statistics
   themes        Browse and preview themes
-  custom        Manage custom commands
+  widget        Manage custom widgets (alias: custom)
   subagent      Render Claude Code agent-panel rows (reads tasks JSON from stdin)
 
 Options:
@@ -172,14 +172,14 @@ if (isDirectRun()) {
             process.exit(1);
         });
     }
-    else if (cmd === 'custom') {
-        runCustomCommand(process.argv).then(r => {
+    else if (cmd === 'widget' || cmd === 'custom') {
+        runWidgetCommand(process.argv).then(r => {
             if (r.output)
                 process.stdout.write(r.output);
             if (r.exitCode !== 0)
                 process.exit(r.exitCode);
         }).catch(e => {
-            process.stderr.write(`Custom command error: ${e.message}\n`);
+            process.stderr.write(`Widget command error: ${e.message}\n`);
             process.exit(1);
         });
     }

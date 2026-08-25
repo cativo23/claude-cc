@@ -1,12 +1,15 @@
 /**
- * Tests for `lumira custom` subcommand (issue #143 phase 4).
+ * Tests for `lumira widget` subcommand (issue #143 phase 4; renamed from
+ * `custom` when value→icon/color tiers + description landed).
  *
  * Covers:
- *   - enable / disable: config file read-modify-write
- *   - enable on missing file: creates default config
- *   - list: no commands → helpful message; with commands → table
+ *   - enable / disable: config file read-modify-write, respecting whichever
+ *     of customWidgets/customCommands is already in use
+ *   - enable on missing file: creates a config under the new customWidgets key
+ *   - list: no widgets → helpful message; with widgets → table
  *   - test: unknown id → exitCode 1; known id → execBg called, output printed
  *   - logs: no cache file → message; with entries → formatted output
+ *   - alias: `lumira custom` runs identical code, only the printed name differs
  *
  * All FS access is mocked so tests never touch the real filesystem.
  */
@@ -25,8 +28,7 @@ vi.mock('../../src/utils/exec-bg.js', () => ({
 }));
 
 import { execBg } from '../../src/utils/exec-bg.js';
-// @ts-expect-error — module may not exist yet (red phase)
-import { runCustomCommand } from '../../src/commands/custom.js';
+import { runWidgetCommand } from '../../src/commands/widget.js';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -34,7 +36,8 @@ const HOME = '/home/testuser';
 const CONFIG_PATH = `${HOME}/.config/lumira/config.json`;
 const CACHE_PATH = `${HOME}/.cache/lumira/custom-commands.json`;
 
-const argv = (...rest: string[]) => ['node', 'lumira', 'custom', ...rest];
+const argv = (...rest: string[]) => ['node', 'lumira', 'widget', ...rest];
+const argvAs = (invokedAs: string, ...rest: string[]) => ['node', 'lumira', invokedAs, ...rest];
 
 function makeFs(files: Record<string, string | null>) {
   const readFileSync = vi.mocked(fsMod.readFileSync);
@@ -80,21 +83,30 @@ afterEach(() => {
 
 // ── enable ─────────────────────────────────────────────────────────────────
 
-describe('lumira custom enable', () => {
-  it('sets enabled:true in existing config and prints confirmation', async () => {
+describe('lumira widget enable', () => {
+  it('sets enabled:true on an existing customCommands block, keeping the legacy key', async () => {
     const existingConfig = JSON.stringify({ customCommands: { enabled: false, commands: [] } });
     const { written } = makeFs({ [CONFIG_PATH]: existingConfig });
 
-    const result = await runCustomCommand(argv('enable'));
+    const result = await runWidgetCommand(argv('enable'));
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toMatch(/enabled/i);
 
-    // Written config must have enabled: true
-    const written_config = written[CONFIG_PATH];
-    expect(written_config).toBeDefined();
-    const parsed = JSON.parse(written_config);
+    const parsed = JSON.parse(written[CONFIG_PATH]);
     expect(parsed.customCommands.enabled).toBe(true);
+    expect(parsed.customWidgets).toBeUndefined();
+  });
+
+  it('sets enabled:true on an existing customWidgets block, keeping the new key', async () => {
+    const existingConfig = JSON.stringify({ customWidgets: { enabled: false, commands: [] } });
+    const { written } = makeFs({ [CONFIG_PATH]: existingConfig });
+
+    await runWidgetCommand(argv('enable'));
+
+    const parsed = JSON.parse(written[CONFIG_PATH]);
+    expect(parsed.customWidgets.enabled).toBe(true);
+    expect(parsed.customCommands).toBeUndefined();
   });
 
   it('merges into existing config without destroying other keys', async () => {
@@ -104,7 +116,7 @@ describe('lumira custom enable', () => {
     });
     const { written } = makeFs({ [CONFIG_PATH]: existingConfig });
 
-    await runCustomCommand(argv('enable'));
+    await runWidgetCommand(argv('enable'));
 
     const parsed = JSON.parse(written[CONFIG_PATH]);
     expect(parsed.theme).toBe('dracula');
@@ -112,39 +124,34 @@ describe('lumira custom enable', () => {
     expect(parsed.customCommands.commands).toHaveLength(1);
   });
 
-  it('creates config file with enabled:true when file does not exist', async () => {
+  it('creates config under the new customWidgets key when neither key exists yet', async () => {
     const { written } = makeFs({});
 
-    const result = await runCustomCommand(argv('enable'));
+    const result = await runWidgetCommand(argv('enable'));
 
     expect(result.exitCode).toBe(0);
-    const written_config = written[CONFIG_PATH];
-    expect(written_config).toBeDefined();
-    const parsed = JSON.parse(written_config);
-    expect(parsed.customCommands.enabled).toBe(true);
-    expect(parsed.customCommands.commands).toEqual([]);
+    const parsed = JSON.parse(written[CONFIG_PATH]);
+    expect(parsed.customWidgets.enabled).toBe(true);
+    expect(parsed.customWidgets.commands).toEqual([]);
+    expect(parsed.customCommands).toBeUndefined();
   });
 
   it('pretty-prints JSON (indented)', async () => {
     makeFs({});
 
-    await runCustomCommand(argv('enable'));
-
-    // Cannot inspect written directly without capturing — covered above.
-    // This test verifies the output includes confirmation text.
-    const result = await runCustomCommand(argv('enable'));
-    expect(result.output).toMatch(/custom command/i);
+    const result = await runWidgetCommand(argv('enable'));
+    expect(result.output).toMatch(/custom widget/i);
   });
 });
 
 // ── disable ────────────────────────────────────────────────────────────────
 
-describe('lumira custom disable', () => {
+describe('lumira widget disable', () => {
   it('sets enabled:false in existing config and prints confirmation', async () => {
     const existingConfig = JSON.stringify({ customCommands: { enabled: true, commands: [] } });
     const { written } = makeFs({ [CONFIG_PATH]: existingConfig });
 
-    const result = await runCustomCommand(argv('disable'));
+    const result = await runWidgetCommand(argv('disable'));
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toMatch(/disabled/i);
@@ -153,45 +160,45 @@ describe('lumira custom disable', () => {
     expect(parsed.customCommands.enabled).toBe(false);
   });
 
-  it('creates config with enabled:false when file does not exist', async () => {
+  it('creates config under the new customWidgets key with enabled:false when file does not exist', async () => {
     const { written } = makeFs({});
 
-    const result = await runCustomCommand(argv('disable'));
+    const result = await runWidgetCommand(argv('disable'));
 
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(written[CONFIG_PATH]);
-    expect(parsed.customCommands.enabled).toBe(false);
-    expect(parsed.customCommands.commands).toEqual([]);
+    expect(parsed.customWidgets.enabled).toBe(false);
+    expect(parsed.customWidgets.commands).toEqual([]);
   });
 });
 
 // ── list ───────────────────────────────────────────────────────────────────
 
-describe('lumira custom list', () => {
-  it('prints helpful message when no commands are configured', async () => {
+describe('lumira widget list', () => {
+  it('prints helpful message when no widgets are configured', async () => {
     const configJson = JSON.stringify({ customCommands: { enabled: true, commands: [] } });
     makeFs({ [CONFIG_PATH]: configJson });
 
-    const result = await runCustomCommand(argv('list'));
+    const result = await runWidgetCommand(argv('list'));
 
     expect(result.exitCode).toBe(0);
-    expect(result.output).toMatch(/no custom commands/i);
+    expect(result.output).toMatch(/no custom widgets/i);
   });
 
   it('prints helpful message when config file does not exist', async () => {
     makeFs({});
 
-    const result = await runCustomCommand(argv('list'));
+    const result = await runWidgetCommand(argv('list'));
 
     expect(result.exitCode).toBe(0);
-    expect(result.output).toMatch(/no custom commands/i);
+    expect(result.output).toMatch(/no custom widgets/i);
   });
 
   it('shows enabled status header in output', async () => {
     const configJson = JSON.stringify({ customCommands: { enabled: true, commands: [] } });
     makeFs({ [CONFIG_PATH]: configJson });
 
-    const result = await runCustomCommand(argv('list'));
+    const result = await runWidgetCommand(argv('list'));
     expect(result.output).toMatch(/enabled/i);
   });
 
@@ -199,11 +206,11 @@ describe('lumira custom list', () => {
     const configJson = JSON.stringify({ customCommands: { enabled: false, commands: [] } });
     makeFs({ [CONFIG_PATH]: configJson });
 
-    const result = await runCustomCommand(argv('list'));
+    const result = await runWidgetCommand(argv('list'));
     expect(result.output).toMatch(/disabled/i);
   });
 
-  it('prints table row for each configured command', async () => {
+  it('prints table row for each configured widget', async () => {
     const configJson = JSON.stringify({
       customCommands: {
         enabled: true,
@@ -215,23 +222,48 @@ describe('lumira custom list', () => {
     });
     makeFs({ [CONFIG_PATH]: configJson });
 
-    const result = await runCustomCommand(argv('list'));
+    const result = await runWidgetCommand(argv('list'));
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toMatch(/my-cmd/);
     expect(result.output).toMatch(/other-cmd/);
     expect(result.output).toMatch(/echo/);
   });
+
+  it('shows tier count and description for a widget with a valueMap', async () => {
+    const configJson = JSON.stringify({
+      customCommands: {
+        enabled: true,
+        commands: [
+          {
+            id: 'cpu',
+            command: ['echo', '50'],
+            line: 1,
+            refreshMs: 5000,
+            description: 'CPU load',
+            valueMap: [{ lt: 60, icon: '🟢' }, { icon: '🔴', color: 'red' }],
+          },
+        ],
+      },
+    });
+    makeFs({ [CONFIG_PATH]: configJson });
+
+    const result = await runWidgetCommand(argv('list'));
+
+    expect(result.output).toMatch(/cpu/);
+    expect(result.output).toMatch(/CPU load/);
+    expect(result.output).toMatch(/\b2\b/); // tier count
+  });
 });
 
 // ── test ───────────────────────────────────────────────────────────────────
 
-describe('lumira custom test', () => {
+describe('lumira widget test', () => {
   it('returns exitCode 1 when id is not found', async () => {
     const configJson = JSON.stringify({ customCommands: { enabled: true, commands: [] } });
     makeFs({ [CONFIG_PATH]: configJson });
 
-    const result = await runCustomCommand(argv('test', 'nonexistent-id'));
+    const result = await runWidgetCommand(argv('test', 'nonexistent-id'));
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toMatch(/not found/i);
@@ -241,7 +273,7 @@ describe('lumira custom test', () => {
     const configJson = JSON.stringify({ customCommands: { enabled: true, commands: [] } });
     makeFs({ [CONFIG_PATH]: configJson });
 
-    const result = await runCustomCommand(argv('test'));
+    const result = await runWidgetCommand(argv('test'));
 
     expect(result.exitCode).toBe(1);
   });
@@ -265,7 +297,7 @@ describe('lumira custom test', () => {
       durationMs: 42,
     });
 
-    const result = await runCustomCommand(argv('test', 'greet'));
+    const result = await runWidgetCommand(argv('test', 'greet'));
 
     expect(result.exitCode).toBe(0);
     expect(vi.mocked(execBg)).toHaveBeenCalledOnce();
@@ -292,21 +324,65 @@ describe('lumira custom test', () => {
       durationMs: 10,
     });
 
-    const result = await runCustomCommand(argv('test', 'failing'));
+    const result = await runWidgetCommand(argv('test', 'failing'));
 
     // Non-zero exit from user command — lumira reports it but exitCode is 0
     // (we successfully ran the test, the user cmd just failed)
     expect(result.output).toMatch(/nonzero|exit|failed/i);
   });
+
+  it('reports the matched valueMap tier when stdout parses as numeric', async () => {
+    const configJson = JSON.stringify({
+      customCommands: {
+        enabled: true,
+        commands: [
+          {
+            id: 'cpu', command: ['echo', '95'], line: 1, refreshMs: 5000,
+            valueMap: [{ lt: 60, icon: '🟢' }, { icon: '🔴', color: 'red' }],
+          },
+        ],
+      },
+    });
+    makeFs({ [CONFIG_PATH]: configJson });
+
+    vi.mocked(execBg).mockResolvedValueOnce({
+      kind: 'ok', stdout: '95', truncated: false, exitCode: 0, durationMs: 5,
+    });
+
+    const result = await runWidgetCommand(argv('test', 'cpu'));
+
+    expect(result.output).toMatch(/Parsed value: 95/);
+    expect(result.output).toMatch(/🔴/);
+  });
+
+  it('reports "not numeric" when stdout does not parse and a valueMap is configured', async () => {
+    const configJson = JSON.stringify({
+      customCommands: {
+        enabled: true,
+        commands: [
+          { id: 'cpu', command: ['echo', 'busy'], line: 1, refreshMs: 5000, valueMap: [{ lt: 60, icon: '🟢' }] },
+        ],
+      },
+    });
+    makeFs({ [CONFIG_PATH]: configJson });
+
+    vi.mocked(execBg).mockResolvedValueOnce({
+      kind: 'ok', stdout: 'busy', truncated: false, exitCode: 0, durationMs: 5,
+    });
+
+    const result = await runWidgetCommand(argv('test', 'cpu'));
+
+    expect(result.output).toMatch(/not numeric/i);
+  });
 });
 
 // ── logs ───────────────────────────────────────────────────────────────────
 
-describe('lumira custom logs', () => {
+describe('lumira widget logs', () => {
   it('prints message when cache file does not exist', async () => {
     makeFs({});
 
-    const result = await runCustomCommand(argv('logs'));
+    const result = await runWidgetCommand(argv('logs'));
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toMatch(/no cache|not found|cache.*does not/i);
@@ -322,7 +398,7 @@ describe('lumira custom logs', () => {
     });
     makeFs({ [CACHE_PATH]: cacheData });
 
-    const result = await runCustomCommand(argv('logs'));
+    const result = await runWidgetCommand(argv('logs'));
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toMatch(/my-widget/);
@@ -341,7 +417,7 @@ describe('lumira custom logs', () => {
     });
     makeFs({ [CACHE_PATH]: cacheData });
 
-    const result = await runCustomCommand(argv('logs'));
+    const result = await runWidgetCommand(argv('logs'));
 
     expect(result.exitCode).toBe(0);
     // Full 200-char text should NOT appear; truncated version (100 chars) should
@@ -356,7 +432,7 @@ describe('lumira custom logs', () => {
     });
     makeFs({ [CACHE_PATH]: cacheData });
 
-    const result = await runCustomCommand(argv('logs'));
+    const result = await runWidgetCommand(argv('logs'));
 
     expect(result.output).toMatch(/cmd-a/);
     expect(result.output).toMatch(/cmd-b/);
@@ -367,11 +443,11 @@ describe('lumira custom logs', () => {
 
 // ── unknown subcommand ─────────────────────────────────────────────────────
 
-describe('lumira custom unknown subcommand', () => {
+describe('lumira widget unknown subcommand', () => {
   it('prints help/usage and returns exitCode 1 for unknown subcommand', async () => {
     makeFs({});
 
-    const result = await runCustomCommand(argv('frobnicate'));
+    const result = await runWidgetCommand(argv('frobnicate'));
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toMatch(/usage|unknown|help/i);
@@ -380,9 +456,51 @@ describe('lumira custom unknown subcommand', () => {
   it('prints usage when no subcommand is given', async () => {
     makeFs({});
 
-    const result = await runCustomCommand(argv());
+    const result = await runWidgetCommand(argv());
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toMatch(/usage|help|list|enable|disable/i);
+  });
+});
+
+// ── custom alias ───────────────────────────────────────────────────────────
+
+describe('lumira custom (alias for widget)', () => {
+  it('runs the exact same enable behavior, with "custom" in the usage/help text', async () => {
+    makeFs({});
+
+    const result = await runWidgetCommand(argvAs('custom', 'frobnicate'));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('lumira custom <subcommand>');
+  });
+
+  it('invoked as widget, the usage text says "widget" instead', async () => {
+    makeFs({});
+
+    const result = await runWidgetCommand(argvAs('widget', 'frobnicate'));
+
+    expect(result.output).toContain('lumira widget <subcommand>');
+  });
+
+  it('produces the same functional result for enable regardless of invoked name', async () => {
+    const { written: writtenAsCustom } = makeFs({});
+    await runWidgetCommand(argvAs('custom', 'enable'));
+    const parsedAsCustom = JSON.parse(writtenAsCustom[CONFIG_PATH]);
+
+    const { written: writtenAsWidget } = makeFs({});
+    await runWidgetCommand(argvAs('widget', 'enable'));
+    const parsedAsWidget = JSON.parse(writtenAsWidget[CONFIG_PATH]);
+
+    expect(parsedAsCustom).toEqual(parsedAsWidget);
+  });
+
+  it('does not accept an arbitrary argv[2] as the printed name (whitelisted to widget/custom only)', async () => {
+    makeFs({});
+
+    const result = await runWidgetCommand(['node', 'lumira', '; rm -rf /', 'frobnicate']);
+
+    expect(result.output).toContain('lumira widget <subcommand>');
+    expect(result.output).not.toContain('rm -rf');
   });
 });

@@ -219,7 +219,7 @@ function emitFooter(lines: string[], homeOverride?: string): void {
     lines.push('  ℹ Qwen Code detected — in Qwen sessions, lumira renders');
     lines.push('    single-line automatically. Your preset above applies to Claude Code.');
   }
-  lines.push(`  ${DIM}Tip: lumira custom enable to add user-defined statusline segments${RST}`);
+  lines.push(`  ${DIM}Tip: lumira widget enable to add user-defined statusline segments${RST}`);
   lines.push(`\n  Restart Claude Code to see your statusline.\n`);
 }
 
