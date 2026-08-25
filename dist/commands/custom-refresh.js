@@ -29,6 +29,17 @@
 import { execBg } from '../utils/exec-bg.js';
 import { isAbsolute } from 'node:path';
 import { readCacheFile, writeCacheFile } from '../utils/custom-cache.js';
+/**
+ * Every statusline segment is rendered on one line — collapse any embedded
+ * newlines to spaces (most CLI tools are well-behaved single-liners, but a
+ * few emit multi-line output) and trim the ends. Without this, the near-
+ * universal trailing `\n` that commands like `uptime -p` or `git status`
+ * emit lands verbatim in the cache and visibly breaks the statusline into
+ * two lines on the next render.
+ */
+function toSingleLine(s) {
+    return s.replace(/[\r\n]+/g, ' ').trim();
+}
 function isValidSpec(raw) {
     if (!raw || typeof raw !== 'object')
         return false;
@@ -77,17 +88,17 @@ export async function runCustomRefresh(stdinPayload) {
         let entry;
         switch (result.kind) {
             case 'ok':
-                entry = { text: result.stdout, capturedAt: now, state: 'ok' };
+                entry = { text: toSingleLine(result.stdout), capturedAt: now, state: 'ok' };
                 break;
             case 'timeout':
-                entry = { text: result.stdout, capturedAt: now, state: 'timeout' };
+                entry = { text: toSingleLine(result.stdout), capturedAt: now, state: 'timeout' };
                 break;
             case 'nonzero': {
                 // For onError:'output' the renderer shows entry.text directly, so
                 // store stdout (partial output before the command failed). For all
                 // other strategies the text is not displayed — store stdout anyway
                 // so the entry is useful if the strategy is later changed.
-                entry = { text: result.stdout, capturedAt: now, state: 'nonzero' };
+                entry = { text: toSingleLine(result.stdout), capturedAt: now, state: 'nonzero' };
                 break;
             }
             case 'spawn-error':
