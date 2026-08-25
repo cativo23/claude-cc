@@ -33,6 +33,12 @@ export const CUSTOM_COMMAND_ERROR_BEHAVIORS = ['hide', 'placeholder', 'output', 
 export const CUSTOM_COMMAND_COLORS = ['dim', 'green', 'yellow', 'orange', 'red', 'cyan', 'magenta'];
 /** Hard cap on `label` length (chars) — labels are meant to be a short prefix glyph/word. */
 export const CUSTOM_COMMAND_MAX_LABEL_LEN = 24;
+/** Hard cap on valid `valueMap` tiers per widget — nerdBattery (the native equivalent) uses 11. */
+export const CUSTOM_COMMAND_MAX_VALUE_TIERS = 12;
+/** Hard cap on a tier's `icon` length (chars) — same rationale as `label`. */
+export const CUSTOM_COMMAND_MAX_ICON_LEN = 16;
+/** Hard cap on `description` length (chars) — one line in `lumira widget list`, not a README. */
+export const CUSTOM_COMMAND_MAX_DESCRIPTION_LEN = 120;
 /**
  * Single source of truth for valid powerline style names. Imported by
  * `src/config.ts` (validates JSON config + CLI flags) and
