@@ -2,7 +2,9 @@
 
 Real-time statusline plugin for [Claude Code](https://code.claude.com) and Qwen Code.
 
-![lumira statusline — tokyo-night theme](assets/showcase/hero-5-2.png)
+<p align="center">
+  <img src="assets/showcase/hero-5-2.png" alt="lumira statusline — tokyo-night theme" />
+</p>
 
 ![lumira statusline demo — context bar filling, tools active, GSD widget](assets/showcase/demo.gif)
 
@@ -37,7 +39,7 @@ Interactive wizard — preset, theme, icons — previewed live before write.
 ![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-2d3748?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCI+PHBhdGggZD0iTTY0IDEyOEMzNS44IDEyOCAxMyAxMDUuMiAxMyA3N0MxMyA0OC44IDM1LjggMjYgNjQgMjZjMjguMiAwIDUxIDIyLjggNTEgNTFzLTIyLjggNTEtNTEgNTF6IiBmaWxsPSIjMjQyNTJGIi8+PC9zdmc+)
 ![Qwen Code](https://img.shields.io/badge/Qwen_Code-compatible-6156FF)
 
-> **What's new in v1.15.0:** `line1Align: "packed"` packs line 1 tightly to the left with only the version pinned to the true right edge; the repo segment now sits next to the branch (git identity grouped, `branch → repo → directory`); and a Box Drawing width fix (the `│` separator was miscounted) aligns every line to the real terminal edge. Recent highlights: [subagent panel rows](#subagent-rows) (v1.14), extended-thinking badge (v1.12), [PR widget](#features) (v1.11), repo-identity segment + a full [feature comparison](#how-lumira-compares) (v1.10–v1.13). Still a **Claude Code plugin** — `/plugin marketplace add cativo23/lumira`, no npm required; run `/lumira:setup` to activate.
+> **What's new in v1.17.0:** `⚡fast` badge lights up on line2/powerline when Claude Code reports Opus running in fast mode (2.5x output speed, premium pricing) — self-gating, invisible when the field is absent. Recent highlights: the [PR widget](#features) now renders GitLab merge requests with the right `!N` prefix instead of GitHub's `#N` (v1.16.2); `refreshInterval` keeps idle-session data fresh and the worktree breadcrumb is grouped with git identity (v1.16.0–v1.16.1); `line1Align: "packed"` packs line 1 tightly to the left with only the version pinned to the true right edge (v1.15); [subagent panel rows](#subagent-rows) (v1.14); extended-thinking badge (v1.12) — full [feature comparison](#how-lumira-compares) since v1.10. Still a **Claude Code plugin** — `/plugin marketplace add cativo23/lumira`, no npm required; run `/lumira:setup` to activate.
 
 ## Table of contents
 
@@ -109,6 +111,7 @@ See [`docs/competitive-comparison.md`](docs/competitive-comparison.md) for the f
 
 - **Git status** — branch + staged/modified/untracked counts, 5s TTL cache. Branch turns red on dirty repos in powerline mode.
 - **Repo identity** — when Claude Code exposes `workspace.repo`, line1 shows `owner/name` as a segment linked (OSC 8) to the repo on its host. Toggle via `display.repo`.
+- **PR widget** — open pull request/merge request for the current branch, with review state colored by tier (`approved`/`pending`/`changes_requested`) and an OSC 8 hyperlink to it. Shows `#N` for GitHub PRs, `!N` for GitLab MRs (including self-hosted instances) — the prefix is derived from the URL's path shape, not the hostname. Toggle via `display.pr`.
 - **Rate limits** — 5h/7d usage as a battery glyph (Nerd Font level fill, or 🔋/🪫 in emoji mode) with color tier and reset countdown. Threshold-gated at 50% to stay invisible while you have margin.
 - **Pace delta** — `usedPct − elapsedPct` of the 5h window. Turtle when behind pace (healthy), car with time-to-exhaustion when ahead. Color escalates green → yellow → orange → blinkRed. Toggle independently via `display.paceDelta`.
 - **7d quota projection** — when the current burn rate would exhaust the 7d quota before the window resets, the 7d segment grows a warning: `⚠ ~24h`, `⚠ ~2d`, `⚠ Tue`, or `🔥 ~8h` (critical icon under 12h). Default on. Toggle via `display.quotaProjection`; off in the `minimal` preset. Different from pace delta — pace looks backwards at the 5h window's actual vs proportional burn, projection looks forwards at the 7d window's exhaustion ETA.
