@@ -412,7 +412,7 @@ describe('lumira widget test', () => {
     expect(result.output).toMatch(/🔴/);
   });
 
-  it('skips valueMap diagnostics for an ansi:true widget, matching the renderer ignoring valueMap for it', async () => {
+  it('reports valueMap as explicitly ignored (not silently skipped) for an ansi:true widget', async () => {
     const configJson = JSON.stringify({
       customCommands: {
         enabled: true,
@@ -430,6 +430,29 @@ describe('lumira widget test', () => {
     const result = await runWidgetCommand(argv('test', 'cpu'));
 
     expect(result.output).not.toMatch(/Parsed value|Matched tier/);
+    expect(result.output).toMatch(/valueMap: ignored.*ansi/i);
+  });
+
+  it('passes env and cwd through to execBg, matching what the real background run uses', async () => {
+    const configJson = JSON.stringify({
+      customCommands: {
+        enabled: true,
+        commands: [
+          { id: 'envy', command: ['echo', '$FOO'], line: 1, refreshMs: 5000, env: { FOO: 'bar' }, cwd: '/tmp' },
+        ],
+      },
+    });
+    makeFs({ [CONFIG_PATH]: configJson });
+
+    vi.mocked(execBg).mockResolvedValueOnce({
+      kind: 'ok', stdout: 'bar', truncated: false, exitCode: 0, durationMs: 5,
+    });
+
+    await runWidgetCommand(argv('test', 'envy'));
+
+    expect(vi.mocked(execBg)).toHaveBeenCalledWith(
+      expect.objectContaining({ env: { FOO: 'bar' }, cwd: '/tmp' }),
+    );
   });
 });
 

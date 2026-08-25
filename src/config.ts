@@ -134,7 +134,8 @@ function parseValueMap(raw: unknown): CustomCommandValueTier[] | undefined {
     let lt: number | undefined;
     if (e.lt !== undefined) {
       if (typeof e.lt !== 'number' || !Number.isFinite(e.lt)) continue; // drop the whole element
-      if (seenLt.has(e.lt)) continue; // first occurrence of a duplicate lt wins
+      if (seenLt.has(e.lt)) continue; // first VALID occurrence of a duplicate lt wins — seenLt is only
+      // marked below, after the icon/color no-op check, so a discarded no-op tier doesn't reserve the lt
       lt = e.lt;
     } else {
       if (sawCatchAll) continue; // first catch-all wins

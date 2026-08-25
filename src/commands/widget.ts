@@ -227,10 +227,17 @@ async function cmdTest(name: string, id: string | undefined): Promise<Result> {
     );
   }
 
+  // Pass env/cwd exactly like custom-refresh.ts does for the real background
+  // run — omitting them here would let `widget test` print a different
+  // value than the widget actually renders (e.g. a command reading $FOO or
+  // relying on cwd), directly undermining this being the documented
+  // diagnostic channel for "why doesn't my tier match".
   const result = await execBg({
     command: cmd.command,
     timeoutMs: cmd.timeoutMs,
     maxBytes: cmd.maxBytes,
+    env: cmd.env,
+    cwd: cmd.cwd,
   });
 
   const lines: string[] = [
@@ -244,27 +251,31 @@ async function cmdTest(name: string, id: string | undefined): Promise<Result> {
     // valueMap diagnostics — this is the intended debugging surface for
     // "why didn't my tier match", since config parsing never warns to
     // stderr on an invalid/non-matching valueMap (see parseValueMap).
-    // ansi:true bypasses valueMap at render time too (render/shared.ts) — an
-    // ANSI-passthrough widget already owns its own colors. Mirroring that
-    // here isn't optional: this diagnostic exists precisely because config
-    // parsing never warns on a malformed/non-matching valueMap, so a wrong
-    // answer here is worse than staying silent.
-    if (cmd.valueMap && !cmd.ansi) {
-      // Same sanitization the renderer applies before parsing (toSingleLine
-      // then stripAnsi, see render/shared.ts) — parsing execBg's raw stdout
-      // directly would report "not numeric" for output the renderer's tier
-      // DOES match (e.g. colorized by the command itself, or with a
-      // trailing newline).
-      const sanitized = stripAnsi(toSingleLine(result.stdout));
-      const parsedValue = parseWidgetValue(sanitized);
-      if (parsedValue === null) {
-        lines.push(`Parsed value: not numeric (valueMap will not apply — static label/color used instead)`);
+    if (cmd.valueMap) {
+      if (cmd.ansi) {
+        // ansi:true bypasses valueMap at render time too (render/shared.ts)
+        // — an ANSI-passthrough widget already owns its own colors. Say so
+        // explicitly rather than silently printing nothing: the whole point
+        // of this diagnostic is that it must never leave the user guessing
+        // why a configured valueMap "doesn't do anything".
+        lines.push('valueMap: ignored (ansi is true — an ANSI-passthrough widget owns its own colors)');
       } else {
-        const tier = matchValueTier(cmd.valueMap, parsedValue);
-        lines.push(`Parsed value: ${parsedValue}`);
-        lines.push(tier
-          ? `Matched tier: ${JSON.stringify(tier)}`
-          : 'Matched tier: none (value exceeds every "lt" and there is no catch-all tier — static label/color used instead)');
+        // Same sanitization the renderer applies before parsing (toSingleLine
+        // then stripAnsi, see render/shared.ts) — parsing execBg's raw stdout
+        // directly would report "not numeric" for output the renderer's tier
+        // DOES match (e.g. colorized by the command itself, or with a
+        // trailing newline).
+        const sanitized = stripAnsi(toSingleLine(result.stdout));
+        const parsedValue = parseWidgetValue(sanitized);
+        if (parsedValue === null) {
+          lines.push(`Parsed value: not numeric (valueMap will not apply — static label/color used instead)`);
+        } else {
+          const tier = matchValueTier(cmd.valueMap, parsedValue);
+          lines.push(`Parsed value: ${parsedValue}`);
+          lines.push(tier
+            ? `Matched tier: ${JSON.stringify(tier)}`
+            : 'Matched tier: none (value exceeds every "lt" and there is no catch-all tier — static label/color used instead)');
+        }
       }
     }
   } else if (result.kind === 'nonzero') {

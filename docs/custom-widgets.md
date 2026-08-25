@@ -39,10 +39,10 @@ Add a `customWidgets` block to `~/.config/lumira/config.json`:
 |---|---|
 | `id` | Unique identifier for the widget |
 | `command` | Argv array — no shell expansion, pipes, or redirects |
-| `description` | Free-text, never rendered — shows up in `lumira widget list` so a widget you pasted from someone else explains itself |
+| `description` | Free-text, never rendered — shows up in `lumira widget list` so a widget you pasted from someone else explains itself. Capped at 120 chars |
 | `line` | Statusline line to render on (`1`–`4`) |
 | `refreshMs` | Refresh interval in milliseconds (default: `5000`) |
-| `label` | Optional prefix shown before the widget's output |
+| `label` | Optional prefix shown before the widget's output. Sanitized (ANSI stripped, collapsed to one line) and capped at 24 chars, same as the command's own output |
 | `color` | Optional static color for the segment (overridden per-value by `valueMap`, see below) |
 | `valueMap` | Optional value→icon/color tiers — see [Value tiers](#value-tiers-valuemap) |
 | `onError` | What to show on non-zero exit: `hide` (default), `placeholder`, `output`, or `stale` |
